@@ -1,63 +1,83 @@
 package queue
 
 import (
-	"context"
-	"time"
+	"encoding/json"
+	"fmt"
+	"log"
 
 	eve "eve.evalgo.org/common"
-	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/streadway/amqp"
 )
 
-func failOnError(err error, msg string) {
-	if err != nil {
-		eve.Logger.Info(msg+":", err)
-	}
+type RabbitMQService struct {
+	connection *amqp.Connection
+	channel    *amqp.Channel
+	config     eve.FlowConfig
 }
 
-func RabbitMQPublish(connectionUrl, queueName string, message []byte) error {
-	conn, err := amqp.Dial(connectionUrl)
-	defer conn.Close()
+func NewRabbitMQService(config eve.FlowConfig) (*RabbitMQService, error) {
+	conn, err := amqp.Dial(config.RabbitMQURL)
 	if err != nil {
-		failOnError(err, "Failed to connect to RabbitMQ")
-		return err
+		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
+
 	ch, err := conn.Channel()
-	defer ch.Close()
 	if err != nil {
-		failOnError(err, "Failed to open a channel")
-		return err
+		conn.Close()
+		return nil, fmt.Errorf("failed to open a channel: %w", err)
 	}
-	q, err := ch.QueueDeclare(
-		queueName, // name
-		false,     // durable
-		false,     // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		nil,       // arguments
+
+	// Declare the queue
+	_, err = ch.QueueDeclare(
+		config.QueueName,
+		true,  // durable
+		false, // delete when unused
+		false, // exclusive
+		false, // no-wait
+		nil,   // arguments
 	)
 	if err != nil {
-		failOnError(err, "Failed to declare a queue")
-		return err
+		ch.Close()
+		conn.Close()
+		return nil, fmt.Errorf("failed to declare queue: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	return &RabbitMQService{
+		connection: conn,
+		channel:    ch,
+		config:     config,
+	}, nil
+}
 
-	err = ch.PublishWithContext(ctx,
-		"",     // exchange
-		q.Name, // routing key
-		false,  // mandatory
-		false,  // immediate
+func (r *RabbitMQService) PublishMessage(message eve.FlowProcessMessage) error {
+	body, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	err = r.channel.Publish(
+		"",                 // exchange
+		r.config.QueueName, // routing key
+		false,              // mandatory
+		false,              // immediate
 		amqp.Publishing{
 			ContentType: "application/json",
-			Body:        message,
+			Body:        body,
 		},
 	)
 	if err != nil {
-		failOnError(err, "Failed to publish a message")
-		return err
+		return fmt.Errorf("failed to publish message: %w", err)
 	}
-	eve.Logger.Info(" [x] Sent ", string(message))
 
+	log.Printf("Published message for process ID: %s", message.ProcessID)
 	return nil
+}
+
+func (r *RabbitMQService) Close() {
+	if r.channel != nil {
+		r.channel.Close()
+	}
+	if r.connection != nil {
+		r.connection.Close()
+	}
 }

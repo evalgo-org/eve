@@ -67,7 +67,6 @@ type FlowConfig struct {
 	QueueName    string
 	CouchDBURL   string
 	DatabaseName string
-	couchDBName  string
 	ApiKey       string
 }
 

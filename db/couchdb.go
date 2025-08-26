@@ -3,10 +3,18 @@ package db
 import (
 	"context"
 	"fmt"
+	"time"
 
+	eve "eve.evalgo.org/common"
 	kivik "github.com/go-kivik/kivik/v4"
 	_ "github.com/go-kivik/kivik/v4/couchdb" // The CouchDB driver
 )
+
+type CouchDBService struct {
+	client   *kivik.Client
+	database *kivik.DB
+	dbName   string
+}
 
 func CouchDBAnimals(url string) {
 	client, err := kivik.New("couch", url)
@@ -70,4 +78,161 @@ func CouchDBDocGet(url, db, docId string) *kivik.Document {
 	}
 	cdb := client.DB(db)
 	return cdb.Get(context.TODO(), docId)
+}
+
+func NewCouchDBService(config eve.FlowConfig) (*CouchDBService, error) {
+	client, err := kivik.New("couch", config.CouchDBURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to CouchDB: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Create database if it doesn't exist
+	exists, err := client.DBExists(ctx, config.DatabaseName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if database exists: %w", err)
+	}
+
+	if !exists {
+		err = client.CreateDB(ctx, config.DatabaseName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create database: %w", err)
+		}
+	}
+
+	db := client.DB(config.DatabaseName)
+
+	return &CouchDBService{
+		client:   client,
+		database: db,
+		dbName:   config.DatabaseName,
+	}, nil
+}
+
+func (c *CouchDBService) SaveDocument(doc eve.FlowProcessDocument) (*eve.FlowCouchDBResponse, error) {
+	ctx := context.Background()
+
+	if doc.ID == "" {
+		doc.ID = doc.ProcessID
+	}
+	doc.UpdatedAt = time.Now()
+
+	// Check if document exists to get revision
+	if doc.Rev == "" {
+		existingDoc, err := c.GetDocument(doc.ID)
+		if err == nil && existingDoc != nil {
+			doc.Rev = existingDoc.Rev
+			// Preserve created_at from existing document
+			doc.CreatedAt = existingDoc.CreatedAt
+			// Append to history
+			doc.History = append(existingDoc.History, eve.FlowStateChange{
+				State:     doc.State,
+				Timestamp: time.Now(),
+				ErrorMsg:  doc.ErrorMsg,
+			})
+		} else {
+			// New document
+			doc.CreatedAt = time.Now()
+			doc.History = []eve.FlowStateChange{{
+				State:     doc.State,
+				Timestamp: time.Now(),
+				ErrorMsg:  doc.ErrorMsg,
+			}}
+		}
+	}
+
+	rev, err := c.database.Put(ctx, doc.ID, doc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save document: %w", err)
+	}
+
+	return &eve.FlowCouchDBResponse{
+		OK:  true,
+		ID:  doc.ID,
+		Rev: rev,
+	}, nil
+}
+
+func (c *CouchDBService) GetDocument(id string) (*eve.FlowProcessDocument, error) {
+	ctx := context.Background()
+
+	row := c.database.Get(ctx, id)
+	if row.Err() != nil {
+		if kivik.HTTPStatus(row.Err()) == 404 {
+			return nil, fmt.Errorf("document not found")
+		}
+		return nil, fmt.Errorf("failed to get document: %w", row.Err())
+	}
+
+	var doc eve.FlowProcessDocument
+	if err := row.ScanDoc(&doc); err != nil {
+		return nil, fmt.Errorf("failed to scan document: %w", err)
+	}
+
+	return &doc, nil
+}
+
+func (c *CouchDBService) GetDocumentsByState(state eve.FlowProcessState) ([]eve.FlowProcessDocument, error) {
+	ctx := context.Background()
+
+	// Use Mango query (CouchDB's native query language)
+	selector := map[string]interface{}{
+		"state": string(state),
+	}
+
+	rows := c.database.Find(ctx, selector)
+	defer rows.Close()
+
+	var docs []eve.FlowProcessDocument
+	for rows.Next() {
+		var doc eve.FlowProcessDocument
+		if err := rows.ScanDoc(&doc); err != nil {
+			return nil, fmt.Errorf("failed to scan document: %w", err)
+		}
+		docs = append(docs, doc)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	return docs, nil
+}
+
+func (c *CouchDBService) GetAllDocuments() ([]eve.FlowProcessDocument, error) {
+	ctx := context.Background()
+
+	rows := c.database.AllDocs(ctx, kivik.Param("include_docs", true))
+	defer rows.Close()
+
+	var docs []eve.FlowProcessDocument
+	for rows.Next() {
+		var doc eve.FlowProcessDocument
+		if err := rows.ScanDoc(&doc); err != nil {
+			return nil, fmt.Errorf("failed to scan document: %w", err)
+		}
+		docs = append(docs, doc)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	return docs, nil
+}
+
+func (c *CouchDBService) DeleteDocument(id, rev string) error {
+	ctx := context.Background()
+
+	_, err := c.database.Delete(ctx, id, rev)
+	if err != nil {
+		return fmt.Errorf("failed to delete document: %w", err)
+	}
+
+	return nil
+}
+
+func (c *CouchDBService) Close() error {
+	return c.client.Close()
 }
