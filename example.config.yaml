@@ -1,0 +1,9 @@
+port: 8080
+rabbitmq:
+  url: amqp://guest:guest@172.22.0.3:5672/
+  queue_name: flow_process_queue
+couchdb:
+  url: http://couchdb:couchdb@172.22.0.2:5984
+  database_name: flow_processes
+jwt:
+  secret: s3cr3t

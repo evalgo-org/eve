@@ -33,12 +33,12 @@ var RootCmd = &cobra.Command{
 func init() {
 	cobra.OnInitialize(initConfig)
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.flow-service.yaml)")
-	RootCmd.PersistentFlags().String("port", "8080", "Server port")
-	RootCmd.PersistentFlags().String("rabbitmq-url", "amqp://guest:guest@localhost:5672/", "RabbitMQ connection URL")
-	RootCmd.PersistentFlags().String("queue-name", "flow_process_queue", "RabbitMQ queue name")
-	RootCmd.PersistentFlags().String("couchdb-url", "http://localhost:5984", "CouchDB connection URL")
-	RootCmd.PersistentFlags().String("database-name", "flow_processes", "CouchDB database name")
-	RootCmd.PersistentFlags().String("jwt-secret", "your-secret-key", "JWT secret key")
+	RootCmd.PersistentFlags().String("port", "", "Server port")
+	RootCmd.PersistentFlags().String("rabbitmq-url", "", "RabbitMQ connection URL")
+	RootCmd.PersistentFlags().String("queue-name", "", "RabbitMQ queue name")
+	RootCmd.PersistentFlags().String("couchdb-url", "", "CouchDB connection URL")
+	RootCmd.PersistentFlags().String("database-name", "", "CouchDB database name")
+	RootCmd.PersistentFlags().String("jwt-secret", "", "JWT secret key")
 
 	viper.BindPFlag("port", RootCmd.PersistentFlags().Lookup("port"))
 	viper.BindPFlag("rabbitmq.url", RootCmd.PersistentFlags().Lookup("rabbitmq-url"))
