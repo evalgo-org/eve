@@ -75,6 +75,9 @@ func (h *Handlers) PublishMessage(c echo.Context) error {
 	if message.ProcessID == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "process_id is required"})
 	}
+	if message.State == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "state is required"})
+	}
 
 	err := h.RabbitMQ.PublishMessage(message)
 	if err != nil {
