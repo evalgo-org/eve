@@ -25,8 +25,8 @@ import (
 var cfgFile string
 
 var RootCmd = &cobra.Command{
-	Use:   "flow-service",
-	Short: "A service for processing flow messages with RabbitMQ and CouchDB",
+	Use:   "eve",
+	Short: "a sample service implementation for processing flow messages with RabbitMQ and CouchDB",
 	Run:   runServer,
 }
 
@@ -105,7 +105,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	}
 
 	// Routes
-	api.SetupRoutes(e, handlers)
+	api.SetupRoutes(e, handlers, &config)
 
 	// Start server
 	port := viper.GetString("port")

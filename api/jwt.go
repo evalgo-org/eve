@@ -18,14 +18,14 @@ type Handlers struct {
 	JWT      *security.JWTService
 }
 
-func SetupRoutes(e *echo.Echo, h *Handlers) {
+func SetupRoutes(e *echo.Echo, h *Handlers, c *eve.FlowConfig) {
 	// Public routes
 	e.POST("/auth/token", h.GenerateToken)
 
 	// Protected routes
 	protected := e.Group("/api")
 	protected.Use(echojwt.WithConfig(echojwt.Config{
-		SigningKey:  []byte("your-secret-key"), // Should match the JWT secret
+		SigningKey:  []byte(c.ApiKey),
 		TokenLookup: "header:Authorization:Bearer ",
 	}))
 
