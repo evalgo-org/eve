@@ -59,6 +59,6 @@ func TestApi(t *testing.T) {
 	h := &handler{mockDB}
 	if assert.NoError(t, h.createUser(c)) {
 		assert.Equal(t, http.StatusCreated, rec.Code)
-		assert.Equal(t, userJSON+"\n ", rec.Body.String())
+		assert.Equal(t, userJSON+"\n", rec.Body.String())
 	}
 }
