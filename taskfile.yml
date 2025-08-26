@@ -1,0 +1,14 @@
+version: '3'
+
+tasks:
+  check:
+    cmds:
+      - go fmt ./...
+      - go vet ./...
+  test:
+    cmds:
+      - go test ./...
+  check-hack:
+    cmds:
+      - go fmt $(go list ./... | grep -v /vendor/)
+      - go vet $(go list ./... | grep -v /vendor/)

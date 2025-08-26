@@ -1,0 +1,13 @@
+docker.linux.amd64
+docker.windows.amd64.exe
+docker.macos.arm64
+.env
+*~
+podman.linux.amd64
+podman.windows.amd64.exe
+podman.macos.arm64
+id_ed25519*
+*.zip
+.DS_Store
+*.env
+backups
