@@ -164,6 +164,7 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/speps/go-hashids v2.0.0+incompatible // indirect
 	github.com/std-uritemplate/std-uritemplate/go/v2 v2.0.3 // indirect
+	github.com/streadway/amqp v1.1.0 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
