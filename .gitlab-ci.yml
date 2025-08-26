@@ -2,7 +2,6 @@ image: golang:latest
 
 stages:
   - test
-  - build
 
 format:
   stage: test
@@ -21,15 +20,3 @@ unit:
     - gitlab
   script:
     - go test ./...
-
-zip:
-  stage: build
-  tags:
-    - shell
-  script:
-    - zip -r evalgo.org.eve.zip eve
-  artifacts:
-    paths:
-      - evalgo.org.eve.zip
-    expire_in: 1h
-
