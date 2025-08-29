@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -88,7 +89,6 @@ func TestExportRDFXml_Success(t *testing.T) {
 	}
 }
 
-
 func TestListRepositories_Success(t *testing.T) {
 	mockResp := `{
 	  "head": { "vars": ["id", "title", "type"] },
@@ -119,7 +119,6 @@ func TestListRepositories_Success(t *testing.T) {
 	}
 }
 
-
 func TestListRepositories_Failure(t *testing.T) {
 	env := setup(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -130,5 +129,48 @@ func TestListRepositories_Failure(t *testing.T) {
 	_, err := ListRepositories(env.baseURL, "user", "pass")
 	if err == nil {
 		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestCreateRepository_Success(t *testing.T) {
+	mockHandler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "PUT" {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+		if !strings.Contains(r.URL.Path, "/repositories/repo1") {
+			t.Errorf("expected /repositories/repo1, got %s", r.URL.Path)
+		}
+
+		// Return 201 Created
+		w.WriteHeader(http.StatusCreated)
+	}
+
+	env := setup(mockHandler)
+	defer teardown(env)
+
+	config := []byte(`{"id":"repo1","title":"Test Repository"}`)
+	err := CreateRepository(env.baseURL, "repo1", "user", "pass", config, "application/json")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestCreateRepository_Failure(t *testing.T) {
+	mockHandler := func(w http.ResponseWriter, r *http.Request) {
+		// Return 400 Bad Request
+		http.Error(w, "bad request", http.StatusBadRequest)
+	}
+
+	env := setup(mockHandler)
+	defer teardown(env)
+
+	config := []byte(`invalid-config`)
+	err := CreateRepository(env.baseURL, "repo1", "user", "pass", config, "application/json")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "400") {
+		t.Errorf("expected error mentioning 400, got %v", err)
 	}
 }

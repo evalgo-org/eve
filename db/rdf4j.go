@@ -2,13 +2,13 @@ package db
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"unicode/utf8"
-	"encoding/json"
 )
 
 type sparqlValue struct {
@@ -191,6 +191,35 @@ func DeleteRepository(serverURL, repositoryID, username, password string) error 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
 		return fmt.Errorf("failed to delete repository. Status: %s, Body: %s", resp.Status, string(body))
+	}
+
+	return nil
+}
+
+// CreateRepository sends a repository config to RDF4J and creates the repo
+func CreateRepository(serverURL, repositoryID, username, password string, config []byte, contentType string) error {
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"PUT",
+		fmt.Sprintf("%s/repositories/%s", serverURL, repositoryID),
+		bytes.NewReader(config),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.SetBasicAuth(username, password)
+	req.Header.Set("Content-Type", contentType)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("failed to create repository. Status: %s, Body: %s", resp.Status, string(body))
 	}
 
 	return nil
