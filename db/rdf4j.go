@@ -244,24 +244,19 @@ func CreateRepository(serverURL, repositoryID, username, password string) error 
 func CreateLMDBRepository(serverURL, repositoryID, username, password string) error {
 	// Turtle configuration for LMDB repo
 	config := fmt.Sprintf(`
-		@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-		@prefix rep: <http://www.openrdf.org/config/repository#> .
-		@prefix sr: <http://www.openrdf.org/config/repository/sail#> .
-		@prefix sail: <http://www.openrdf.org/config/sail#> .
-		@prefix lmdb: <http://rdf4j.org/config/sail/lmdb#> .
+		@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+		@prefix config: <tag:rdf4j.org,2023:config/>.
 
-		[] a rep:Repository ;
-		   rep:repositoryID "%s" ;
-		   rdfs:label "LMDB store repo" ;
-		   rep:repositoryImpl [
-		       rep:repositoryType "openrdf:SailRepository" ;
-		       sr:sailImpl [
-		           sail:sailType "rdf4j:LMDBStore" ;
-		           lmdb:tripleIndexes "spoc,posc,cosp" ;
-		           lmdb:forceSync "false" ;
-		           lmdb:path "data/lmdb"
-		       ]
-		   ] .
+		[] a config:Repository ;
+		config:rep.id "%s" ;
+		rdfs:label "LMDB store" ;
+		config:rep.impl [
+			config:rep.type "openrdf:SailRepository" ;
+			config:sail.impl [
+				config:sail.type "rdf4j:LmdbStore" ;
+				config:sail.defaultQueryEvaluationMode "STANDARD"
+			]
+		].
 	`, repositoryID)
 
 	client := &http.Client{}
