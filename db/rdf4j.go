@@ -104,3 +104,31 @@ func ExportRDFXml(serverURL, repositoryID, username, password, outputFilePath, c
 
 	return nil
 }
+
+// DeleteRepository deletes a repository from an RDF4J server.
+func DeleteRepository(serverURL, repositoryID, username, password string) error {
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"DELETE",
+		fmt.Sprintf("%s/repositories/%s", serverURL, repositoryID),
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	req.SetBasicAuth(username, password)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("failed to delete repository. Status: %s, Body: %s", resp.Status, string(body))
+	}
+
+	return nil
+}
