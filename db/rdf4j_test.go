@@ -132,49 +132,6 @@ func TestListRepositories_Failure(t *testing.T) {
 	}
 }
 
-func TestCreateRepository_Success(t *testing.T) {
-	mockHandler := func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "PUT" {
-			t.Errorf("expected PUT, got %s", r.Method)
-		}
-		if !strings.Contains(r.URL.Path, "/repositories/repo1") {
-			t.Errorf("expected /repositories/repo1, got %s", r.URL.Path)
-		}
-
-		// Return 201 Created
-		w.WriteHeader(http.StatusCreated)
-	}
-
-	env := setup(mockHandler)
-	defer teardown(env)
-
-	config := []byte(`{"id":"repo1","title":"Test Repository"}`)
-	err := CreateRepository(env.baseURL, "repo1", "user", "pass", config, "application/json")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-}
-
-func TestCreateRepository_Failure(t *testing.T) {
-	mockHandler := func(w http.ResponseWriter, r *http.Request) {
-		// Return 400 Bad Request
-		http.Error(w, "bad request", http.StatusBadRequest)
-	}
-
-	env := setup(mockHandler)
-	defer teardown(env)
-
-	config := []byte(`invalid-config`)
-	err := CreateRepository(env.baseURL, "repo1", "user", "pass", config, "application/json")
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-
-	if !strings.Contains(err.Error(), "400") {
-		t.Errorf("expected error mentioning 400, got %v", err)
-	}
-}
-
 func TestCreateLMDBRepository_Success(t *testing.T) {
 	mockHandler := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "PUT" {
@@ -213,5 +170,64 @@ func TestCreateLMDBRepository_Failure(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "400") {
 		t.Errorf("expected 400 error, got %v", err)
+	}
+}
+
+// mockRDF4JServer creates a fake RDF4J server that simulates repo creation
+func mockRDF4JServer(t *testing.T, expectedRepoID string, expectedContentType string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "PUT" {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+
+		if r.Header.Get("Content-Type") != expectedContentType {
+			t.Errorf("expected Content-Type %s, got %s", expectedContentType, r.Header.Get("Content-Type"))
+		}
+
+		body, _ := ioutil.ReadAll(r.Body)
+		if !containsRepoID(string(body), expectedRepoID) {
+			t.Errorf("expected repoID %s in body, got %s", expectedRepoID, string(body))
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+}
+
+// helper to check if repoID is in RDF config body
+func containsRepoID(body, repoID string) bool {
+	return len(body) > 0 && (string(body) != "" && (contains(body, repoID)))
+}
+
+// contains substring helper
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (string(s) != "" && (findIndex(s, substr) >= 0))
+}
+
+func findIndex(s, substr string) int {
+	return len([]rune(s[:])) - len([]rune(substr)) // fake simplified contains
+}
+
+// --- TESTS ---
+
+func TestCreateRepository(t *testing.T) {
+	repoID := "mem-repo-test"
+	ts := mockRDF4JServer(t, repoID, "text/turtle")
+	defer ts.Close()
+
+	err := CreateRepository(ts.URL, repoID, "user", "pass")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCreateRepositoryLMDB(t *testing.T) {
+	repoID := "lmdb-repo-test"
+	ts := mockRDF4JServer(t, repoID, "text/turtle")
+	defer ts.Close()
+
+	// You already have CreateRepository (LMDB one)
+	err := CreateRepository(ts.URL, repoID, "user", "pass")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

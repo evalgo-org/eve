@@ -196,30 +196,46 @@ func DeleteRepository(serverURL, repositoryID, username, password string) error 
 	return nil
 }
 
-// CreateRepository sends a repository config to RDF4J and creates the repo
-func CreateRepository(serverURL, repositoryID, username, password string, config []byte, contentType string) error {
+// CreateRepository creates an in-memory RDF4J repository.
+func CreateRepository(serverURL, repositoryID, username, password string) error {
 	client := &http.Client{}
-	req, err := http.NewRequest(
-		"PUT",
-		fmt.Sprintf("%s/repositories/%s", serverURL, repositoryID),
-		bytes.NewReader(config),
-	)
+
+	repoConfigTurtle := fmt.Sprintf(`
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix rep: <http://www.openrdf.org/config/repository#>.
+@prefix sr: <http://www.openrdf.org/config/repository/sail#>.
+@prefix sail: <http://www.openrdf.org/config/sail#>.
+@prefix mem: <http://www.openrdf.org/config/sail/memory#>.
+
+[] a rep:Repository ;
+   rep:repositoryID "%s" ;
+   rdfs:label "Memory Store for %s" ;
+   rep:repositoryImpl [
+      rep:repositoryType "openrdf:SailRepository" ;
+      sr:sailImpl [
+         sail:sailType "openrdf:MemoryStore"
+      ]
+   ].`, repositoryID, repositoryID)
+
+	url := fmt.Sprintf("%s/repositories/%s", serverURL, repositoryID)
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBufferString(repoConfigTurtle))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
+	req.Header.Set("Content-Type", "text/turtle")
 	req.SetBasicAuth(username, password)
-	req.Header.Set("Content-Type", contentType)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send HTTP request: %w", err)
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("failed to create repository. Status: %s, Body: %s", resp.Status, string(body))
+		return fmt.Errorf("failed to create repository. Status: %d , Body: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
