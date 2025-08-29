@@ -8,7 +8,49 @@ import (
 	"net/http"
 	"os"
 	"unicode/utf8"
+	"encoding/json"
 )
+
+// Repository represents a single RDF4J repository
+type Repository struct {
+	ID   string `json:"id"`
+	Title string `json:"title"`
+	Type  string `json:"type"`
+}
+
+// ListRepositories fetches the list of repositories from RDF4J
+func ListRepositories(serverURL, username, password string) ([]Repository, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"GET",
+		fmt.Sprintf("%s/repositories", serverURL),
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	req.SetBasicAuth(username, password)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to list repositories. Status: %s, Body: %s", resp.Status, string(body))
+	}
+
+	var repos []Repository
+	if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return repos, nil
+}
 
 func stripBOM(data []byte) []byte {
 	// UTF-8 BOM is 0xEF,0xBB,0xBF
