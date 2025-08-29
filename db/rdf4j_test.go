@@ -174,3 +174,44 @@ func TestCreateRepository_Failure(t *testing.T) {
 		t.Errorf("expected error mentioning 400, got %v", err)
 	}
 }
+
+func TestCreateLMDBRepository_Success(t *testing.T) {
+	mockHandler := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "PUT" {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+		if r.Header.Get("Content-Type") != "text/turtle" {
+			t.Errorf("expected text/turtle, got %s", r.Header.Get("Content-Type"))
+		}
+		if !strings.Contains(r.URL.Path, "/repositories/repo1") {
+			t.Errorf("expected /repositories/repo1, got %s", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusCreated)
+	}
+
+	env := setup(mockHandler)
+	defer teardown(env)
+
+	err := CreateLMDBRepository(env.baseURL, "repo1", "user", "pass")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestCreateLMDBRepository_Failure(t *testing.T) {
+	mockHandler := func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "invalid config", http.StatusBadRequest)
+	}
+
+	env := setup(mockHandler)
+	defer teardown(env)
+
+	err := CreateLMDBRepository(env.baseURL, "repo1", "user", "pass")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "400") {
+		t.Errorf("expected 400 error, got %v", err)
+	}
+}

@@ -224,3 +224,53 @@ func CreateRepository(serverURL, repositoryID, username, password string, config
 
 	return nil
 }
+
+func CreateLMDBRepository(serverURL, repositoryID, username, password string) error {
+	// Turtle configuration for LMDB repo
+	config := fmt.Sprintf(`
+		@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+		@prefix rep: <http://www.openrdf.org/config/repository#> .
+		@prefix sr: <http://www.openrdf.org/config/repository/sail#> .
+		@prefix sail: <http://www.openrdf.org/config/sail#> .
+		@prefix lmdb: <http://rdf4j.org/config/sail/lmdb#> .
+
+		[] a rep:Repository ;
+		   rep:repositoryID "%s" ;
+		   rdfs:label "LMDB store repo" ;
+		   rep:repositoryImpl [
+		       rep:repositoryType "openrdf:SailRepository" ;
+		       sr:sailImpl [
+		           sail:sailType "rdf4j:LMDBStore" ;
+		           lmdb:tripleIndexes "spoc,posc,cosp" ;
+		           lmdb:forceSync "false" ;
+		           lmdb:path "data/lmdb"
+		       ]
+		   ] .
+	`, repositoryID)
+
+	client := &http.Client{}
+	req, err := http.NewRequest(
+		"PUT",
+		fmt.Sprintf("%s/repositories/%s", serverURL, repositoryID),
+		bytes.NewReader([]byte(config)),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.SetBasicAuth(username, password)
+	req.Header.Set("Content-Type", "text/turtle")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("failed to create LMDB repository. Status: %s, Body: %s", resp.Status, string(body))
+	}
+
+	return nil
+}
