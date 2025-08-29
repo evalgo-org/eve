@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"unicode/utf8"
@@ -69,8 +68,7 @@ func ImportRDF(serverURL, repositoryID, username, password, rdfFilePath, content
 	return respBody, nil
 }
 
-func ExportRDFXml(serverURL, repositoryID, username, password, outputFilePath string) {
-	// Create an HTTP client and request
+func ExportRDFXml(serverURL, repositoryID, username, password, outputFilePath, contentType string) error {
 	client := &http.Client{}
 	req, err := http.NewRequest(
 		"GET",
@@ -78,39 +76,31 @@ func ExportRDFXml(serverURL, repositoryID, username, password, outputFilePath st
 		nil,
 	)
 	if err != nil {
-		log.Fatalf("Failed to create HTTP request: %v", err)
+		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
-	// Set the accept header to request RDF/XML format
-	req.Header.Set("Accept", "application/rdf+xml")
-
-	// Set basic authentication
+	req.Header.Set("Accept", contentType)
 	req.SetBasicAuth(username, password)
 
-	// Send the request
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("Failed to send HTTP request: %v", err)
+		return fmt.Errorf("failed to send HTTP request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Check the response status
 	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
-		log.Fatalf("Failed to export data. Status: %s, Body: %s", resp.Status, body)
+		return fmt.Errorf("failed to export data. Status: %s, Body: %s", resp.Status, string(body))
 	}
 
-	// Read the response body (RDF/XML data)
 	rdfData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("Failed to read response body: %v", err)
+		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// Save the RDF/XML data to a file
-	err = ioutil.WriteFile(outputFilePath, rdfData, 0644)
-	if err != nil {
-		log.Fatalf("Failed to write RDF data to file: %v", err)
+	if err := ioutil.WriteFile(outputFilePath, rdfData, 0644); err != nil {
+		return fmt.Errorf("failed to write RDF data to file: %w", err)
 	}
 
-	fmt.Printf("RDF data exported successfully to %s\n", outputFilePath)
+	return nil
 }
