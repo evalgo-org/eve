@@ -11,14 +11,26 @@ import (
 	"encoding/json"
 )
 
-// Repository represents a single RDF4J repository
-type Repository struct {
-	ID   string `json:"id"`
-	Title string `json:"title"`
+type sparqlValue struct {
 	Type  string `json:"type"`
+	Value string `json:"value"`
 }
 
-// ListRepositories fetches the list of repositories from RDF4J
+type sparqlResult struct {
+	Bindings []map[string]sparqlValue `json:"bindings"`
+}
+
+type sparqlResponse struct {
+	Head    map[string][]string `json:"head"`
+	Results sparqlResult        `json:"results"`
+}
+
+type Repository struct {
+	ID    string
+	Title string
+	Type  string
+}
+
 func ListRepositories(serverURL, username, password string) ([]Repository, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(
@@ -31,7 +43,7 @@ func ListRepositories(serverURL, username, password string) ([]Repository, error
 	}
 
 	req.SetBasicAuth(username, password)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept", "application/sparql-results+json")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -44,9 +56,18 @@ func ListRepositories(serverURL, username, password string) ([]Repository, error
 		return nil, fmt.Errorf("failed to list repositories. Status: %s, Body: %s", resp.Status, string(body))
 	}
 
-	var repos []Repository
-	if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
+	var data sparqlResponse
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	var repos []Repository
+	for _, binding := range data.Results.Bindings {
+		repos = append(repos, Repository{
+			ID:    binding["id"].Value,
+			Title: binding["title"].Value,
+			Type:  binding["type"].Value,
+		})
 	}
 
 	return repos, nil

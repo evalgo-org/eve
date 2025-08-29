@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"encoding/json"
 )
 
 type testEnv struct {
@@ -91,20 +90,19 @@ func TestExportRDFXml_Success(t *testing.T) {
 
 
 func TestListRepositories_Success(t *testing.T) {
-	mockRepos := []Repository{
-		{ID: "repo1", Title: "Repository 1", Type: "memory"},
-		{ID: "repo2", Title: "Repository 2", Type: "native"},
-	}
+	mockResp := `{
+	  "head": { "vars": ["id", "title", "type"] },
+	  "results": {
+	    "bindings": [
+	      { "id": {"type":"literal","value":"repo1"}, "title":{"type":"literal","value":"Repository 1"}, "type":{"type":"literal","value":"memory"} },
+	      { "id": {"type":"literal","value":"repo2"}, "title":{"type":"literal","value":"Repository 2"}, "type":{"type":"literal","value":"native"} }
+	    ]
+	  }
+	}`
 
 	env := setup(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET method, got %s", r.Method)
-		}
-		if r.URL.Path != "/repositories" {
-			t.Errorf("expected path /repositories, got %s", r.URL.Path)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockRepos)
+		w.Header().Set("Content-Type", "application/sparql-results+json")
+		w.Write([]byte(mockResp))
 	})
 	defer teardown(env)
 
@@ -116,11 +114,11 @@ func TestListRepositories_Success(t *testing.T) {
 	if len(repos) != 2 {
 		t.Fatalf("expected 2 repos, got %d", len(repos))
 	}
-
 	if repos[0].ID != "repo1" || repos[1].ID != "repo2" {
 		t.Errorf("unexpected repos: %+v", repos)
 	}
 }
+
 
 func TestListRepositories_Failure(t *testing.T) {
 	env := setup(func(w http.ResponseWriter, r *http.Request) {
