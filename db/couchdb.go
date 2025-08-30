@@ -4,6 +4,11 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"os"
+	"log"
+	"strings"
+	"path/filepath"
+	"encoding/json"
 
 	eve "eve.evalgo.org/common"
 	kivik "github.com/go-kivik/kivik/v4"
@@ -235,4 +240,127 @@ func (c *CouchDBService) DeleteDocument(id, rev string) error {
 
 func (c *CouchDBService) Close() error {
 	return c.client.Close()
+}
+
+func DownloadAllDocuments(url, db, outputDir string) error {
+	ctx := context.Background()
+	// Connect to CouchDB
+	client, err := kivik.New("couch", url)
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+	defer client.Close()
+	// Create output directory
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+	// Skip system databases
+	fmt.Printf("Processing database: %s\n", db)
+
+	if err := downloadDatabaseDocuments(ctx, client, db, outputDir); err != nil {
+		log.Printf("Error processing database %s: %v", db, err)
+	}
+	return nil
+}
+
+func downloadDatabaseDocuments(ctx context.Context, client *kivik.Client, dbName, outputDir string) error {
+	// Open database
+	db := client.DB(dbName)
+
+	// Create directory for this database
+	dbDir := filepath.Join(outputDir, dbName)
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		return fmt.Errorf("failed to create database directory: %w", err)
+	}
+
+	// Get all documents using _all_docs view
+	rows := db.AllDocs(ctx, kivik.Param("include_docs", true))
+	defer rows.Close()
+
+	docCount := 0
+	for rows.Next() {
+		id, err := rows.ID()
+		if err != nil {
+			log.Printf("Failed to get ID: %v", err)
+			continue
+		}
+		// Skip design documents
+		if strings.HasPrefix(id, "_design/") {
+			continue
+		}
+
+		var doc map[string]interface{}
+		if err := rows.ScanDoc(&doc); err != nil {
+			id, err := rows.ID()
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Printf("Error scanning document %s: %v", id, err)
+			continue
+		}
+
+		// Save document to file
+		id, err = rows.ID()
+		if err != nil {
+			log.Fatal(err)
+		}
+		filename := sanitizeFilename(id) + ".json"
+		filepath := filepath.Join(dbDir, filename)
+
+		if err := saveDocumentToFile(doc, filepath); err != nil {
+			id, err := rows.ID()
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Printf("Error saving document %s: %v", id, err)
+			continue
+		}
+
+		docCount++
+		if docCount%100 == 0 {
+			fmt.Printf("  Downloaded %d documents from %s\n", docCount, dbName)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating documents: %w", err)
+	}
+
+	fmt.Printf("  Completed %s: %d documents downloaded\n", dbName, docCount)
+	return nil
+}
+
+func saveDocumentToFile(doc map[string]interface{}, filepath string) error {
+	file, err := os.Create(filepath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ") // Pretty print JSON
+
+	if err := encoder.Encode(doc); err != nil {
+		return fmt.Errorf("failed to encode JSON: %w", err)
+	}
+
+	return nil
+}
+
+// sanitizeFilename removes or replaces characters that are invalid in filenames
+func sanitizeFilename(filename string) string {
+	// Replace invalid characters with underscores
+	invalid := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
+	result := filename
+
+	for _, char := range invalid {
+		result = strings.ReplaceAll(result, char, "_")
+	}
+
+	// Limit length to avoid filesystem issues
+	if len(result) > 200 {
+		result = result[:200]
+	}
+
+	return result
 }
