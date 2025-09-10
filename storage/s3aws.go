@@ -124,6 +124,52 @@ func LakeFSListObjects(url string, accessKey string, secretKey string, bucket st
 
 }
 
+func MinioGetObjectRecursive(url, accessKey, secretKey, bucket, remoteObject, localObject string) {
+	region := "us-east-1"
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(region),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
+		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
+			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+				return aws.Endpoint{
+					URL:               url,
+					SigningRegion:     region,
+					HostnameImmutable: true, // important for MinIO
+				}, nil
+			})),
+	)
+	if err != nil {
+		eve.Logger.Info("Failed to load configuration: ", err)
+	}
+
+	// Create an S3 client
+	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.UsePathStyle = true // required for MinIO
+		o.HTTPClient = &http.Client{}
+	})
+
+	// Check if the bucket exists
+	_, err = client.HeadBucket(context.TODO(), &s3.HeadBucketInput{
+		Bucket: aws.String(bucket + "/" + remoteObject),
+	})
+	if err != nil {
+		eve.Logger.Fatal("Failed to access bucket", bucket, err)
+	}
+
+	// List objects
+	output, err := client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil {
+		eve.Logger.Fatal("Failed to list objects: ", err)
+	}
+
+	// eve.Logger.Info("Objects in bucket: ", bucket, " branch: ", branch, " output: ", output)
+	for _, item := range output.Contents {
+		MinioGetObject(url, accessKey, secretKey, bucket, *item.Key, localObject+"/"+*item.Key)
+	}
+}
+
 func MinioListObjects(url string, accessKey string, secretKey string, bucket string) {
 	region := "us-east-1"
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
@@ -164,7 +210,7 @@ func MinioListObjects(url string, accessKey string, secretKey string, bucket str
 		eve.Logger.Fatal("Failed to list objects: ", err)
 	}
 
-	// eve.Logger.Info("Objects in bucket: ", bucket, " branch: ", branch, " output: ", output)
+	// eve.Logger.Info("Objects in bucket: ", bucket + remoteObject, " branch: ", branch, " output: ", output)
 	for _, item := range output.Contents {
 		eve.Logger.Info(*item.Key, " <=> ", *item.Size)
 	}
@@ -304,13 +350,13 @@ func HetznerGetObjectRecursive(url, accessKey, secretKey, region, bucket, remote
 
 	// List objects
 	output, err := client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
-		Bucket: aws.String(bucket),
+		Bucket: aws.String(bucket + "/" + remoteObject),
 	})
 	if err != nil {
 		eve.Logger.Fatal("Failed to list objects: ", err)
 	}
 
-	eve.Logger.Info("Objects in bucket: ", bucket+remoteObject, " region: ", region, " output: ", output.Contents)
+	// eve.Logger.Info("Objects in bucket: ", bucket+remoteObject, " region: ", region, " output: ", output.Contents)
 	for _, item := range output.Contents {
 		HetznerGetObject(url, accessKey, secretKey, region, bucket, *item.Key, localObject+"/"+*item.Key)
 	}
