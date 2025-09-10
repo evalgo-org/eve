@@ -279,6 +279,43 @@ func HetznerListObjects(url, accessKey, secretKey, region, bucket string) {
 	}
 }
 
+func HetznerGetObjectRecursive(url, accessKey, secretKey, region, bucket, remoteObject, localObject string) {
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(region),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
+		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
+			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+				return aws.Endpoint{
+					URL:               url,
+					SigningRegion:     region,
+					HostnameImmutable: true, // important for MinIO
+				}, nil
+			})),
+	)
+	eve.Logger.Info(cfg)
+	if err != nil {
+		eve.Logger.Info("Failed to load configuration: ", err)
+	}
+
+	// Create an S3 client
+	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.HTTPClient = &http.Client{}
+	})
+
+	// List objects
+	output, err := client.ListObjectsV2(context.TODO(), &s3.ListObjectsV2Input{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil {
+		eve.Logger.Fatal("Failed to list objects: ", err)
+	}
+
+	eve.Logger.Info("Objects in bucket: ", bucket+remoteObject, " region: ", region, " output: ", output.Contents)
+	for _, item := range output.Contents {
+		HetznerGetObject(url, accessKey, secretKey, region, bucket, *item.Key, localObject+"/"+*item.Key)
+	}
+}
+
 func HetznerGetObject(url, accessKey, secretKey, region, bucket, remoteObject, localObject string) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
