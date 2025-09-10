@@ -265,6 +265,7 @@ func MinioGetObject(url, accessKey, secretKey, bucket, remoteObject, localObject
 		}
 	}
 	defer result.Body.Close()
+	os.MkdirAll(filepath.Dir(localObject), 0755)
 	file, err := os.Create(localObject)
 	if err != nil {
 		eve.Logger.Fatal("Couldn't create file ", localObject, ". Here's why: ", err, "\n")
@@ -410,6 +411,7 @@ func HetznerGetObject(url, accessKey, secretKey, region, bucket, remoteObject, l
 		}
 	}
 	defer result.Body.Close()
+	os.MkdirAll(filepath.Dir(localObject), 0755)
 	file, err := os.Create(localObject)
 	if err != nil {
 		eve.Logger.Fatal("Couldn't create file ", localObject, ". Here's why: ", err, "\n")
