@@ -264,7 +264,7 @@ func GraphDBDeleteGraph(URL, user, pass, repo, graph string) error {
 	return errors.New("could not run GraphDBDeleteGraph")
 }
 
-func GraphDBListGraphs(url, user, pass, repo string) error {
+func GraphDBListGraphs(url, user, pass, repo string) (*GraphDBResponse, error) {
 	tgt_url := url + "/repositories/" + repo + "/rdf-graphs"
 	req, _ := http.NewRequest("GET", tgt_url, nil)
 	if user != "" && pass != "" {
@@ -277,13 +277,10 @@ func GraphDBListGraphs(url, user, pass, repo string) error {
 	if res.StatusCode == http.StatusOK {
 		response := GraphDBResponse{}
 		eve.Logger.Info(json.Unmarshal(body, &response))
-		for _, graph := range response.Results.Bindings {
-			eve.Logger.Info(graph.ContextID)
-		}
-		return nil
+		return &response, nil
 	}
 	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
-	return errors.New("could not run GraphDBListGraphs")
+	return nil, errors.New("could not run GraphDBListGraphs")
 }
 
 func GraphDBExportGraphRdf(url, user, pass, repo, graph, exportFile string) error {
