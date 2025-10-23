@@ -175,7 +175,7 @@ func GraphDBRestoreBrf(url string, user string, pass string, restoreFile string)
 	res, _ := http.DefaultClient.Do(req)
 	body, _ := io.ReadAll(res.Body)
 	defer res.Body.Close()
-	if res.StatusCode == http.StatusCreated {
+	if res.StatusCode == http.StatusNoContent {
 		eve.Logger.Info(string(body))
 		return nil
 	}
