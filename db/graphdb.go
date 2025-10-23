@@ -197,7 +197,10 @@ func GraphDBImportGraphRdf(url, user, pass, repo, graph, restoreFile string) err
 		return err
 	}
 	tgt_url := url + "/repositories/" + repo + "/rdf-graphs/service"
-	req, _ := http.NewRequest("PUT", tgt_url, bytes.NewBuffer(fData))
+	req,err := http.NewRequest("PUT", tgt_url, bytes.NewBuffer(fData))
+	if err != nil {
+		return err
+	}
 	values := req.URL.Query()
 	values.Add("graph", graph)
 	req.URL.RawQuery = values.Encode()
@@ -206,15 +209,20 @@ func GraphDBImportGraphRdf(url, user, pass, repo, graph, restoreFile string) err
 	}
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/rdf+xml")
-	res, _ := http.DefaultClient.Do(req)
-	body, _ := io.ReadAll(res.Body)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusNoContent {
 		eve.Logger.Info(string(body))
 		return nil
 	}
-	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
-	return errors.New("could not run GraphDBImportRdf")
+	return errors.New("could not run GraphDBImportRdf " + http.StatusText(res.StatusCode))
 }
 
 func GraphDBDeleteRepository(URL, user, pass, repo string) error {
