@@ -53,7 +53,6 @@ func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse
 	req.Header.Add("Accept", "application/json")
 	// req.Header.Add("Authorization", "Bearer "+token)
 	// req.Header.Add("Accept", "application/json")
-	fmt.Println("before request")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -64,7 +63,6 @@ func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(string(body))
 		response := GraphDBResponse{}
 		err = json.Unmarshal(body, &response)
 		if err != nil {
@@ -276,21 +274,32 @@ func GraphDBDeleteGraph(URL, user, pass, repo, graph string) error {
 
 func GraphDBListGraphs(url, user, pass, repo string) (*GraphDBResponse, error) {
 	tgt_url := url + "/repositories/" + repo + "/rdf-graphs"
-	req, _ := http.NewRequest("GET", tgt_url, nil)
+	req, err := http.NewRequest("GET", tgt_url, nil)
+	if err != nil {
+		return nil, err
+	}
 	if user != "" && pass != "" {
 		req.SetBasicAuth(user, pass)
 	}
 	req.Header.Add("Accept", "application/json")
-	res, _ := http.DefaultClient.Do(req)
-	body, _ := io.ReadAll(res.Body)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusOK {
 		response := GraphDBResponse{}
-		eve.Logger.Info(json.Unmarshal(body, &response))
+		err = json.Unmarshal(body, &response)
+		if err != nil {
+			return nil, err
+		}
 		return &response, nil
 	}
-	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
-	return nil, errors.New("could not run GraphDBListGraphs")
+	return nil, errors.New("could not run GraphDBListGraphs on " + repo )
 }
 
 func GraphDBExportGraphRdf(url, user, pass, repo, graph, exportFile string) error {
