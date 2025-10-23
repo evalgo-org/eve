@@ -3,7 +3,7 @@ package db
 import (
 	"fmt"
 	"os"
-	// "context"
+	"time"
 	"bytes"
 	"encoding/json"
 	"io"
@@ -16,6 +16,10 @@ import (
 	"strings"
 
 	eve "eve.evalgo.org/common"
+)
+
+var(
+	HttpClient *http.Client = http.DefaultClient
 )
 
 type ContextID struct {
@@ -41,6 +45,17 @@ type GraphDBResponse struct {
 	Results GraphDBResults `json:"results"`
 }
 
+func GraphDBZitiClient(identityFile, serviceName string) (*http.Client, error) {
+	zitiTransport,err := ZitiSetup(identityFile, serviceName)
+	if err != nil {
+		return nil, err
+	}
+	return  &http.Client{
+		Transport: zitiTransport,
+		Timeout:   30 * time.Second,
+	}, nil
+}
+
 func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse,error) {
 	tgt_url := url + "/repositories"
 	req, err := http.NewRequest("GET", tgt_url, nil)
@@ -53,7 +68,7 @@ func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse
 	req.Header.Add("Accept", "application/json")
 	// req.Header.Add("Authorization", "Bearer "+token)
 	// req.Header.Add("Accept", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := HttpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +98,7 @@ func GraphDBRepositoryConf(url string, user string, pass string, repo string) st
 	req.Header.Add("Accept", "text/turtle")
 	// req.Header.Add("Authorization", "Bearer "+token)
 	// req.Header.Add("Accept", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := HttpClient.Do(req)
 	if err != nil {
 		eve.Logger.Error(err)
 	}
@@ -110,7 +125,7 @@ func GraphDBRepositoryBrf(url string, user string, pass string, repo string) str
 	req.Header.Add("Accept", "application/x-binary-rdf")
 	// req.Header.Add("Authorization", "Bearer "+token)
 	// req.Header.Add("Accept", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := HttpClient.Do(req)
 	if err != nil {
 		eve.Logger.Error(err)
 	}
@@ -156,7 +171,7 @@ func GraphDBRestoreConf(url string, user string, pass string, restoreFile string
 	}
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", w.FormDataContentType())
-	res, _ := http.DefaultClient.Do(req)
+	res, _ := HttpClient.Do(req)
 	body, _ := io.ReadAll(res.Body)
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusCreated {
@@ -180,7 +195,7 @@ func GraphDBRestoreBrf(url string, user string, pass string, restoreFile string)
 	}
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/x-binary-rdf")
-	res, _ := http.DefaultClient.Do(req)
+	res, _ := HttpClient.Do(req)
 	body, _ := io.ReadAll(res.Body)
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusNoContent {
@@ -209,7 +224,7 @@ func GraphDBImportGraphRdf(url, user, pass, repo, graph, restoreFile string) err
 	}
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/rdf+xml")
-	res, err := http.DefaultClient.Do(req)
+	res, err := HttpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -222,7 +237,7 @@ func GraphDBImportGraphRdf(url, user, pass, repo, graph, restoreFile string) err
 		eve.Logger.Info(string(body))
 		return nil
 	}
-	return errors.New("could not run GraphDBImportRdf " + http.StatusText(res.StatusCode))
+	return errors.New("could not run GraphDBImportGraphRdf " + http.StatusText(res.StatusCode))
 }
 
 func GraphDBDeleteRepository(URL, user, pass, repo string) error {
@@ -240,7 +255,7 @@ func GraphDBDeleteRepository(URL, user, pass, repo string) error {
 
 	req.Header.Add("Accept", "application/json")
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := HttpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
@@ -269,7 +284,7 @@ func GraphDBDeleteGraph(URL, user, pass, repo, graph string) error {
 		req.SetBasicAuth(user, pass)
 	}
 	req.Header.Add("Content-Type", "application/sparql-update")
-	res, _ := http.DefaultClient.Do(req)
+	res, _ := HttpClient.Do(req)
 	body, _ := io.ReadAll(res.Body)
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusNoContent {
@@ -290,7 +305,7 @@ func GraphDBListGraphs(url, user, pass, repo string) (*GraphDBResponse, error) {
 		req.SetBasicAuth(user, pass)
 	}
 	req.Header.Add("Accept", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := HttpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +336,7 @@ func GraphDBExportGraphRdf(url, user, pass, repo, graph, exportFile string) erro
 		req.SetBasicAuth(user, pass)
 	}
 	req.Header.Add("Accept", "application/rdf+xml")
-	res, err := http.DefaultClient.Do(req)
+	res, err := HttpClient.Do(req)
 	if err != nil {
 		eve.Logger.Info("Failed to create file:", err)
 		return err
