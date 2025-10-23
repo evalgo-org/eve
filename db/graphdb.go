@@ -58,7 +58,10 @@ func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse
 	if res.StatusCode == http.StatusOK {
 		body, _ := io.ReadAll(res.Body)
 		response := GraphDBResponse{}
-		eve.Logger.Info(json.Unmarshal(body, &response))
+		err = json.Unmarshal(body, &response)
+		if err != nil {
+			return nil, err
+		}
 		// eve.Logger.Info(string(body))
 		return &response, nil
 	}
