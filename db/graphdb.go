@@ -43,7 +43,10 @@ type GraphDBResponse struct {
 
 func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse,error) {
 	tgt_url := url + "/repositories"
-	req, _ := http.NewRequest("GET", tgt_url, nil)
+	req, err := http.NewRequest("GET", tgt_url, nil)
+	if err != nil {
+		return nil, err
+	}
 	if user != "" && pass != "" {
 		req.SetBasicAuth(user, pass)
 	}
@@ -56,7 +59,10 @@ func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusOK {
-		body, _ := io.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			return nil, err
+		}
 		response := GraphDBResponse{}
 		err = json.Unmarshal(body, &response)
 		if err != nil {
