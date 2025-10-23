@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"os"
 	// "context"
 	"bytes"
@@ -174,7 +175,7 @@ func GraphDBRestoreBrf(url string, user string, pass string, restoreFile string)
 	res, _ := http.DefaultClient.Do(req)
 	body, _ := io.ReadAll(res.Body)
 	defer res.Body.Close()
-	if res.StatusCode == http.StatusOK {
+	if res.StatusCode == http.StatusCreated {
 		eve.Logger.Info(string(body))
 		return nil
 	}
@@ -206,6 +207,41 @@ func GraphDBImportGraphRdf(url, user, pass, repo, graph, restoreFile string) err
 	}
 	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
 	return errors.New("could not run GraphDBImportRdf")
+}
+
+func GraphDBDeleteRepository(URL, user, pass, repo string) error {
+	tgt_url := URL + "/rest/repositories/" + repo
+	eve.Logger.Info(tgt_url)
+
+	req, err := http.NewRequest("DELETE", tgt_url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	if user != "" && pass != "" {
+		req.SetBasicAuth(user, pass)
+	}
+
+	req.Header.Add("Accept", "application/json")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusNoContent {
+		eve.Logger.Info("Repository deleted successfully:", string(body))
+		return nil
+	}
+
+	eve.Logger.Error("Failed to delete repository:", res.StatusCode, http.StatusText(res.StatusCode), string(body))
+	return fmt.Errorf("could not delete repository: %s (%d)", http.StatusText(res.StatusCode), res.StatusCode)
 }
 
 func GraphDBDeleteGraph(URL, user, pass, repo, graph string) error {

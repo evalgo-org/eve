@@ -1,13 +1,13 @@
 package media
 
 import (
-	"io"
-	"os"
 	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"image/png"
+	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/nfnt/resize"

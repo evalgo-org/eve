@@ -2,13 +2,13 @@ package db
 
 import (
 	"context"
-	"fmt"
-	"time"
-	"os"
-	"log"
-	"strings"
-	"path/filepath"
 	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	eve "eve.evalgo.org/common"
 	kivik "github.com/go-kivik/kivik/v4"

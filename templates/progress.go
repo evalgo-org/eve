@@ -64,21 +64,21 @@ func (p Process) Duration() time.Duration {
 	if len(p.History) == 0 {
 		return 0
 	}
-	
+
 	firstEntry := p.History[0]
 	lastEntry := p.History[len(p.History)-1]
-	
+
 	return lastEntry.Timestamp.Sub(firstEntry.Timestamp)
 }
 
 // FormatDuration returns a human-readable duration string
 func (p Process) FormatDuration() string {
 	duration := p.Duration()
-	
+
 	hours := int(duration.Hours())
 	minutes := int(duration.Minutes()) % 60
 	seconds := int(duration.Seconds()) % 60
-	
+
 	if hours > 0 {
 		return fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
 	} else if minutes > 0 {
@@ -168,7 +168,7 @@ func (p *Process) UpdateState(newState ProcessState) {
 	now := time.Now()
 	p.State = newState
 	p.UpdatedAt = now
-	
+
 	p.History = append(p.History, HistoryEntry{
 		State:     newState,
 		Timestamp: now,
@@ -185,7 +185,7 @@ var templateFuncs = template.FuncMap{
 		hours := int(duration.Hours())
 		minutes := int(duration.Minutes()) % 60
 		seconds := int(duration.Seconds()) % 60
-		
+
 		if hours > 0 {
 			return fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
 		} else if minutes > 0 {
@@ -275,9 +275,9 @@ func main() {
 	// Print some info
 	log.Printf("Loaded %d processes", processList.Count)
 	for _, process := range processList.Processes {
-		log.Printf("Process %s: %s (Duration: %s)", 
-			process.ProcessID, 
-			process.State, 
+		log.Printf("Process %s: %s (Duration: %s)",
+			process.ProcessID,
+			process.State,
 			process.FormatDuration())
 	}
 
@@ -286,7 +286,7 @@ func main() {
 		// Try to find the template file (could be flow.gohtml or process-progress.html)
 		var tmpl *template.Template
 		var err error
-		
+
 		// First try flow.gohtml (based on your error message)
 		if tmpl, err = template.New("flow.gohtml").Funcs(templateFuncs).ParseFiles("flow.gohtml"); err != nil {
 			// Fallback to process-progress.html
