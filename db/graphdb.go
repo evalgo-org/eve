@@ -41,7 +41,7 @@ type GraphDBResponse struct {
 	Results GraphDBResults `json:"results"`
 }
 
-func GraphDBRepositories(url string, user string, pass string) GraphDBResponse {
+func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse,error) {
 	tgt_url := url + "/repositories"
 	req, _ := http.NewRequest("GET", tgt_url, nil)
 	if user != "" && pass != "" {
@@ -52,7 +52,7 @@ func GraphDBRepositories(url string, user string, pass string) GraphDBResponse {
 	// req.Header.Add("Accept", "application/json")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		eve.Logger.Error(err)
+		return nil, err
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusOK {
@@ -60,10 +60,10 @@ func GraphDBRepositories(url string, user string, pass string) GraphDBResponse {
 		response := GraphDBResponse{}
 		eve.Logger.Info(json.Unmarshal(body, &response))
 		// eve.Logger.Info(string(body))
-		return response
+		return &response, nil
 	}
 	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
-	return GraphDBResponse{}
+	return nil, fmt.Errorf("could not return repositories because of status code: %d", res.StatusCode)
 }
 
 func GraphDBRepositoryConf(url string, user string, pass string, repo string) string {
