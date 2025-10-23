@@ -71,7 +71,6 @@ func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse
 		// eve.Logger.Info(string(body))
 		return &response, nil
 	}
-	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
 	return nil, fmt.Errorf("could not return repositories because of status code: %d", res.StatusCode)
 }
 
