@@ -256,7 +256,7 @@ func GraphDBDeleteGraph(URL, user, pass, repo, graph string) error {
 	res, _ := http.DefaultClient.Do(req)
 	body, _ := io.ReadAll(res.Body)
 	defer res.Body.Close()
-	if res.StatusCode == http.StatusOK {
+	if res.StatusCode == http.StatusNoContent {
 		eve.Logger.Info(string(body))
 		return nil
 	}
