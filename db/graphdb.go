@@ -291,6 +291,7 @@ func GraphDBListGraphs(url, user, pass, repo string) (*GraphDBResponse, error) {
 		return nil, err
 	}
 	defer res.Body.Close()
+	fmt.Println(res.StatusCode)
 	if res.StatusCode == http.StatusOK {
 		response := GraphDBResponse{}
 		err = json.Unmarshal(body, &response)
