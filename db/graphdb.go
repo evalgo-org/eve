@@ -53,6 +53,7 @@ func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse
 	req.Header.Add("Accept", "application/json")
 	// req.Header.Add("Authorization", "Bearer "+token)
 	// req.Header.Add("Accept", "application/json")
+	fmt.Println("before request")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -63,7 +64,7 @@ func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse
 		if err != nil {
 			return nil, err
 		}
-		eve.Logger.Info(string(body))
+		fmt.Println(string(body))
 		response := GraphDBResponse{}
 		err = json.Unmarshal(body, &response)
 		if err != nil {
