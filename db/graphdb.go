@@ -1,15 +1,15 @@
 package db
 
 import (
-	"fmt"
-	"os"
-	"time"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"time"
 	// "net/url"
 	"errors"
 	"path/filepath"
@@ -18,7 +18,7 @@ import (
 	eve "eve.evalgo.org/common"
 )
 
-var(
+var (
 	HttpClient *http.Client = http.DefaultClient
 )
 
@@ -46,17 +46,17 @@ type GraphDBResponse struct {
 }
 
 func GraphDBZitiClient(identityFile, serviceName string) (*http.Client, error) {
-	zitiTransport,err := ZitiSetup(identityFile, serviceName)
+	zitiTransport, err := ZitiSetup(identityFile, serviceName)
 	if err != nil {
 		return nil, err
 	}
-	return  &http.Client{
+	return &http.Client{
 		Transport: zitiTransport,
 		Timeout:   30 * time.Second,
 	}, nil
 }
 
-func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse,error) {
+func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse, error) {
 	tgt_url := url + "/repositories"
 	req, err := http.NewRequest("GET", tgt_url, nil)
 	if err != nil {
@@ -212,7 +212,7 @@ func GraphDBImportGraphRdf(url, user, pass, repo, graph, restoreFile string) err
 		return err
 	}
 	tgt_url := url + "/repositories/" + repo + "/rdf-graphs/service"
-	req,err := http.NewRequest("PUT", tgt_url, bytes.NewBuffer(fData))
+	req, err := http.NewRequest("PUT", tgt_url, bytes.NewBuffer(fData))
 	if err != nil {
 		return err
 	}
@@ -323,7 +323,7 @@ func GraphDBListGraphs(url, user, pass, repo string) (*GraphDBResponse, error) {
 		}
 		return &response, nil
 	}
-	return nil, errors.New("could not run GraphDBListGraphs on " + repo )
+	return nil, errors.New("could not run GraphDBListGraphs on " + repo)
 }
 
 func GraphDBExportGraphRdf(url, user, pass, repo, graph, exportFile string) error {
