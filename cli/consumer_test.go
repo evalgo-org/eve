@@ -16,10 +16,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
-	"io/ioutil"
 
 	"github.com/streadway/amqp"
 	"github.com/stretchr/testify/assert"
@@ -54,8 +54,8 @@ type MockHTTPClient struct {
 //   - *http.Response: The mock response as configured by the test
 //   - error: Simulated error, if any
 func (m *MockHTTPClient) Get(url string) (*http.Response, error) {
-    args := m.Called(url)
-    return args.Get(0).(*http.Response), args.Error(1)
+	args := m.Called(url)
+	return args.Get(0).(*http.Response), args.Error(1)
 }
 
 // Do implements the HTTP client interface for the mock.
@@ -119,17 +119,16 @@ func createMockResponse(statusCode int, body string) *http.Response {
 // Returns:
 //   - *Consumer: Configured consumer ready for testing
 func createTestConsumer(mockClient *MockHTTPClient) *Consumer {
-    config := Config{
-        CouchDBURL:  "http://test-couchdb:5984",
-        CouchDBName: "test_processes",
-    }
-    consumer := &Consumer{
-        config:     config,
-        httpClient: mockClient,
-    }
-    return consumer
+	config := Config{
+		CouchDBURL:  "http://test-couchdb:5984",
+		CouchDBName: "test_processes",
+	}
+	consumer := &Consumer{
+		config:     config,
+		httpClient: mockClient,
+	}
+	return consumer
 }
-
 
 // createTestMessage creates a ProcessMessage for testing purposes.
 // This utility function generates valid ProcessMessage instances with

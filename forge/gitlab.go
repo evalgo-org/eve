@@ -1,3 +1,13 @@
+// Package forge provides utilities for interacting with GitLab repositories and CI/CD systems.
+// It includes functions for managing GitLab runners, tags, jobs, and repository archives,
+// enabling integration with GitLab for build, deployment, and monitoring purposes.
+//
+// Features:
+//   - GitLab runner registration and management
+//   - Tag creation and management
+//   - Job monitoring and error analysis
+//   - Repository archive download and extraction
+//   - Detailed job state inspection
 package forge
 
 import (
@@ -11,51 +21,122 @@ import (
 	"strings"
 	"time"
 
-	gitlab "gitlab.com/gitlab-org/api/client-go"
-
 	eve "eve.evalgo.org/common"
 	"eve.evalgo.org/network"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
+// JobInfo represents simplified job information for display and processing.
+// Contains basic information about a GitLab CI job.
+type JobInfo struct {
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	Status   string `json:"status"`
+	Stage    string `json:"stage"`
+	Ref      string `json:"ref"`
+	Pipeline int    `json:"pipeline_id"`
+}
+
+// JobDetails represents detailed job information including error details and trace logs.
+// Contains comprehensive information about a GitLab CI job, including timing and error information.
+type JobDetails struct {
+	ID             int        `json:"id"`
+	Name           string     `json:"name"`
+	Status         string     `json:"status"`
+	Stage          string     `json:"stage"`
+	Ref            string     `json:"ref"`
+	PipelineID     int        `json:"pipeline_id"`
+	CreatedAt      time.Time  `json:"created_at"`
+	StartedAt      *time.Time `json:"started_at"`
+	FinishedAt     *time.Time `json:"finished_at"`
+	Duration       float64    `json:"duration"`
+	QueuedDuration float64    `json:"queued_duration"`
+	WebURL         string     `json:"web_url"`
+	FailureReason  string     `json:"failure_reason"`
+	ErrorMessage   string     `json:"error_message"`
+	TraceLog       string     `json:"trace_log"`
+}
+
+// GitlabRunners lists all available GitLab runners in the instance.
+// This function creates a GitLab client and retrieves a list of all registered runners.
+// It logs each runner's information to the console.
+//
+// Parameters:
+//   - url: Base URL of the GitLab instance (e.g., "https://gitlab.example.com")
+//   - token: Personal access token for authentication
+//
+// Note: This function will exit with a fatal error if client creation fails.
 func GitlabRunners(url, token string) {
 	git, err := gitlab.NewClient(token, gitlab.WithBaseURL(url+"/api/v4"))
 	if err != nil {
 		eve.Logger.Fatal("Failed to create client:", err)
 	}
+
 	runners, _, err := git.Runners.ListAllRunners(&gitlab.ListRunnersOptions{})
 	for _, runner := range runners {
 		eve.Logger.Info(runner)
 	}
 }
 
-// available gitlab-runner types instance_type | group_type | project_type | user_type
+// GitlabRegisterNewRunner registers a new GitLab runner on the specified instance.
+// This function:
+//  1. Downloads the GitLab runner binary
+//  2. Creates a new runner using the GitLab API
+//  3. Installs and registers the runner on the system
+//
+// Parameters:
+//   - url: Base URL of the GitLab instance
+//   - token: Personal access token for authentication
+//   - version: Version of the GitLab runner to install
+//   - dataInit: JSON string with runner registration options
+//   - registerArgs: Additional arguments for runner registration
+//   - sudoPass: Sudo password for installing the runner
+//   - gitlabUser: User account to run the GitLab runner service
+//
+// Note: This function will exit with a fatal error if any step fails.
 func GitlabRegisterNewRunner(url, token, version, dataInit, registerArgs, sudoPass, gitlabUser string) {
-	// get runner from the release website
-	// due to usues on the gitlab site the packages are not installable of as for today
-	// https://gitlab.com/gitlab-org/gitlab-runner/-/issues/38353
-	// HttpClientDownloadFile("https://gitlab-runner-downloads.s3.amazonaws.com/"+version+"/rpm/gitlab-runner_amd64.rpm", "gitlab-runner_amd64.rpm")
-	// we need to run the gitlab-runner as executable for now
+	// Download the GitLab runner binary
 	network.HttpClientDownloadFile("https://gitlab-runner-downloads.s3.amazonaws.com/"+version+"/binaries/gitlab-runner-linux-amd64", "gitlab-runner")
-	// register the runner
+
+	// Create GitLab client
 	git, err := gitlab.NewClient(token, gitlab.WithBaseURL(url+"/api/v4"))
 	if err != nil {
 		eve.Logger.Fatal("Failed to create client:", err)
 	}
+
+	// Parse registration options
 	initOptions := gitlab.CreateUserRunnerOptions{}
 	if err := json.Unmarshal([]byte(dataInit), &initOptions); err != nil {
 		eve.Logger.Fatal("Failed to create gitlab runner:", err)
 	}
+
+	// Register the runner
 	runner, _, err := git.Users.CreateUserRunner(&initOptions)
 	if err != nil {
 		eve.Logger.Fatal("Failed to create gitlab runner:", err)
 	}
+
+	// Install and configure the runner
 	eve.Logger.Info("running runner registration with token", runner.Token)
 	eve.ShellSudoExecute(sudoPass, "mv ./gitlab-runner /usr/bin/gitlab-runner && chmod +x /usr/bin/gitlab-runner")
 	eve.ShellSudoExecute(sudoPass, "gitlab-runner install --user "+gitlabUser)
 	eve.ShellSudoExecute(sudoPass, "gitlab-runner register --token "+runner.Token+" --url "+url+" "+registerArgs)
 }
 
-// GitlabCreateTag creates a new tag on the specified repository with a tag message
+// GitlabCreateTag creates a new tag on the specified GitLab repository.
+// This function creates a new tag with the given name, reference, and message.
+//
+// Parameters:
+//   - url: Base URL of the GitLab instance
+//   - token: Personal access token for authentication
+//   - projectID: ID or path of the project (e.g., "mygroup/myproject")
+//   - tagName: Name of the tag to create
+//   - ref: Branch, commit SHA, or tag from which to create the new tag
+//   - message: Tag message/description
+//
+// Returns:
+//   - *gitlab.Tag: The created tag object
+//   - error: If tag creation fails
 func GitlabCreateTag(url, token, projectID, tagName, ref, message string) (*gitlab.Tag, error) {
 	client, err := gitlab.NewClient(token, gitlab.WithBaseURL(url+"/api/v4"))
 	if err != nil {
@@ -77,28 +158,28 @@ func GitlabCreateTag(url, token, projectID, tagName, ref, message string) (*gitl
 	return tag, nil
 }
 
-// JobInfo represents simplified job information for display
-type JobInfo struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
-	Status   string `json:"status"`
-	Stage    string `json:"stage"`
-	Ref      string `json:"ref"`
-	Pipeline int    `json:"pipeline_id"`
-}
-
-// GitlabListJobsForTag lists all running jobs and their states for the given tag
+// GitlabListJobsForTag lists all jobs for pipelines associated with a specific tag.
+// This function finds all pipelines for the given tag and retrieves their jobs.
+//
+// Parameters:
+//   - url: Base URL of the GitLab instance
+//   - token: Personal access token for authentication
+//   - projectID: ID or path of the project
+//   - tagName: Name of the tag to query
+//
+// Returns:
+//   - []JobInfo: List of jobs for the tag
+//   - error: If job retrieval fails
 func GitlabListJobsForTag(url, token, projectID, tagName string) ([]JobInfo, error) {
 	client, err := gitlab.NewClient(token, gitlab.WithBaseURL(url+"/api/v4"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GitLab client: %w", err)
 	}
 
-	// First, get pipelines for the specific tag
+	// Get pipelines for the specific tag
 	pipelineOptions := &gitlab.ListProjectPipelinesOptions{
 		Ref: &tagName,
 	}
-
 	pipelines, _, err := client.Pipelines.ListProjectPipelines(projectID, pipelineOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pipelines for tag '%s': %w", tagName, err)
@@ -110,11 +191,9 @@ func GitlabListJobsForTag(url, token, projectID, tagName string) ([]JobInfo, err
 	}
 
 	var allJobs []JobInfo
-
 	// Get jobs for each pipeline
 	for _, pipeline := range pipelines {
 		jobOptions := &gitlab.ListJobsOptions{}
-
 		jobs, _, err := client.Jobs.ListPipelineJobs(projectID, pipeline.ID, jobOptions)
 		if err != nil {
 			eve.Logger.Error(fmt.Sprintf("Failed to get jobs for pipeline %d: %v", pipeline.ID, err))
@@ -134,19 +213,22 @@ func GitlabListJobsForTag(url, token, projectID, tagName string) ([]JobInfo, err
 		}
 	}
 
-	// Log summary
 	eve.Logger.Info(fmt.Sprintf("Found %d jobs for tag '%s' across %d pipelines", len(allJobs), tagName, len(pipelines)))
-
-	// Log job details
-	for _, job := range allJobs {
-		eve.Logger.Info(fmt.Sprintf("Job ID: %d, Name: %s, Status: %s, Stage: %s, Pipeline: %d",
-			job.ID, job.Name, job.Status, job.Stage, job.Pipeline))
-	}
-
 	return allJobs, nil
 }
 
-// GitlabListRunningJobsForTag lists only the currently running jobs for the given tag
+// GitlabListRunningJobsForTag lists only the currently running or pending jobs for a specific tag.
+// This function filters the jobs returned by GitlabListJobsForTag to only include running/pending jobs.
+//
+// Parameters:
+//   - url: Base URL of the GitLab instance
+//   - token: Personal access token for authentication
+//   - projectID: ID or path of the project
+//   - tagName: Name of the tag to query
+//
+// Returns:
+//   - []JobInfo: List of running/pending jobs for the tag
+//   - error: If job retrieval fails
 func GitlabListRunningJobsForTag(url, token, projectID, tagName string) ([]JobInfo, error) {
 	allJobs, err := GitlabListJobsForTag(url, token, projectID, tagName)
 	if err != nil {
@@ -164,26 +246,18 @@ func GitlabListRunningJobsForTag(url, token, projectID, tagName string) ([]JobIn
 	return runningJobs, nil
 }
 
-// JobDetails represents detailed job information including error details
-type JobDetails struct {
-	ID             int        `json:"id"`
-	Name           string     `json:"name"`
-	Status         string     `json:"status"`
-	Stage          string     `json:"stage"`
-	Ref            string     `json:"ref"`
-	PipelineID     int        `json:"pipeline_id"`
-	CreatedAt      time.Time  `json:"created_at"`
-	StartedAt      *time.Time `json:"started_at"`
-	FinishedAt     *time.Time `json:"finished_at"`
-	Duration       float64    `json:"duration"`
-	QueuedDuration float64    `json:"queued_duration"`
-	WebURL         string     `json:"web_url"`
-	FailureReason  string     `json:"failure_reason"`
-	ErrorMessage   string     `json:"error_message"`
-	TraceLog       string     `json:"trace_log"`
-}
-
-// GitlabGetJobDetails gets detailed information about a specific job, including error details
+// GitlabGetJobDetails gets detailed information about a specific job, including trace logs.
+// This function retrieves comprehensive information about a job, including its trace log if available.
+//
+// Parameters:
+//   - url: Base URL of the GitLab instance
+//   - token: Personal access token for authentication
+//   - projectID: ID or path of the project
+//   - jobID: ID of the job to query
+//
+// Returns:
+//   - *JobDetails: Detailed job information
+//   - error: If job details retrieval fails
 func GitlabGetJobDetails(url, token, projectID string, jobID int) (*JobDetails, error) {
 	client, err := gitlab.NewClient(token, gitlab.WithBaseURL(url+"/api/v4"))
 	if err != nil {
@@ -212,19 +286,17 @@ func GitlabGetJobDetails(url, token, projectID string, jobID int) (*JobDetails, 
 		FailureReason:  job.FailureReason,
 	}
 
-	// Get job trace (log) if the job has failed or completed
+	// Get job trace (log) if the job has completed
 	if job.Status == "failed" || job.Status == "success" || job.Status == "canceled" {
 		trace, _, err := client.Jobs.GetTraceFile(projectID, jobID)
 		if err != nil {
 			eve.Logger.Warn(fmt.Sprintf("Could not retrieve trace for job %d: %v", jobID, err))
 		} else {
-			// Read all content from the *bytes.Reader
 			traceBytes, err := io.ReadAll(trace)
 			if err != nil {
 				eve.Logger.Warn(fmt.Sprintf("Could not read trace content for job %d: %v", jobID, err))
 			} else {
 				jobDetails.TraceLog = string(traceBytes)
-
 				// Extract error message from trace if job failed
 				if job.Status == "failed" {
 					jobDetails.ErrorMessage = extractErrorFromTrace(string(traceBytes))
@@ -232,11 +304,21 @@ func GitlabGetJobDetails(url, token, projectID string, jobID int) (*JobDetails, 
 			}
 		}
 	}
-
 	return jobDetails, nil
 }
 
-// GitlabDisplayJobState displays the detailed state of a job, with special formatting for errors
+// GitlabDisplayJobState displays the detailed state of a job with special formatting for errors.
+// This function retrieves job details and displays them in a readable format, with special
+// emphasis on error information for failed jobs.
+//
+// Parameters:
+//   - url: Base URL of the GitLab instance
+//   - token: Personal access token for authentication
+//   - projectID: ID or path of the project
+//   - jobID: ID of the job to display
+//
+// Returns:
+//   - error: If job details retrieval or display fails
 func GitlabDisplayJobState(url, token, projectID string, jobID int) error {
 	jobDetails, err := GitlabGetJobDetails(url, token, projectID, jobID)
 	if err != nil {
@@ -268,24 +350,19 @@ func GitlabDisplayJobState(url, token, projectID string, jobID int) error {
 	// Display error information if job failed
 	if jobDetails.Status == "failed" {
 		eve.Logger.Error("=== ERROR DETAILS ===")
-
 		if jobDetails.FailureReason != "" {
 			eve.Logger.Error(fmt.Sprintf("Failure Reason: %s", jobDetails.FailureReason))
 		}
-
 		if jobDetails.ErrorMessage != "" {
 			eve.Logger.Error(fmt.Sprintf("Error Message: %s", jobDetails.ErrorMessage))
 		}
-
 		if jobDetails.TraceLog != "" {
-			eve.Logger.Error("=== JOB TRACE LOG ===")
-			// Display last 50 lines of trace log for failed jobs
+			eve.Logger.Error("=== JOB TRACE LOG (last 50 lines) ===")
 			lines := strings.Split(jobDetails.TraceLog, "\n")
 			startLine := 0
 			if len(lines) > 50 {
 				startLine = len(lines) - 50
 			}
-
 			for i := startLine; i < len(lines); i++ {
 				if strings.TrimSpace(lines[i]) != "" {
 					eve.Logger.Error(lines[i])
@@ -297,14 +374,20 @@ func GitlabDisplayJobState(url, token, projectID string, jobID int) error {
 	return nil
 }
 
-// extractErrorFromTrace extracts relevant error messages from the job trace log
+// extractErrorFromTrace extracts relevant error messages from a job trace log.
+// This function searches for common error patterns in the trace log and returns the most relevant ones.
+//
+// Parameters:
+//   - trace: The complete trace log as a string
+//
+// Returns:
+//   - string: Extracted error messages, or a message if no errors were found
 func extractErrorFromTrace(trace string) string {
 	lines := strings.Split(trace, "\n")
 	var errorLines []string
 
 	// Look for common error patterns
 	errorKeywords := []string{"ERROR", "FAILED", "FATAL", "Exception", "error:", "Error:", "FAILURE"}
-
 	for _, line := range lines {
 		for _, keyword := range errorKeywords {
 			if strings.Contains(line, keyword) {
@@ -326,6 +409,15 @@ func extractErrorFromTrace(trace string) string {
 	return "No specific error message found in trace log"
 }
 
+// glabDownloadFile downloads a file from a URL to the local filesystem.
+// This function creates a file and downloads the content from the specified URL.
+//
+// Parameters:
+//   - url: URL of the file to download
+//   - filepath: Local path to save the downloaded file
+//
+// Returns:
+//   - error: If download fails
 func glabDownloadFile(url, filepath string) error {
 	// Create the file
 	out, err := os.Create(filepath)
@@ -350,6 +442,19 @@ func glabDownloadFile(url, filepath string) error {
 	return err
 }
 
+// glabDownloadArchive downloads a repository archive from GitLab.
+// This function retrieves a repository archive in the specified format and saves it to a file.
+// It includes retry logic for when the archive is not immediately ready.
+//
+// Parameters:
+//   - client: GitLab API client
+//   - projectID: ID or path of the project
+//   - sha: Commit SHA, branch, or tag to archive
+//   - format: Archive format ("zip" or "tar.gz")
+//   - destPath: Local path to save the downloaded archive
+//
+// Returns:
+//   - error: If download fails
 func glabDownloadArchive(client *gitlab.Client, projectID, sha, format, destPath string) error {
 	opt := &gitlab.ArchiveOptions{
 		SHA:    &sha,
@@ -367,6 +472,7 @@ func glabDownloadArchive(client *gitlab.Client, projectID, sha, format, destPath
 			time.Sleep(2 * time.Second)
 			continue
 		}
+
 		if resp.StatusCode != 200 {
 			return fmt.Errorf("unexpected status: %s", resp.Status)
 		}
@@ -374,11 +480,22 @@ func glabDownloadArchive(client *gitlab.Client, projectID, sha, format, destPath
 		if err := os.WriteFile(destPath, archive, 0644); err != nil {
 			return err
 		}
+
 		return nil
 	}
+
 	return fmt.Errorf("archive not ready after retries")
 }
 
+// glabUnzipStripTop unzips an archive while stripping the top-level directory.
+// This function extracts a zip archive while removing the top-level directory that GitLab adds.
+//
+// Parameters:
+//   - src: Path to the zip file
+//   - destDir: Destination directory for extracted files
+//
+// Returns:
+//   - error: If extraction fails
 func glabUnzipStripTop(src, destDir string) error {
 	r, err := zip.OpenReader(src)
 	if err != nil {
@@ -387,14 +504,15 @@ func glabUnzipStripTop(src, destDir string) error {
 	defer r.Close()
 
 	for _, f := range r.File {
-		// Split path and remove first element (the repo root folder GitLab/GitHub add)
+		// Split path and remove first element (the repo root folder)
 		parts := strings.SplitN(f.Name, string(os.PathSeparator), 2)
 		if len(parts) < 2 {
 			continue // skip root folder entry
 		}
-		relativePath := parts[1]
 
+		relativePath := parts[1]
 		fPath := filepath.Join(destDir, relativePath)
+
 		if f.FileInfo().IsDir() {
 			os.MkdirAll(fPath, os.ModePerm)
 			continue
@@ -419,11 +537,22 @@ func glabUnzipStripTop(src, destDir string) error {
 			out.Close()
 			return err
 		}
+
 		out.Close()
 	}
+
 	return nil
 }
 
+// glabUnZip unzips an archive to the specified directory.
+// This function extracts all files from a zip archive to the destination directory.
+//
+// Parameters:
+//   - src: Path to the zip file
+//   - dest: Destination directory for extracted files
+//
+// Returns:
+//   - error: If extraction fails
 func glabUnZip(src, dest string) error {
 	r, err := zip.OpenReader(src)
 	if err != nil {
@@ -465,9 +594,23 @@ func glabUnZip(src, dest string) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
+// GitlabDownloadRepo downloads a GitLab repository as an archive and extracts it.
+// This function downloads a repository archive, extracts it, and strips the top-level directory.
+//
+// Parameters:
+//   - url: Base URL of the GitLab instance
+//   - token: Personal access token for authentication
+//   - owner: Owner of the repository
+//   - repo: Name of the repository
+//   - branch: Branch, tag, or commit SHA to download
+//   - filepath: Local path to extract the repository to
+//
+// Returns:
+//   - error: If download or extraction fails
 func GitlabDownloadRepo(url, token, owner, repo, branch, filepath string) error {
 	client, err := gitlab.NewClient(token, gitlab.WithBaseURL(url+"/api/v4"))
 	if err != nil {
@@ -478,9 +621,10 @@ func GitlabDownloadRepo(url, token, owner, repo, branch, filepath string) error 
 	sha := branch
 	format := "zip"
 	zipPath := repo + ".zip"
-	extractDir := repo
+	extractDir := filepath
 
 	fmt.Printf("Downloading archive for %s@%s...\n", projectID, sha)
+
 	if err := glabDownloadArchive(client, projectID, sha, format, zipPath); err != nil {
 		return err
 	}

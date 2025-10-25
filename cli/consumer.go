@@ -157,7 +157,7 @@ type Config struct {
 }
 
 type HTTPClient interface {
-    Do(*http.Request) (*http.Response, error)
+	Do(*http.Request) (*http.Response, error)
 	Get(url string) (*http.Response, error)
 }
 
@@ -175,7 +175,7 @@ type Consumer struct {
 	config     Config           // Application configuration
 	connection *amqp.Connection // Active RabbitMQ connection
 	channel    *amqp.Channel    // RabbitMQ channel for message operations
-	httpClient HTTPClient     // HTTP client for CouchDB operations
+	httpClient HTTPClient       // HTTP client for CouchDB operations
 }
 
 // Props represents properties for process operations.

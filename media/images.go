@@ -1,3 +1,14 @@
+// Package media provides utilities for image processing and manipulation.
+// It includes functions for resizing images, checking image orientation,
+// and handling EXIF metadata.
+//
+// Features:
+//   - Image rescaling with aspect ratio preservation
+//   - Image rescaling with auto-fill background
+//   - EXIF orientation detection
+//   - Portrait/landscape orientation checking
+//   - Support for JPEG and PNG formats
+//   - High-quality resizing using Lanczos3 algorithm
 package media
 
 import (
@@ -14,29 +25,55 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 )
 
+// ImageOrientation represents the orientation of an image.
+// Used to determine if an image is in portrait, landscape, or square format.
 type ImageOrientation int
 
 const (
+	// OrientationUnknown represents an image with unknown orientation
 	OrientationUnknown ImageOrientation = iota
+
+	// OrientationPortrait represents an image in portrait orientation (height > width)
 	OrientationPortrait
+
+	// OrientationLandscape represents an image in landscape orientation (width > height)
 	OrientationLandscape
+
+	// OrientationSquare represents a square image (width = height)
 	OrientationSquare
 )
 
-// ImageInfo contains image metadata
+// ImageInfo contains metadata about an image including dimensions, orientation, and format.
+// Used to store information about an image for processing decisions.
 type ImageInfo struct {
-	Width           int
-	Height          int
-	Orientation     ImageOrientation
-	EXIFOrientation int
-	Format          string
+	Width           int              // Image width in pixels
+	Height          int              // Image height in pixels
+	Orientation     ImageOrientation // Image orientation (portrait, landscape, square)
+	EXIFOrientation int              // EXIF orientation tag value
+	Format          string           // Image format (e.g., "jpg", "png")
 }
 
+// ImageRescale resizes an image to the desired dimensions.
+// This function supports maintaining aspect ratio by setting either width or height to 0.
+// If both dimensions are provided, the image may be distorted to fit exactly.
+//
+// Parameters:
+//   - inputPath: Path to the input image file
+//   - outputPath: Path to save the resized image
+//   - desiredWidth: Target width in pixels (0 to maintain aspect ratio based on height)
+//   - desiredHeight: Target height in pixels (0 to maintain aspect ratio based on width)
+//
+// Returns:
+//   - error: If any step in the process fails (file operations, decoding, resizing, encoding)
+//
+// Supported Formats:
+//   - JPEG (.jpg, .jpeg)
+//   - PNG (.png)
+//
+// Resizing Method:
+//   - Uses Lanczos3 algorithm for high-quality resizing
+//   - Maintains original image format in the output
 func ImageRescale(inputPath, outputPath string, desiredWidth, desiredHeight int) error {
-	// Desired dimensions (set to 0 to maintain aspect ratio)
-	// desiredWidth := uint(0) // Target width 324
-	// desiredHeight := uint(405)  // Target height (0 = maintain aspect ratio) 405
-
 	// Open the input image file
 	inputFile, err := os.Open(inputPath)
 	if err != nil {
@@ -76,6 +113,7 @@ func ImageRescale(inputPath, outputPath string, desiredWidth, desiredHeight int)
 	}
 	defer outputFile.Close()
 
+	// Save the new image based on the original format
 	switch format {
 	case "jpg", "jpeg":
 		err = jpeg.Encode(outputFile, resizedImg, &jpeg.Options{Quality: 90})
@@ -88,13 +126,26 @@ func ImageRescale(inputPath, outputPath string, desiredWidth, desiredHeight int)
 	return err
 }
 
-// decodeImage decodes an image from an io.Reader
+// decodeImage decodes an image from an io.Reader.
+// Helper function to decode an image from any io.Reader source.
+//
+// Parameters:
+//   - r: io.Reader containing the image data
+//
+// Returns:
+//   - image.Image: The decoded image
+//   - error: If decoding fails
 func decodeImage(r io.Reader) (image.Image, error) {
 	img, _, err := image.Decode(r)
 	return img, err
 }
 
-// drawBackground fills the entire image with the background color
+// drawBackground fills an RGBA image with a specified background color.
+// Used to create a solid color background for auto-fill operations.
+//
+// Parameters:
+//   - dst: The destination image to fill
+//   - bgColor: The color to use for filling
 func drawBackground(dst *image.RGBA, bgColor color.Color) {
 	bounds := dst.Bounds()
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
@@ -104,7 +155,13 @@ func drawBackground(dst *image.RGBA, bgColor color.Color) {
 	}
 }
 
-// drawImage pastes src image onto dst at the specified point
+// drawImage pastes one image onto another at a specified point.
+// Used to position a resized image onto a background in auto-fill operations.
+//
+// Parameters:
+//   - dst: The destination image
+//   - src: The source image to paste
+//   - pt: The point where the top-left corner of src should be placed in dst
 func drawImage(dst *image.RGBA, src image.Image, pt image.Point) {
 	srcBounds := src.Bounds()
 	dstBounds := dst.Bounds()
@@ -118,6 +175,32 @@ func drawImage(dst *image.RGBA, src image.Image, pt image.Point) {
 	}
 }
 
+// ImageRescaleAutofill resizes an image to fit within specified dimensions while maintaining
+// aspect ratio and filling empty space with the background color.
+// This function is useful for creating thumbnails or standardized images where you want
+// to maintain the original aspect ratio but need a specific output size.
+//
+// Parameters:
+//   - inputPath: Path to the input image file
+//   - outputPath: Path to save the processed image
+//   - forcedWidth: The exact width of the output image
+//   - desiredHeight: The height to resize the image to (maintaining aspect ratio)
+//
+// Returns:
+//   - error: If any step in the process fails
+//
+// Process:
+//  1. Opens and decodes the input image
+//  2. Uses the top-left pixel as the background color
+//  3. Resizes the image to the desired height while maintaining aspect ratio
+//  4. Creates a new image with the forced width and desired height
+//  5. Fills the new image with the background color
+//  6. Pastes the resized image centered in the new image
+//  7. Saves the result in the original format
+//
+// Supported Formats:
+//   - JPEG (.jpg, .jpeg)
+//   - PNG (.png)
 func ImageRescaleAutofill(inputPath, outputPath string, forcedWidth, desiredHeight int) error {
 	// Open the input image file
 	inputFile, err := os.Open(inputPath)
@@ -171,7 +254,33 @@ func ImageRescaleAutofill(inputPath, outputPath string, forcedWidth, desiredHeig
 	return err
 }
 
-// Method 2: Check orientation using EXIF data (more accurate)
+// checkOrientationWithEXIF checks an image's orientation using EXIF data.
+// This function provides more accurate orientation detection than just checking dimensions,
+// as it considers the EXIF orientation tag which indicates how the image should be rotated.
+//
+// Parameters:
+//   - imagePath: Path to the image file to check
+//
+// Returns:
+//   - *ImageInfo: Image metadata including orientation information
+//   - error: If the image cannot be read or processed
+//
+// The function:
+//  1. Opens the image file
+//  2. Gets basic image dimensions
+//  3. Attempts to read EXIF data
+//  4. Determines orientation based on EXIF data and/or image dimensions
+//  5. Returns an ImageInfo struct with the orientation information
+//
+// EXIF Orientation Values:
+//   - 1: Normal (0°)
+//   - 2: Flipped horizontally
+//   - 3: Rotated 180°
+//   - 4: Flipped vertically
+//   - 5: Rotated 90° CCW and flipped horizontally
+//   - 6: Rotated 90° CW
+//   - 7: Rotated 90° CW and flipped horizontally
+//   - 8: Rotated 90° CCW
 func checkOrientationWithEXIF(imagePath string) (*ImageInfo, error) {
 	file, err := os.Open(imagePath)
 	if err != nil {
@@ -238,7 +347,6 @@ func checkOrientationWithEXIF(imagePath string) (*ImageInfo, error) {
 	// 6 = Rotated 90° CW
 	// 7 = Rotated 90° CW and flipped horizontally
 	// 8 = Rotated 90° CCW
-
 	switch orientationValue {
 	case 1, 2, 3, 4:
 		// Normal orientation or flipped (but not rotated)
@@ -263,7 +371,15 @@ func checkOrientationWithEXIF(imagePath string) (*ImageInfo, error) {
 	return info, nil
 }
 
-// IsPortrait checks if image is in portrait orientation
+// IsPortrait checks if an image is in portrait orientation.
+// This function uses EXIF data if available to determine the true orientation.
+//
+// Parameters:
+//   - imagePath: Path to the image file to check
+//
+// Returns:
+//   - bool: True if the image is in portrait orientation
+//   - error: If the image cannot be read or processed
 func IsPortrait(imagePath string) (bool, error) {
 	info, err := checkOrientationWithEXIF(imagePath)
 	if err != nil {
@@ -272,7 +388,15 @@ func IsPortrait(imagePath string) (bool, error) {
 	return info.Orientation == OrientationPortrait, nil
 }
 
-// IsLandscape checks if image is in landscape orientation
+// IsLandscape checks if an image is in landscape orientation.
+// This function uses EXIF data if available to determine the true orientation.
+//
+// Parameters:
+//   - imagePath: Path to the image file to check
+//
+// Returns:
+//   - bool: True if the image is in landscape orientation
+//   - error: If the image cannot be read or processed
 func IsLandscape(imagePath string) (bool, error) {
 	info, err := checkOrientationWithEXIF(imagePath)
 	if err != nil {
