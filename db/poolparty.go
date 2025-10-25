@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -204,7 +205,7 @@ func (c *PoolPartyClient) LoadTemplate(templateName string) (*template.Template,
 	templatePath := filepath.Join(c.TemplateDir, templateName)
 
 	// Read template file
-	content, err := ioutil.ReadFile(templatePath)
+	content, err := os.ReadFile(templatePath)
 	if err != nil {
 		return nil, fmt.Errorf("error reading template %s: %w", templatePath, err)
 	}
@@ -307,7 +308,7 @@ func (c *PoolPartyClient) ExecuteSPARQL(projectID, query, contentType string) ([
 	defer resp.Body.Close()
 
 	// Read response
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading response: %w", err)
 	}
@@ -403,7 +404,7 @@ func (c *PoolPartyClient) ListProjects() ([]Project, error) {
 				continue
 			}
 
-			body, _ := ioutil.ReadAll(resp.Body)
+			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 
 			if resp.StatusCode == http.StatusOK {
@@ -465,7 +466,7 @@ func (c *PoolPartyClient) GetProjectDetails(projectID string) (*Project, error) 
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading response: %w", err)
 	}

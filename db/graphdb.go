@@ -43,7 +43,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -520,7 +520,7 @@ func GraphDBRestoreConf(url string, user string, pass string, restoreFile string
 	if err != nil {
 		return err
 	}
-	fData, err := ioutil.ReadFile(restoreFile)
+	fData, err := os.ReadFile(restoreFile)
 	if err != nil {
 		return err
 	}
@@ -618,7 +618,7 @@ func GraphDBRestoreConf(url string, user string, pass string, restoreFile string
 //	2. Restore repository data from BRF file
 //	3. Verify data integrity and accessibility
 func GraphDBRestoreBrf(url string, user string, pass string, restoreFile string) error {
-	fData, err := ioutil.ReadFile(restoreFile)
+	fData, err := os.ReadFile(restoreFile)
 	if err != nil {
 		return err
 	}
@@ -714,7 +714,7 @@ func GraphDBRestoreBrf(url string, user string, pass string, restoreFile string)
 //   - Time-based: separate graphs for different time periods
 //   - Access-based: separate graphs for different security levels
 func GraphDBImportGraphRdf(url, user, pass, repo, graph, restoreFile string) error {
-	fData, err := ioutil.ReadFile(restoreFile)
+	fData, err := os.ReadFile(restoreFile)
 	if err != nil {
 		return err
 	}

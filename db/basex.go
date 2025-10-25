@@ -10,7 +10,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
+	
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -114,7 +114,7 @@ func BaseXCreateDB(dbName string) error {
 	defer resp.Body.Close()
 
 	// Read response
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func BaseXSaveDocument(dbName, docID string, xmlData []byte) error {
 	defer resp.Body.Close()
 
 	// Read response
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func BaseXQuery(db, doc, query string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	// Read results
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 // BaseXUploadFile uploads a file to a BaseX database using the REST API.
@@ -256,7 +256,7 @@ func BaseXQuery(db, doc, query string) ([]byte, error) {
 //	}
 func BaseXUploadFile(dbName, localFilePath, remotePath string) (*UploadResult, error) {
 	// Read file content
-	fileContent, err := ioutil.ReadFile(localFilePath)
+	fileContent, err := os.ReadFile(localFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
@@ -286,7 +286,7 @@ func BaseXUploadFile(dbName, localFilePath, remotePath string) (*UploadResult, e
 	defer resp.Body.Close()
 
 	// Read response body
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
@@ -335,7 +335,7 @@ func BaseXUploadFile(dbName, localFilePath, remotePath string) (*UploadResult, e
 //	}
 func BaseXUploadXMLFile(dbName, localFilePath, remotePath string) (*UploadResult, error) {
 	// Read XML file content
-	xmlContent, err := ioutil.ReadFile(localFilePath)
+	xmlContent, err := os.ReadFile(localFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read XML file: %w", err)
 	}
@@ -386,7 +386,7 @@ func BaseXUploadXMLFile(dbName, localFilePath, remotePath string) (*UploadResult
 //	result, err := BaseXUploadBinaryFile("mydb", "/tmp/image.jpg", "images/photo.jpg")
 func BaseXUploadBinaryFile(dbName, localFilePath, remotePath string) (*UploadResult, error) {
 	// Read file content
-	fileContent, err := ioutil.ReadFile(localFilePath)
+	fileContent, err := os.ReadFile(localFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
@@ -415,7 +415,7 @@ func BaseXUploadBinaryFile(dbName, localFilePath, remotePath string) (*UploadRes
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}

@@ -47,7 +47,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"unicode/utf8"
@@ -211,7 +211,7 @@ func ListRepositories(serverURL, username, password string) ([]Repository, error
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("failed to list repositories. Status: %s, Body: %s", resp.Status, string(body))
 	}
 
@@ -378,7 +378,7 @@ func ImportRDF(serverURL, repositoryID, username, password, rdfFilePath, content
 	defer resp.Body.Close()
 
 	// Read and return server response
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -482,16 +482,16 @@ func ExportRDFXml(serverURL, repositoryID, username, password, outputFilePath, c
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to export data. Status: %s, Body: %s", resp.Status, string(body))
 	}
 
-	rdfData, err := ioutil.ReadAll(resp.Body)
+	rdfData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	if err := ioutil.WriteFile(outputFilePath, rdfData, 0644); err != nil {
+	if err := os.WriteFile(outputFilePath, rdfData, 0644); err != nil {
 		return fmt.Errorf("failed to write RDF data to file: %w", err)
 	}
 
@@ -591,7 +591,7 @@ func DeleteRepository(serverURL, repositoryID, username, password string) error 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to delete repository. Status: %s, Body: %s", resp.Status, string(body))
 	}
 
@@ -711,7 +711,7 @@ func CreateRepository(serverURL, repositoryID, username, password string) error 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to create repository. Status: %d , Body: %s", resp.StatusCode, string(body))
 	}
 
@@ -847,7 +847,7 @@ func CreateLMDBRepository(serverURL, repositoryID, username, password string) er
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to create LMDB repository. Status: %s, Body: %s", resp.Status, string(body))
 	}
 

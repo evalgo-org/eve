@@ -48,7 +48,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/build"
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -425,7 +424,7 @@ func ContainersListToJSON(ctx context.Context, cli *client.Client) string {
 	if err != nil {
 		Logger.Error(err)
 	}
-	err = ioutil.WriteFile("containers.json", containersJson, 0644)
+	err = os.WriteFile("containers.json", containersJson, 0644)
 	if err != nil {
 		Logger.Error(err)
 	}

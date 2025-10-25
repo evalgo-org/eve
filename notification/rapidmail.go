@@ -16,7 +16,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"io/ioutil"
+	
 	"net/http"
 	"os"
 	"path/filepath"
@@ -91,7 +91,7 @@ func RapidMailCreateContentFromFile(htmlFilePath string) (string, error) {
 	}
 
 	// Read ZIP file
-	zipData, err := ioutil.ReadFile(zipFileName)
+	zipData, err := os.ReadFile(zipFileName)
 	if err != nil {
 		return "", err
 	}
