@@ -42,9 +42,9 @@ package deploy
 
 import (
 	"context"
+
 	eve "eve.evalgo.org/common"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -294,7 +294,9 @@ import (
 //	- Maintain documentation for security policies and procedures
 func DeployInfisical(ctx context.Context, cli *client.Client, imageTag, containerName, volumeName string, envVars []string) error {
 	// Ensure Infisical image is available locally
-	eve.ImagePull(ctx, cli, imageTag, image.PullOptions{})
+	if err := eve.ImagePull(ctx, cli, imageTag, &eve.ImagePullOptions{Silent: true}); err != nil {
+		return err
+	}
 
 	// Configure network port mapping for web interface access
 	port, _ := nat.NewPort("tcp", "8080")

@@ -17,7 +17,6 @@ import (
 
 	eve "eve.evalgo.org/common"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -58,10 +57,18 @@ import (
 //   - zammad-backup: Backup storage for Zammad
 func DeployZammad(ctx context.Context, cli *client.Client, prefix, net string, openziti bool) error {
 	// Pull all required Docker images
-	eve.ImagePull(ctx, cli, "postgres:17.5-alpine", image.PullOptions{})
-	eve.ImagePull(ctx, cli, "bitnami/elasticsearch:8.18.0", image.PullOptions{})
-	eve.ImagePull(ctx, cli, "ghcr.io/zammad/zammad:6.5.0-101", image.PullOptions{})
-	eve.ImagePull(ctx, cli, "redis:7.4.4-alpine", image.PullOptions{})
+	if err := eve.ImagePull(ctx, cli, "postgres:17.5-alpine", nil); err != nil {
+		return err
+	}
+	if err := eve.ImagePull(ctx, cli, "bitnami/elasticsearch:8.18.0", nil); err != nil {
+		return err
+	}
+	if err := eve.ImagePull(ctx, cli, "ghcr.io/zammad/zammad:6.5.0-101", nil); err != nil {
+		return err
+	}
+	if err := eve.ImagePull(ctx, cli, "redis:7.4.4-alpine", nil); err != nil {
+		return err
+	}
 
 	// Set container names with prefix
 	zammad_postgres := prefix + "-postgresql"

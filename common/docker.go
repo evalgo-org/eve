@@ -502,144 +502,112 @@ func ImagesList(ctx context.Context, cli *client.Client) {
 	}
 }
 
-// ImagePull downloads a Docker image from a registry with custom pull options.
-// This function provides full control over the image pull process including
-// authentication, platform selection, and progress monitoring.
-//
-// Pull Process:
-//   - Initiates image download from specified registry
-//   - Streams pull progress to stdout for real-time feedback
-//   - Supports custom pull options for advanced scenarios
-//   - Handles multi-architecture and platform-specific images
-//
-// Parameters:
-//   - ctx: Context for operation cancellation and timeout
-//   - cli: Docker API client instance
-//   - image: Image reference (repository:tag or repository@digest)
-//   - po: Pull options including authentication and platform settings
-//
-// Pull Options Support:
-//   - Registry authentication for private repositories
-//   - Platform specification for multi-architecture images
-//   - All-tags option for downloading all image tags
-//   - Custom registry configuration
-//
-// Error Handling:
-//   - Panics on pull initiation failure (network, authentication)
-//   - Fatal logging on stream copy failure (I/O issues)
-//
-// Progress Monitoring:
-//
-//	Streams pull progress directly to stdout, providing real-time
-//	feedback about download status, layer extraction, and completion.
-//
-// Example Usage:
-//
-//	opts := image.PullOptions{
-//	    RegistryAuth: RegistryAuth("user", "pass"),
-//	}
-//	ImagePull(ctx, cli, "myregistry.com/myimage:latest", opts)
-func ImagePull(ctx context.Context, cli *client.Client, image string, po image.PullOptions) {
-	reader, err := cli.ImagePull(ctx, image, po)
-	if err != nil {
-		panic(err)
-	}
-	_, err = io.Copy(os.Stdout, reader)
-	if err != nil {
-		Logger.Fatal(err)
-	}
+// ImagePullOptions contains options for pulling Docker images.
+type ImagePullOptions struct {
+	// Username for registry authentication (optional)
+	Username string
+	// Password for registry authentication (optional)
+	Password string
+	// Platform specifies target architecture (e.g., "linux/amd64", "linux/arm64")
+	Platform string
+	// Silent suppresses output to stdout (writes to io.Discard instead)
+	Silent bool
+	// Custom pull options (optional, overrides other settings if provided)
+	CustomOptions *image.PullOptions
 }
 
-// ImagePullUpstream downloads a Docker image from public registries without authentication.
-// This function provides a simplified interface for pulling publicly available
-// images from Docker Hub and other public registries.
+// ImagePull downloads a Docker image from a registry with flexible configuration options.
+// This consolidated function handles all image pulling scenarios: public, private,
+// silent, and with custom options.
 //
-// Public Registry Support:
-//   - Docker Hub (default registry for unqualified names)
-//   - Public registries with anonymous access
-//   - Official images and community contributions
-//   - Multi-architecture image support
+// Authentication:
+//   - For public registries: leave Username and Password empty
+//   - For private registries: provide Username and Password
+//   - Supports Docker Hub, ACR, ECR, GCR, and self-hosted registries
 //
 // Parameters:
 //   - ctx: Context for operation cancellation and timeout
 //   - cli: Docker API client instance
 //   - imageTag: Image reference (repository:tag format)
+//   - opts: ImagePullOptions struct (can be nil for defaults)
 //
 // Image Reference Formats:
 //   - Short names: "nginx:latest" (resolves to docker.io/library/nginx:latest)
 //   - Fully qualified: "docker.io/library/nginx:latest"
-//   - Alternative registries: "quay.io/prometheus/prometheus:latest"
+//   - Private registry: "myregistry.com/myimage:v1.0"
 //
 // Error Handling:
-//   - Panics on pull initiation failure
-//   - Fatal logging on progress stream failure
+//   - Returns error for graceful handling (does not panic)
+//   - Caller is responsible for error handling
 //
-// Use Cases:
-//   - Development environment setup
-//   - CI/CD pipeline image preparation
-//   - Base image updates and maintenance
-//   - Quick testing and experimentation
+// Example Usage:
 //
-// Performance Notes:
-//   - Leverages Docker's layer caching for efficiency
-//   - Progress feedback helps monitor large image downloads
-//   - Network interruptions may require retry logic
+//	// Public image
+//	err := ImagePull(ctx, cli, "nginx:latest", nil)
+//
+//	// Private image with auth
+//	err := ImagePull(ctx, cli, "myregistry.com/app:v1", &ImagePullOptions{
+//	    Username: "user",
+//	    Password: "pass",
+//	})
+//
+//	// Silent pull (no output)
+//	err := ImagePull(ctx, cli, "nginx:latest", &ImagePullOptions{Silent: true})
+//
+//	// Custom platform
+//	err := ImagePull(ctx, cli, "nginx:latest", &ImagePullOptions{Platform: "linux/arm64"})
+func ImagePull(ctx context.Context, cli *client.Client, imageTag string, opts *ImagePullOptions) error {
+	var pullOpts image.PullOptions
+
+	// Use custom options if provided
+	if opts != nil && opts.CustomOptions != nil {
+		pullOpts = *opts.CustomOptions
+	} else if opts != nil {
+		// Build pull options from individual settings
+		if opts.Username != "" && opts.Password != "" {
+			pullOpts.RegistryAuth = RegistryAuth(opts.Username, opts.Password)
+		}
+		if opts.Platform != "" {
+			pullOpts.Platform = opts.Platform
+		}
+	}
+
+	reader, err := cli.ImagePull(ctx, imageTag, pullOpts)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	// Output handling
+	var output io.Writer = os.Stdout
+	if opts != nil && opts.Silent {
+		output = io.Discard
+	}
+
+	_, err = io.Copy(output, reader)
+	return err
+}
+
+// ImagePullUpstream downloads a Docker image from public registries without authentication.
+// Deprecated: Use ImagePull(ctx, cli, imageTag, nil) instead.
+// This function is maintained for backward compatibility.
 func ImagePullUpstream(ctx context.Context, cli *client.Client, imageTag string) {
-	reader, err := cli.ImagePull(ctx, imageTag, image.PullOptions{})
+	err := ImagePull(ctx, cli, imageTag, nil)
 	if err != nil {
 		panic(err)
-	}
-	_, err = io.Copy(os.Stdout, reader)
-	if err != nil {
-		Logger.Fatal(err)
 	}
 }
 
 // ImageAuthPull downloads a Docker image from a private registry with authentication.
-// This function combines registry authentication with image pulling, providing
-// a convenient interface for accessing private repositories.
-//
-// Authentication Process:
-//   - Creates registry authentication from provided credentials
-//   - Supports username/password and token-based authentication
-//   - Compatible with Docker Hub private repositories and enterprise registries
-//   - Handles authentication encoding automatically
-//
-// Parameters:
-//   - ctx: Context for operation cancellation and timeout
-//   - cli: Docker API client instance
-//   - imageTag: Image reference including registry and tag
-//   - user: Registry username or service account
-//   - pass: Registry password, token, or access key
-//
-// Registry Compatibility:
-//   - Docker Hub private repositories
-//   - Azure Container Registry (ACR)
-//   - Amazon Elastic Container Registry (ECR)
-//   - Google Container Registry (GCR)
-//   - Self-hosted registries (Harbor, Nexus, etc.)
-//
-// Security Considerations:
-//   - Credentials are passed as parameters (consider secure injection)
-//   - Authentication data is temporarily held in memory
-//   - Use environment variables or secret management for production
-//   - Avoid hardcoding credentials in source code
-//
-// Error Handling:
-//   - Panics on authentication or pull failure
-//   - Fatal logging on progress stream issues
-//
-// Example Usage:
-//
-//	ImageAuthPull(ctx, cli, "myregistry.com/private/image:v1.0", "username", "password")
+// Deprecated: Use ImagePull(ctx, cli, imageTag, &ImagePullOptions{Username: user, Password: pass}) instead.
+// This function is maintained for backward compatibility.
 func ImageAuthPull(ctx context.Context, cli *client.Client, imageTag, user, pass string) {
-	reader, err := cli.ImagePull(ctx, imageTag, image.PullOptions{RegistryAuth: RegistryAuth(user, pass)})
+	err := ImagePull(ctx, cli, imageTag, &ImagePullOptions{
+		Username: user,
+		Password: pass,
+	})
 	if err != nil {
 		panic(err)
-	}
-	_, err = io.Copy(os.Stdout, reader)
-	if err != nil {
-		Logger.Fatal(err)
 	}
 }
 
@@ -1512,7 +1480,10 @@ func CreateAndStartContainer(ctx context.Context, cli *client.Client, config con
 func CopyToVolume(copyInfo CopyToVolumeOptions) error {
 	// create container with copyInfo.Volume mounted from copyInfo.Image
 	// pull image
-	ImagePull(copyInfo.Ctx, copyInfo.Client, copyInfo.Image, image.PullOptions{})
+	err := ImagePull(copyInfo.Ctx, copyInfo.Client, copyInfo.Image, &ImagePullOptions{Silent: true})
+	if err != nil {
+		return err
+	}
 	// create volume if it does not exist
 	copyInfo.Client.VolumeCreate(copyInfo.Ctx, volume.CreateOptions{
 		Name: copyInfo.Volume,

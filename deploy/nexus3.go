@@ -42,9 +42,9 @@ package deploy
 
 import (
 	"context"
+
 	eve "eve.evalgo.org/common"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -318,7 +318,9 @@ import (
 func DeployNexus3(ctx context.Context, cli *client.Client, imageTag, containerName, volumeName string) {
 	// Ensure Nexus Repository Manager image is available locally
 	eve.Logger.Info("Pulling image:", imageTag)
-	eve.ImagePull(ctx, cli, imageTag, image.PullOptions{})
+	if err := eve.ImagePull(ctx, cli, imageTag, nil); err != nil {
+		eve.Logger.Fatal("Failed to pull image:", err)
+	}
 
 	// Configure network port mapping for web interface and API access
 	port, _ := nat.NewPort("tcp", "8081")

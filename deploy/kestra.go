@@ -453,6 +453,9 @@ func DeployKestra(ctx context.Context, cli *client.Client) {
 			"POSTGRES_PASSWORD=kestrapassword",
 			"POSTGRES_USER=kestra",
 			"POSTGRES_DB=kestra",
+		}, &PostgresDeployOptions{
+			PullImage:    true,
+			CreateVolume: false,
 		})
 
 	// Wait for database initialization and readiness

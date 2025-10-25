@@ -50,11 +50,11 @@ package deploy
 
 import (
 	"context"
-	"github.com/docker/docker/api/types/image"
+
+	"eve.evalgo.org/common"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
-	"io"
 )
 
 // CreateVolume creates a named Docker volume for persistent data storage.
@@ -337,13 +337,7 @@ func CreateNetwork(ctx context.Context, cli *client.Client, name string) error {
 //   - Monitor image pull metrics and performance
 //   - Implement automated image update and security scanning
 func PullImage(cli *client.Client, ctx context.Context, imageTag string) error {
-	out, err := cli.ImagePull(ctx, imageTag, image.PullOptions{})
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	io.Copy(io.Discard, out)
-	return nil
+	return common.ImagePull(ctx, cli, imageTag, &common.ImagePullOptions{Silent: true})
 }
 
 // Commented deployment functions demonstrate comprehensive application stack deployment.
