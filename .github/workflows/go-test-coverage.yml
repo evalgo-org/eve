@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  security-events: write
 
 jobs:
   test:
@@ -160,6 +161,9 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout code
@@ -178,5 +182,24 @@ jobs:
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
         with:
           sarif_file: results.sarif
+
+      - name: Display security scan results
+        if: always()
+        run: |
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ -f results.sarif ]; then
+            echo "SARIF report generated successfully"
+            # Count issues if jq is available
+            if command -v jq &> /dev/null; then
+              ISSUE_COUNT=$(jq '.runs[0].results | length' results.sarif 2>/dev/null || echo "0")
+              echo "Total issues found: $ISSUE_COUNT"
+            fi
+          else
+            echo "No security issues found or scan failed"
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
