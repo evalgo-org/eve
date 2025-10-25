@@ -1,0 +1,50 @@
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+  allow-parallel-runners: true
+
+linters:
+  enable:
+    - errcheck
+    - unused
+    - ineffassign
+    - staticcheck
+    - govet
+    - gofmt
+    - goimports
+  disable:
+    - typecheck
+  disable-all: false
+
+linters-settings:
+  errcheck:
+    check-blank: true
+    check-type-assertions: false
+  staticcheck:
+    checks: ["all"]
+
+issues:
+  exclude-files:
+    - ".*\\.pb\\.go$"
+  exclude-dirs:
+    - vendor
+    - kvm
+  exclude-rules:
+    # Exclude some linters from running on tests files.
+    - path: _test\.go
+      linters:
+        - errcheck
+    # Allow embedding without using all methods
+    - linters:
+        - unused
+      text: "is unused"
+      source: "embed"
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true

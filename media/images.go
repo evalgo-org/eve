@@ -301,7 +301,17 @@ func checkOrientationWithEXIF(imagePath string) (*ImageInfo, error) {
 	}
 
 	// Reset file pointer for EXIF reading
-	file.Seek(0, 0)
+	if _, err := file.Seek(0, 0); err != nil {
+		// If seek fails, fall back to dimensions only
+		if config.Width > config.Height {
+			info.Orientation = OrientationLandscape
+		} else if config.Height > config.Width {
+			info.Orientation = OrientationPortrait
+		} else {
+			info.Orientation = OrientationSquare
+		}
+		return info, nil
+	}
 
 	// Try to read EXIF data
 	exifData, err := exif.Decode(file)

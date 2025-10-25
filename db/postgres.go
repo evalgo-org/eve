@@ -246,7 +246,9 @@ func PGMigrations(pgUrl string) {
 	}
 
 	// Perform automatic schema migration for RabbitLog model
-	db.AutoMigrate(&RabbitLog{})
+	if err := db.AutoMigrate(&RabbitLog{}); err != nil {
+		panic(err)
+	}
 }
 
 // PGRabbitLogNew creates a new RabbitMQ log entry in the database.
