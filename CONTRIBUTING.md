@@ -7,7 +7,7 @@ Thank you for your interest in contributing to Eve! This document provides guide
 1. **Prerequisites**
    - Go 1.21 or higher
    - Git
-   - Make (optional, but recommended)
+   - Task (install from https://taskfile.dev)
 
 2. **Clone the repository**
    ```bash
@@ -22,7 +22,7 @@ Thank you for your interest in contributing to Eve! This document provides guide
 
 4. **Install development tools** (optional)
    ```bash
-   make install-tools
+   task install-tools
    ```
 
 ## Testing Requirements
@@ -33,16 +33,16 @@ All contributions must include appropriate tests and maintain or improve code co
 
 ```bash
 # Quick test run
-make test
+task test
 
 # Full coverage report
-make coverage
+task coverage
 
 # View HTML coverage report
-make coverage-html
+task coverage:html
 
 # Run benchmarks
-make benchmark
+task benchmark
 ```
 
 ### Coverage Requirements
@@ -114,13 +114,13 @@ Before submitting a pull request, ensure:
 
 ```bash
 # Run all checks
-make all
+task all
 
 # Or run individually
-make test         # All tests pass
-make coverage     # Coverage meets threshold
-make lint         # No linting errors
-make security     # No security issues
+task test         # All tests pass
+task coverage     # Coverage meets threshold
+task lint         # No linting errors
+task security     # No security issues
 ```
 
 ## Pull Request Process
@@ -137,7 +137,7 @@ make security     # No security issues
 
 3. **Verify all checks pass**
    ```bash
-   make all
+   task all
    ```
 
 4. **Commit your changes**
