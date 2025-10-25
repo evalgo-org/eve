@@ -211,7 +211,10 @@ func ListRepositories(serverURL, username, password string) ([]Repository, error
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list repositories. Status: %s, read error: %v", resp.Status, err)
+		}
 		return nil, fmt.Errorf("failed to list repositories. Status: %s, Body: %s", resp.Status, string(body))
 	}
 
@@ -482,7 +485,10 @@ func ExportRDFXml(serverURL, repositoryID, username, password, outputFilePath, c
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to export data. Status: %s, read error: %v", resp.Status, err)
+		}
 		return fmt.Errorf("failed to export data. Status: %s, Body: %s", resp.Status, string(body))
 	}
 
@@ -591,7 +597,10 @@ func DeleteRepository(serverURL, repositoryID, username, password string) error 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("HTTP error. Status: %s, read error: %v", resp.Status, err)
+		}
 		return fmt.Errorf("failed to delete repository. Status: %s, Body: %s", resp.Status, string(body))
 	}
 
@@ -711,7 +720,10 @@ func CreateRepository(serverURL, repositoryID, username, password string) error 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return fmt.Errorf("failed to create repository. Status: %d, read error: %v", resp.StatusCode, readErr)
+		}
 		return fmt.Errorf("failed to create repository. Status: %d , Body: %s", resp.StatusCode, string(body))
 	}
 
@@ -847,7 +859,10 @@ func CreateLMDBRepository(serverURL, repositoryID, username, password string) er
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("HTTP error. Status: %s, read error: %v", resp.Status, err)
+		}
 		return fmt.Errorf("failed to create LMDB repository. Status: %s, Body: %s", resp.Status, string(body))
 	}
 

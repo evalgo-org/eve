@@ -404,8 +404,11 @@ func (c *PoolPartyClient) ListProjects() ([]Project, error) {
 				continue
 			}
 
-			body, _ := io.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			resp.Body.Close()
+			if err != nil {
+				continue
+			}
 
 			if resp.StatusCode == http.StatusOK {
 				// Try to parse as JSON
