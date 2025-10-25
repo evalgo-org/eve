@@ -1,8 +1,14 @@
 package common
 
 import (
+	"archive/tar"
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -495,5 +501,366 @@ func BenchmarkContainerViewJSON(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = json.Marshal(cv)
+	}
+}
+
+// TestParseEnvFile tests environment file parsing
+func TestParseEnvFile(t *testing.T) {
+	t.Run("valid env file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envFile := filepath.Join(tmpDir, ".env")
+
+		content := `# This is a comment
+DATABASE_URL=postgres://localhost:5432/mydb
+API_KEY=secret123
+PORT=8080
+
+# Another comment
+DEBUG=true`
+
+		err := os.WriteFile(envFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		envs, err := parseEnvFile(envFile)
+		require.NoError(t, err)
+
+		expected := []string{
+			"DATABASE_URL=postgres://localhost:5432/mydb",
+			"API_KEY=secret123",
+			"PORT=8080",
+			"DEBUG=true",
+		}
+
+		assert.Equal(t, expected, envs)
+	})
+
+	t.Run("empty file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envFile := filepath.Join(tmpDir, ".env")
+
+		err := os.WriteFile(envFile, []byte(""), 0644)
+		require.NoError(t, err)
+
+		envs, err := parseEnvFile(envFile)
+		require.NoError(t, err)
+		assert.Empty(t, envs)
+	})
+
+	t.Run("only comments", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envFile := filepath.Join(tmpDir, ".env")
+
+		content := `# Comment 1
+# Comment 2
+# Comment 3`
+
+		err := os.WriteFile(envFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		envs, err := parseEnvFile(envFile)
+		require.NoError(t, err)
+		assert.Empty(t, envs)
+	})
+
+	t.Run("mixed empty lines and comments", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envFile := filepath.Join(tmpDir, ".env")
+
+		content := `
+# Header comment
+
+VAR1=value1
+
+# Middle comment
+
+VAR2=value2
+
+`
+
+		err := os.WriteFile(envFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		envs, err := parseEnvFile(envFile)
+		require.NoError(t, err)
+
+		expected := []string{"VAR1=value1", "VAR2=value2"}
+		assert.Equal(t, expected, envs)
+	})
+
+	t.Run("special characters in values", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envFile := filepath.Join(tmpDir, ".env")
+
+		content := `URL=https://example.com/path?query=value&other=test
+PASSWORD=p@ss!word#123
+JSON={"key":"value"}`
+
+		err := os.WriteFile(envFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		envs, err := parseEnvFile(envFile)
+		require.NoError(t, err)
+
+		assert.Len(t, envs, 3)
+		assert.Contains(t, envs, `URL=https://example.com/path?query=value&other=test`)
+		assert.Contains(t, envs, `PASSWORD=p@ss!word#123`)
+		assert.Contains(t, envs, `JSON={"key":"value"}`)
+	})
+
+	t.Run("nonexistent file", func(t *testing.T) {
+		envs, err := parseEnvFile("/nonexistent/path/.env")
+		assert.Error(t, err)
+		assert.Nil(t, envs)
+	})
+
+	t.Run("whitespace handling", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		envFile := filepath.Join(tmpDir, ".env")
+
+		content := `  VAR1=value1
+	VAR2=value2
+VAR3=value3`
+
+		err := os.WriteFile(envFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		envs, err := parseEnvFile(envFile)
+		require.NoError(t, err)
+
+		// Verify whitespace is trimmed
+		expected := []string{"VAR1=value1", "VAR2=value2", "VAR3=value3"}
+		assert.Equal(t, expected, envs)
+	})
+}
+
+// TestAddFileToTar tests adding files to tar archives
+func TestAddFileToTar(t *testing.T) {
+	t.Run("add single file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		testFile := filepath.Join(tmpDir, "test.txt")
+		content := "Hello, World!"
+
+		err := os.WriteFile(testFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		buf := new(bytes.Buffer)
+		tw := tar.NewWriter(buf)
+		defer tw.Close()
+
+		err = addFileToTar(tw, testFile, tmpDir, "dest")
+		require.NoError(t, err)
+
+		// Close writer to flush
+		tw.Close()
+
+		// Read tar and verify
+		tr := tar.NewReader(buf)
+		header, err := tr.Next()
+		require.NoError(t, err)
+
+		assert.Equal(t, "dest/test.txt", filepath.ToSlash(header.Name))
+		assert.Equal(t, int64(len(content)), header.Size)
+
+		data, err := io.ReadAll(tr)
+		require.NoError(t, err)
+		assert.Equal(t, content, string(data))
+	})
+
+	t.Run("add file with subdirectory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		subDir := filepath.Join(tmpDir, "subdir")
+		err := os.MkdirAll(subDir, 0755)
+		require.NoError(t, err)
+
+		testFile := filepath.Join(subDir, "nested.txt")
+		content := "nested content"
+
+		err = os.WriteFile(testFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		buf := new(bytes.Buffer)
+		tw := tar.NewWriter(buf)
+		defer tw.Close()
+
+		err = addFileToTar(tw, testFile, tmpDir, "target")
+		require.NoError(t, err)
+
+		tw.Close()
+
+		// Verify tar contents
+		tr := tar.NewReader(buf)
+		header, err := tr.Next()
+		require.NoError(t, err)
+
+		assert.Equal(t, "target/subdir/nested.txt", filepath.ToSlash(header.Name))
+	})
+
+	t.Run("nonexistent file error", func(t *testing.T) {
+		buf := new(bytes.Buffer)
+		tw := tar.NewWriter(buf)
+		defer tw.Close()
+
+		err := addFileToTar(tw, "/nonexistent/file.txt", "/tmp", "dest")
+		assert.Error(t, err)
+	})
+}
+
+// TestCreateTarArchive tests tar archive creation
+func TestCreateTarArchive(t *testing.T) {
+	t.Run("archive single file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		testFile := filepath.Join(tmpDir, "file.txt")
+		content := "test content"
+
+		err := os.WriteFile(testFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		buf, err := createTarArchive(testFile, "destination")
+		require.NoError(t, err)
+		assert.NotNil(t, buf)
+
+		// Verify tar contents
+		tr := tar.NewReader(buf)
+		header, err := tr.Next()
+		require.NoError(t, err)
+
+		// When archiving a single file, it gets placed under destFileName/filename
+		assert.Equal(t, "destination/file.txt", filepath.ToSlash(header.Name))
+		assert.Equal(t, int64(len(content)), header.Size)
+
+		data, err := io.ReadAll(tr)
+		require.NoError(t, err)
+		assert.Equal(t, content, string(data))
+	})
+
+	t.Run("archive directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create directory structure
+		err := os.MkdirAll(filepath.Join(tmpDir, "subdir"), 0755)
+		require.NoError(t, err)
+
+		file1 := filepath.Join(tmpDir, "file1.txt")
+		file2 := filepath.Join(tmpDir, "subdir", "file2.txt")
+
+		err = os.WriteFile(file1, []byte("content1"), 0644)
+		require.NoError(t, err)
+		err = os.WriteFile(file2, []byte("content2"), 0644)
+		require.NoError(t, err)
+
+		buf, err := createTarArchive(tmpDir, "archive")
+		require.NoError(t, err)
+		assert.NotNil(t, buf)
+
+		// Verify tar contains both files
+		tr := tar.NewReader(buf)
+		fileCount := 0
+		fileNames := []string{}
+
+		for {
+			header, err := tr.Next()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+			fileCount++
+			fileNames = append(fileNames, filepath.ToSlash(header.Name))
+		}
+
+		assert.Equal(t, 2, fileCount)
+		assert.Contains(t, fileNames, "archive/file1.txt")
+		assert.Contains(t, fileNames, "archive/subdir/file2.txt")
+	})
+
+	t.Run("archive empty directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		buf, err := createTarArchive(tmpDir, "empty")
+		require.NoError(t, err)
+		assert.NotNil(t, buf)
+
+		// Verify tar is valid but empty
+		tr := tar.NewReader(buf)
+		_, err = tr.Next()
+		assert.Equal(t, io.EOF, err)
+	})
+
+	t.Run("nonexistent path error", func(t *testing.T) {
+		buf, err := createTarArchive("/nonexistent/path", "dest")
+		assert.Error(t, err)
+		assert.Nil(t, buf)
+	})
+
+	t.Run("archive with multiple nested directories", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create nested structure
+		dirs := []string{
+			filepath.Join(tmpDir, "a"),
+			filepath.Join(tmpDir, "a", "b"),
+			filepath.Join(tmpDir, "c"),
+		}
+
+		for _, dir := range dirs {
+			err := os.MkdirAll(dir, 0755)
+			require.NoError(t, err)
+		}
+
+		// Create files in different locations
+		files := []string{
+			filepath.Join(tmpDir, "root.txt"),
+			filepath.Join(tmpDir, "a", "a.txt"),
+			filepath.Join(tmpDir, "a", "b", "b.txt"),
+			filepath.Join(tmpDir, "c", "c.txt"),
+		}
+
+		for _, file := range files {
+			err := os.WriteFile(file, []byte("content"), 0644)
+			require.NoError(t, err)
+		}
+
+		buf, err := createTarArchive(tmpDir, "nested")
+		require.NoError(t, err)
+
+		// Count files in archive
+		tr := tar.NewReader(buf)
+		fileCount := 0
+
+		for {
+			_, err := tr.Next()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+			fileCount++
+		}
+
+		assert.Equal(t, 4, fileCount)
+	})
+}
+
+// BenchmarkParseEnvFile benchmarks environment file parsing
+func BenchmarkParseEnvFile(b *testing.B) {
+	tmpDir := b.TempDir()
+	envFile := filepath.Join(tmpDir, ".env")
+
+	content := strings.Repeat("VAR=value\n", 100)
+	os.WriteFile(envFile, []byte(content), 0644)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = parseEnvFile(envFile)
+	}
+}
+
+// BenchmarkCreateTarArchive benchmarks tar archive creation
+func BenchmarkCreateTarArchive(b *testing.B) {
+	tmpDir := b.TempDir()
+	testFile := filepath.Join(tmpDir, "test.txt")
+	os.WriteFile(testFile, []byte("benchmark content"), 0644)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = createTarArchive(testFile, "dest")
 	}
 }
