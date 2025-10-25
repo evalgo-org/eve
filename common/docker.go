@@ -41,7 +41,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,6 +49,7 @@ import (
 	"encoding/json"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/build"
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
@@ -212,8 +212,11 @@ func RegistryAuth(username string, password string) string {
 func CtxCli(socket string) (context.Context, *client.Client) {
 	ctx := context.Background()
 	defaultHeaders := map[string]string{"Content-Type": "application/tar"}
-	cli, err := client.NewClient(socket, "v1.49", nil, defaultHeaders)
-	// Alternative: cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.NewClientWithOpts(
+		client.WithHost(socket),
+		client.WithHTTPHeaders(defaultHeaders),
+		client.WithAPIVersionNegotiation(),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -360,7 +363,10 @@ func Containers_stop_all(ctx context.Context, cli *client.Client) {
 func ContainersList(ctx context.Context, cli *client.Client) []ContainerView {
 	containers := Containers(ctx, cli)
 	nContainers := make([]ContainerView, len(containers))
-	localHost, _ := os.Hostname()
+	localHost, err := os.Hostname()
+	if err != nil {
+		localHost = "unknown"
+	}
 	for _, container := range containers {
 		nContainers = append(nContainers, ContainerView{
 			ID:     container.ID,
@@ -660,18 +666,34 @@ func ImageAuthPull(ctx context.Context, cli *client.Client, imageTag, user, pass
 //	ImageBuild(ctx, cli, "/path/to/project", "Dockerfile", "myapp:latest")
 func ImageBuild(ctx context.Context, cli *client.Client, workDir string, dockerFile string, tag string) {
 	dockerBuildContext, err := os.Open("test.tar")
+	if err != nil {
+		Logger.Fatal(err)
+	}
 	defer dockerBuildContext.Close()
-	opt := types.ImageBuildOptions{
+
+	opt := build.ImageBuildOptions{
 		Tags:       []string{tag},
 		Dockerfile: dockerFile,
 	}
-	filePath, _ := homedir.Expand(workDir)
-	buildCtx, _ := archive.TarWithOptions(filePath, &archive.TarOptions{})
+
+	filePath, err := homedir.Expand(workDir)
+	if err != nil {
+		Logger.Fatal(err)
+	}
+
+	buildCtx, err := archive.TarWithOptions(filePath, &archive.TarOptions{})
+	if err != nil {
+		Logger.Fatal(err)
+	}
+
 	x, err := cli.ImageBuild(context.Background(), buildCtx, opt)
 	if err != nil {
 		Logger.Fatal(err)
 	}
-	io.Copy(os.Stdout, x.Body)
+
+	if _, err := io.Copy(os.Stdout, x.Body); err != nil {
+		Logger.Error("Failed to copy build output:", err)
+	}
 	defer x.Body.Close()
 }
 
@@ -1485,9 +1507,12 @@ func CopyToVolume(copyInfo CopyToVolumeOptions) error {
 		return err
 	}
 	// create volume if it does not exist
-	copyInfo.Client.VolumeCreate(copyInfo.Ctx, volume.CreateOptions{
+	if _, err := copyInfo.Client.VolumeCreate(copyInfo.Ctx, volume.CreateOptions{
 		Name: copyInfo.Volume,
-	})
+	}); err != nil {
+		Logger.Info("Volume may already exist or creation failed:", err)
+		// Continue anyway as volume might already exist
+	}
 	// create container
 	resp, err := copyInfo.Client.ContainerCreate(copyInfo.Ctx, &containertypes.Config{
 		Image: copyInfo.Image,
