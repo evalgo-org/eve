@@ -52,6 +52,7 @@ import (
 	"time"
 
 	eve "eve.evalgo.org/common"
+	"eve.evalgo.org/network"
 )
 
 // HttpClient provides the global HTTP client for GraphDB operations.
@@ -197,7 +198,7 @@ type GraphDBResponse struct {
 //   - Dynamic policy enforcement and access control
 //   - Protection against network-based attacks and reconnaissance
 func GraphDBZitiClient(identityFile, serviceName string) (*http.Client, error) {
-	zitiTransport, err := ZitiSetup(identityFile, serviceName)
+	zitiTransport, err := network.ZitiSetup(identityFile, serviceName)
 	if err != nil {
 		return nil, err
 	}
