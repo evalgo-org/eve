@@ -11,5 +11,5 @@ id_ed25519*
 .DS_Store
 *.env
 backups
-coverage_final.out
-coverage.out
+coverage*.out
+
