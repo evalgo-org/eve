@@ -1521,3 +1521,216 @@ func CopyToVolume(copyInfo CopyToVolumeOptions) error {
 	}
 	return nil
 }
+
+// CreateVolume creates a named Docker volume for persistent data storage.
+// This function establishes persistent storage that survives container lifecycle events,
+// enabling data persistence, sharing between containers, and backup capabilities.
+//
+// Volume Management:
+//
+//	Docker volumes provide persistent storage with several advantages:
+//	- Data persistence across container restarts and deletions
+//	- Sharing data between multiple containers safely
+//	- Volumes managed independently from container lifecycle
+//	- Better performance than bind mounts on some systems
+//	- Easy backup and migration strategies
+//
+// Parameters:
+//   - ctx: Context for operation cancellation and timeout control
+//   - cli: Docker client for API communication
+//   - name: Volume name for identification and mounting
+//
+// Returns:
+//   - error: Volume creation failures, name conflicts, or Docker API errors
+//
+// Storage Drivers:
+//
+//	Docker uses various storage drivers based on the host system:
+//	- overlay2: Default on most Linux systems
+//	- aufs: Legacy driver for older systems
+//	- btrfs: For systems with Btrfs filesystem
+//	- zfs: For systems with ZFS filesystem
+//	- devicemapper: For systems requiring direct block storage
+//
+// Volume Lifecycle:
+//
+//	Volumes exist independently of containers:
+//	1. Created explicitly (this function) or implicitly with containers
+//	2. Mounted to one or more containers for data access
+//	3. Data persists when containers are stopped or removed
+//	4. Explicitly removed when no longer needed
+//
+// Error Conditions:
+//   - Volume name conflicts with existing volumes
+//   - Docker daemon connectivity or configuration issues
+//   - Insufficient disk space for volume creation
+//   - Storage driver failures or misconfigurations
+//   - Permission issues with volume creation
+//
+// Example Usage:
+//
+//	ctx := context.Background()
+//	cli, err := client.NewClientWithOpts(client.FromEnv)
+//	if err != nil {
+//	    log.Fatal("Failed to create Docker client:", err)
+//	}
+//	defer cli.Close()
+//
+//	err = CreateVolume(ctx, cli, "postgres_data")
+//	if err != nil {
+//	    log.Printf("Volume creation failed: %v", err)
+//	    return
+//	}
+//
+//	log.Println("Volume created successfully")
+//
+// Volume Naming:
+//   - Use descriptive names that indicate data purpose
+//   - Include application or service identifiers
+//   - Consider environment prefixes (dev, staging, prod)
+//   - Follow consistent naming conventions
+//
+// Data Persistence:
+//
+//	Volumes provide reliable data persistence for:
+//	- Database storage and transaction logs
+//	- Application configuration and state
+//	- User-generated content and uploads
+//	- Build artifacts and caches
+//	- Log files and audit trails
+//
+// Volume Sharing:
+//
+//	Multiple containers can mount the same volume:
+//	- Read-write access for data collaboration
+//	- Read-only mounts for shared configuration
+//	- Concurrent access with proper locking mechanisms
+//	- Data sharing between application tiers
+//
+// Backup Strategies:
+//   - Mount volumes to backup containers for data export
+//   - Use docker cp to extract data from volumes
+//   - Implement scheduled backup jobs with volume mounting
+//   - Consider volume snapshots for quick recovery
+//   - Test restoration procedures regularly
+//
+// Performance Considerations:
+//   - Volumes generally faster than bind mounts
+//   - Performance varies by storage driver and backend
+//   - Monitor disk I/O and implement optimization
+//   - Consider storage backend selection for workloads
+//   - Plan capacity and implement monitoring
+//
+// Security:
+//   - Volumes inherit host filesystem permissions
+//   - Implement access controls through container users
+//   - Encrypt sensitive data at rest
+//   - Regular security scanning of volume contents
+//   - Implement audit logging for volume access
+//
+// Best Practices:
+//   - Create volumes before starting dependent containers
+//   - Use meaningful names that reflect the data purpose
+//   - Document volume purposes and data retention policies
+//   - Implement backup strategies for critical data volumes
+//   - Monitor volume usage and implement cleanup procedures
+func CreateVolume(ctx context.Context, cli *client.Client, name string) error {
+	_, err := cli.VolumeCreate(ctx, volume.CreateOptions{
+		Name: name,
+	})
+	return err
+}
+
+// CreateNetwork creates a custom Docker bridge network for service communication.
+// This function establishes isolated network environments for multi-container
+// applications, enabling secure service-to-service communication and network segmentation.
+//
+// Network Architecture:
+//
+//	Bridge networks provide several networking features:
+//	- Automatic service discovery through container names
+//	- Network isolation from other applications
+//	- Custom IP address management and allocation
+//	- Port exposure control and security
+//	- DNS resolution for container communication
+//
+// Parameters:
+//   - ctx: Context for operation cancellation and timeout control
+//   - cli: Docker client for API communication
+//   - name: Network name for identification and container attachment
+//
+// Returns:
+//   - error: Network creation failures, name conflicts, or Docker API errors
+//
+// Bridge Network Benefits:
+//   - Container-to-container communication using container names
+//   - Network isolation from host and other Docker networks
+//   - Automatic IP address assignment and management
+//   - Built-in DNS resolution for service discovery
+//   - Port mapping control for external access
+//
+// Service Communication:
+//
+//	Containers on the same bridge network can communicate using:
+//	- Container names as hostnames for DNS resolution
+//	- Internal ports without explicit mapping
+//	- Automatic load balancing for replicated services
+//	- Secure communication without host network exposure
+//
+// Security Features:
+//   - Network-level isolation between different applications
+//   - Controlled ingress and egress traffic flow
+//   - No external access unless explicitly configured
+//   - Integration with Docker's security policies
+//   - Support for encrypted overlay networks in swarm mode
+//
+// Error Conditions:
+//   - Network name conflicts with existing networks
+//   - Docker daemon connectivity or configuration issues
+//   - Network driver failures or misconfigurations
+//   - IP address range conflicts with existing networks
+//   - Insufficient system resources for network creation
+//
+// Example Usage:
+//
+//	ctx := context.Background()
+//	cli, err := client.NewClientWithOpts(client.FromEnv)
+//	if err != nil {
+//	    log.Fatal("Failed to create Docker client:", err)
+//	}
+//	defer cli.Close()
+//
+//	err = CreateNetwork(ctx, cli, "app_network")
+//	if err != nil {
+//	    log.Printf("Network creation failed: %v", err)
+//	    return
+//	}
+//
+//	log.Println("Network created successfully")
+//
+// Network Naming:
+//   - Use descriptive names that indicate application or purpose
+//   - Include environment indicators (dev, staging, prod)
+//   - Follow consistent naming conventions across deployments
+//   - Consider service or application prefixes
+//
+// Multi-Service Applications:
+//
+//	Bridge networks enable complex application architectures:
+//	- Web applications communicating with databases
+//	- Microservice architectures with service discovery
+//	- API gateways routing to backend services
+//	- Message queues connecting distributed components
+//
+// Monitoring and Troubleshooting:
+//   - Use docker network inspect for configuration details
+//   - Monitor network connectivity between containers
+//   - Implement health checks for service availability
+//   - Log network-related errors and connectivity issues
+//   - Consider network performance monitoring for optimization
+func CreateNetwork(ctx context.Context, cli *client.Client, name string) error {
+	_, err := cli.NetworkCreate(ctx, name, network.CreateOptions{
+		Driver: "bridge",
+	})
+	return err
+}

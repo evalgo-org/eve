@@ -52,8 +52,6 @@ import (
 	"context"
 
 	"eve.evalgo.org/common"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 )
 
@@ -134,11 +132,10 @@ import (
 //   - Document volume purposes and data retention policies
 //   - Implement backup strategies for critical data volumes
 //   - Monitor volume usage and implement cleanup procedures
+// CreateVolume creates a Docker volume for persistent data storage.
+// Deprecated: Use common.CreateVolume instead.
 func CreateVolume(ctx context.Context, cli *client.Client, name string) error {
-	_, err := cli.VolumeCreate(ctx, volume.CreateOptions{
-		Name: name,
-	})
-	return err
+	return common.CreateVolume(ctx, cli, name)
 }
 
 // CreateNetwork creates a custom Docker bridge network for service communication.
@@ -228,11 +225,10 @@ func CreateVolume(ctx context.Context, cli *client.Client, name string) error {
 //   - Implement health checks for service availability
 //   - Log network-related errors and connectivity issues
 //   - Consider network performance monitoring for optimization
+// CreateNetwork creates a Docker bridge network for service communication.
+// Deprecated: Use common.CreateNetwork instead.
 func CreateNetwork(ctx context.Context, cli *client.Client, name string) error {
-	_, err := cli.NetworkCreate(ctx, name, network.CreateOptions{
-		Driver: "bridge",
-	})
-	return err
+	return common.CreateNetwork(ctx, cli, name)
 }
 
 // PullImage downloads a Docker image from a registry to the local Docker daemon.
