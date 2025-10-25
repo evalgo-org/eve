@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -187,5 +188,158 @@ func BenchmarkZitiCreateCSR(b *testing.B) {
 		ZitiCreateCSR(privPath, csrPath)
 		os.Remove(privPath)
 		os.Remove(csrPath)
+	}
+}
+
+// TestNewJWTService tests JWT service initialization
+func TestNewJWTService(t *testing.T) {
+	tests := []struct {
+		name   string
+		secret string
+	}{
+		{
+			name:   "SimpleSecret",
+			secret: "test-secret",
+		},
+		{
+			name:   "LongSecret",
+			secret: "this-is-a-very-long-secret-key-for-testing-purposes",
+		},
+		{
+			name:   "EmptySecret",
+			secret: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := NewJWTService(tt.secret)
+			assert.NotNil(t, service)
+			assert.NotNil(t, service.secret)
+			assert.Equal(t, []byte(tt.secret), service.secret)
+		})
+	}
+}
+
+// TestJWTService_GenerateToken tests token generation
+func TestJWTService_GenerateToken(t *testing.T) {
+	service := NewJWTService("test-secret-key")
+
+	tests := []struct {
+		name       string
+		userID     string
+		expiration time.Duration
+	}{
+		{
+			name:       "OneHourExpiration",
+			userID:     "user123",
+			expiration: time.Hour,
+		},
+		{
+			name:       "OneMinuteExpiration",
+			userID:     "user456",
+			expiration: time.Minute,
+		},
+		{
+			name:       "EmptyUserID",
+			userID:     "",
+			expiration: time.Hour,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, err := service.GenerateToken(tt.userID, tt.expiration)
+			assert.NoError(t, err)
+			assert.NotEmpty(t, token)
+
+			// Token should have 3 parts separated by dots (header.payload.signature)
+			parts := strings.Split(token, ".")
+			assert.Equal(t, 3, len(parts))
+		})
+	}
+}
+
+// TestJWTService_ValidateToken tests token validation
+func TestJWTService_ValidateToken(t *testing.T) {
+	service := NewJWTService("test-secret-key")
+
+	t.Run("ValidToken", func(t *testing.T) {
+		// Generate a valid token
+		tokenStr, err := service.GenerateToken("user789", time.Hour)
+		require.NoError(t, err)
+
+		// Validate it
+		token, err := service.ValidateToken(tokenStr)
+		assert.NoError(t, err)
+		assert.NotNil(t, token)
+		assert.Equal(t, "user789", token.Subject())
+	})
+
+	t.Run("InvalidToken", func(t *testing.T) {
+		_, err := service.ValidateToken("invalid.token.here")
+		assert.Error(t, err)
+	})
+
+	t.Run("EmptyToken", func(t *testing.T) {
+		_, err := service.ValidateToken("")
+		assert.Error(t, err)
+	})
+
+	t.Run("WrongSecret", func(t *testing.T) {
+		// Generate token with one service
+		service1 := NewJWTService("secret1")
+		tokenStr, err := service1.GenerateToken("user999", time.Hour)
+		require.NoError(t, err)
+
+		// Try to validate with different secret
+		service2 := NewJWTService("secret2")
+		_, err = service2.ValidateToken(tokenStr)
+		assert.Error(t, err)
+	})
+}
+
+// TestJWTService_TokenRoundtrip tests full token lifecycle
+func TestJWTService_TokenRoundtrip(t *testing.T) {
+	service := NewJWTService("roundtrip-secret")
+
+	userID := "test-user-123"
+	expiration := time.Hour
+
+	// Generate token
+	tokenStr, err := service.GenerateToken(userID, expiration)
+	require.NoError(t, err)
+	assert.NotEmpty(t, tokenStr)
+
+	// Validate token
+	token, err := service.ValidateToken(tokenStr)
+	require.NoError(t, err)
+	assert.NotNil(t, token)
+
+	// Verify claims
+	assert.Equal(t, userID, token.Subject())
+	assert.False(t, token.IssuedAt().IsZero())
+	assert.False(t, token.Expiration().IsZero())
+	assert.True(t, token.Expiration().After(time.Now()))
+}
+
+// BenchmarkJWTService_GenerateToken benchmarks token generation
+func BenchmarkJWTService_GenerateToken(b *testing.B) {
+	service := NewJWTService("benchmark-secret")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = service.GenerateToken("user123", time.Hour)
+	}
+}
+
+// BenchmarkJWTService_ValidateToken benchmarks token validation
+func BenchmarkJWTService_ValidateToken(b *testing.B) {
+	service := NewJWTService("benchmark-secret")
+	token, _ := service.GenerateToken("user123", time.Hour)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = service.ValidateToken(token)
 	}
 }
