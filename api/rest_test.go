@@ -179,3 +179,205 @@ func TestApi(t *testing.T) {
 		assert.Equal(t, userJSON+"\n", rec.Body.String())
 	}
 }
+
+// TestAPIKeyAuth_ValidKey tests middleware with valid API key
+func TestAPIKeyAuth_ValidKey(t *testing.T) {
+	e := echo.New()
+	validKey := "test-api-key-123"
+
+	// Create request with valid API key
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-API-Key", validKey)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	// Create middleware
+	middleware := APIKeyAuth(validKey)
+	handler := middleware(func(c echo.Context) error {
+		return c.String(http.StatusOK, "authorized")
+	})
+
+	// Execute handler
+	err := handler(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "authorized", rec.Body.String())
+}
+
+// TestAPIKeyAuth_InvalidKey tests middleware with invalid API key
+func TestAPIKeyAuth_InvalidKey(t *testing.T) {
+	e := echo.New()
+	validKey := "test-api-key-123"
+
+	// Create request with invalid API key
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-API-Key", "wrong-key")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	// Create middleware
+	middleware := APIKeyAuth(validKey)
+	handler := middleware(func(c echo.Context) error {
+		return c.String(http.StatusOK, "should not reach here")
+	})
+
+	// Execute handler
+	err := handler(c)
+	assert.Error(t, err)
+
+	// Verify it's an HTTP error with status 401
+	httpErr, ok := err.(*echo.HTTPError)
+	assert.True(t, ok)
+	assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
+	assert.Equal(t, "invalid or missing API key", httpErr.Message)
+}
+
+// TestAPIKeyAuth_MissingKey tests middleware with missing API key
+func TestAPIKeyAuth_MissingKey(t *testing.T) {
+	e := echo.New()
+	validKey := "test-api-key-123"
+
+	// Create request without API key
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	// Create middleware
+	middleware := APIKeyAuth(validKey)
+	handler := middleware(func(c echo.Context) error {
+		return c.String(http.StatusOK, "should not reach here")
+	})
+
+	// Execute handler
+	err := handler(c)
+	assert.Error(t, err)
+
+	// Verify it's an HTTP error with status 401
+	httpErr, ok := err.(*echo.HTTPError)
+	assert.True(t, ok)
+	assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
+	assert.Equal(t, "invalid or missing API key", httpErr.Message)
+}
+
+// TestAPIKeyAuth_EmptyKey tests middleware with empty API key
+func TestAPIKeyAuth_EmptyKey(t *testing.T) {
+	e := echo.New()
+	validKey := "test-api-key-123"
+
+	// Create request with empty API key
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-API-Key", "")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	// Create middleware
+	middleware := APIKeyAuth(validKey)
+	handler := middleware(func(c echo.Context) error {
+		return c.String(http.StatusOK, "should not reach here")
+	})
+
+	// Execute handler
+	err := handler(c)
+	assert.Error(t, err)
+
+	// Verify it's an HTTP error with status 401
+	httpErr, ok := err.(*echo.HTTPError)
+	assert.True(t, ok)
+	assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
+}
+
+// TestAPIKeyAuth_CaseSensitive tests that API keys are case-sensitive
+func TestAPIKeyAuth_CaseSensitive(t *testing.T) {
+	e := echo.New()
+	validKey := "TestKey123"
+
+	tests := []struct {
+		name        string
+		providedKey string
+		expectAuth  bool
+	}{
+		{
+			name:        "ExactMatch",
+			providedKey: "TestKey123",
+			expectAuth:  true,
+		},
+		{
+			name:        "Lowercase",
+			providedKey: "testkey123",
+			expectAuth:  false,
+		},
+		{
+			name:        "Uppercase",
+			providedKey: "TESTKEY123",
+			expectAuth:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.Header.Set("X-API-Key", tt.providedKey)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			middleware := APIKeyAuth(validKey)
+			handler := middleware(func(c echo.Context) error {
+				return c.String(http.StatusOK, "authorized")
+			})
+
+			err := handler(c)
+
+			if tt.expectAuth {
+				assert.NoError(t, err)
+				assert.Equal(t, http.StatusOK, rec.Code)
+			} else {
+				assert.Error(t, err)
+				httpErr, ok := err.(*echo.HTTPError)
+				assert.True(t, ok)
+				assert.Equal(t, http.StatusUnauthorized, httpErr.Code)
+			}
+		})
+	}
+}
+
+// TestAPIKeyAuth_MultipleRequests tests middleware with sequential requests
+func TestAPIKeyAuth_MultipleRequests(t *testing.T) {
+	e := echo.New()
+	validKey := "my-secret-key"
+	middleware := APIKeyAuth(validKey)
+
+	requests := []struct {
+		name      string
+		apiKey    string
+		expectOK  bool
+	}{
+		{"FirstValid", validKey, true},
+		{"Invalid", "wrong-key", false},
+		{"SecondValid", validKey, true},
+		{"Missing", "", false},
+		{"ThirdValid", validKey, true},
+	}
+
+	for _, tt := range requests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			if tt.apiKey != "" {
+				req.Header.Set("X-API-Key", tt.apiKey)
+			}
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			handler := middleware(func(c echo.Context) error {
+				return c.String(http.StatusOK, "OK")
+			})
+
+			err := handler(c)
+
+			if tt.expectOK {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+			}
+		})
+	}
+}
