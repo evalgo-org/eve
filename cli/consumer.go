@@ -156,6 +156,11 @@ type Config struct {
 	ApiKey      string // API key for authentication (if required)
 }
 
+type HTTPClient interface {
+    Do(*http.Request) (*http.Response, error)
+	Get(url string) (*http.Response, error)
+}
+
 // Consumer handles the complete RabbitMQ message consumption workflow.
 // It manages connections to both RabbitMQ and CouchDB, processes incoming
 // messages, and maintains process state with full error handling and recovery.
@@ -170,7 +175,7 @@ type Consumer struct {
 	config     Config           // Application configuration
 	connection *amqp.Connection // Active RabbitMQ connection
 	channel    *amqp.Channel    // RabbitMQ channel for message operations
-	httpClient *http.Client     // HTTP client for CouchDB operations
+	httpClient HTTPClient     // HTTP client for CouchDB operations
 }
 
 // Props represents properties for process operations.

@@ -7,11 +7,10 @@
 package assets
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -391,6 +390,7 @@ func ExampleInvComponentsWithParams() {
 
 	orderComponents := InvComponentsWithParams("https://api.example.com", "your-auth-token", orderParams)
 	// Process order-specific components...
+	fmt.Println(orderComponents)
 
 	// Output: Component inventory data retrieved successfully
 }
