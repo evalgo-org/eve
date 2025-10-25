@@ -358,10 +358,18 @@ func BenchmarkInvComponentsWithParams(b *testing.B) {
 //   - Error handling patterns
 //   - Response processing approaches
 func ExampleInvComponentsWithParams() {
+	// Create a mock server for the example
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"components":[{"id":1,"name":"Component 1"}],"total":1}`))
+	}))
+	defer server.Close()
+
 	// Basic usage with default parameters
-	components := InvComponents("https://api.example.com", "your-auth-token")
+	components := InvComponents(server.URL, "your-auth-token")
 	if components != "" {
-		// Process JSON response...
+		fmt.Println("Components retrieved successfully")
 	}
 
 	// Advanced usage with custom parameters
@@ -374,9 +382,9 @@ func ExampleInvComponentsWithParams() {
 		Expand:      true,
 	}
 
-	detailedComponents := InvComponentsWithParams("https://api.example.com", "your-auth-token", params)
+	detailedComponents := InvComponentsWithParams(server.URL, "your-auth-token", params)
 	if detailedComponents != "" {
-		// Process expanded JSON response...
+		fmt.Println("Detailed components retrieved successfully")
 	}
 
 	// Filter by specific order number
@@ -388,9 +396,13 @@ func ExampleInvComponentsWithParams() {
 		Order:       "desc",
 	}
 
-	orderComponents := InvComponentsWithParams("https://api.example.com", "your-auth-token", orderParams)
-	// Process order-specific components...
-	fmt.Println(orderComponents)
+	orderComponents := InvComponentsWithParams(server.URL, "your-auth-token", orderParams)
+	if orderComponents != "" {
+		fmt.Println("Order components retrieved successfully")
+	}
 
-	// Output: Component inventory data retrieved successfully
+	// Output:
+	// Components retrieved successfully
+	// Detailed components retrieved successfully
+	// Order components retrieved successfully
 }
