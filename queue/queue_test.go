@@ -276,10 +276,10 @@ func TestFlowConfig_Validation(t *testing.T) {
 // TestPublishMessage_MessageFormatting tests message format
 func TestPublishMessage_MessageFormatting(t *testing.T) {
 	tests := []struct {
-		name            string
-		message         eve.FlowProcessMessage
-		expectedFields  []string
-		expectedValues  map[string]interface{}
+		name           string
+		message        eve.FlowProcessMessage
+		expectedFields []string
+		expectedValues map[string]interface{}
 	}{
 		{
 			name: "CompleteMessage",
@@ -347,8 +347,8 @@ func TestPublishMessage_MessageFormatting(t *testing.T) {
 // TestErrorWrapping tests error message formatting
 func TestErrorWrapping(t *testing.T) {
 	tests := []struct {
-		name          string
-		config        eve.FlowConfig
+		name           string
+		config         eve.FlowConfig
 		expectContains string
 	}{
 		{

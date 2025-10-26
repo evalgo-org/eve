@@ -85,10 +85,10 @@ func TestDownloadFile(t *testing.T) {
 		validateHeader bool
 	}{
 		{
-			name:       "SuccessfulDownload",
-			content:    "Hello, World!",
-			token:      "",
-			statusCode: http.StatusOK,
+			name:        "SuccessfulDownload",
+			content:     "Hello, World!",
+			token:       "",
+			statusCode:  http.StatusOK,
 			expectError: false,
 		},
 		{

@@ -4,8 +4,9 @@
 package api
 
 import (
-	"github.com/labstack/echo/v4"
 	"net/http"
+
+	"github.com/labstack/echo/v4"
 )
 
 // APIKeyAuth creates an Echo middleware function that validates API keys from request headers.

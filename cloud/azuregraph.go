@@ -45,6 +45,7 @@ package cloud
 
 import (
 	"context"
+
 	eve "eve.evalgo.org/common"
 	azidentity "github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	msgraphsdk "github.com/microsoftgraph/msgraph-sdk-go"

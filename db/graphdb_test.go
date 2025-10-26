@@ -371,7 +371,7 @@ func TestGraphDBDeleteRepository(t *testing.T) {
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		err := GraphDBDeleteRepository(server.URL, "", "", "nonexistent")
 		assert.Error(t, err)
@@ -404,7 +404,7 @@ func TestGraphDBRepositoryConf(t *testing.T) {
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		filename := GraphDBRepositoryConf(server.URL, "", "", "test-repo")
 		assert.Equal(t, "test-repo.ttl", filename)
@@ -437,7 +437,7 @@ func TestGraphDBRepositoryBrf(t *testing.T) {
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		filename := GraphDBRepositoryBrf(server.URL, "", "", "test-repo")
 		assert.Equal(t, "test-repo.brf", filename)
@@ -473,7 +473,7 @@ func TestGraphDBExportGraphRdf(t *testing.T) {
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		err := GraphDBExportGraphRdf(server.URL, "", "", "test-repo", "http://example.org/graph/1", exportFile)
 		require.NoError(t, err)
@@ -499,7 +499,7 @@ HttpClient = server.Client()
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		err := GraphDBExportGraphRdf(server.URL, "user1", "pass1", "repo", "http://graph", exportFile)
 		assert.NoError(t, err)
@@ -535,7 +535,7 @@ func TestGraphDBImportGraphRdf(t *testing.T) {
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		err = GraphDBImportGraphRdf(server.URL, "", "", "test-repo", "http://example.org/graph/import", importFile)
 		assert.NoError(t, err)
@@ -570,7 +570,7 @@ func TestGraphDBRestoreConf(t *testing.T) {
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		err = GraphDBRestoreConf(server.URL, "", "", configFile)
 		assert.NoError(t, err)
@@ -604,7 +604,7 @@ func TestGraphDBRestoreBrf(t *testing.T) {
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		err = GraphDBRestoreBrf(server.URL, "", "", brfFile)
 		assert.NoError(t, err)
@@ -624,7 +624,7 @@ HttpClient = server.Client()
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		err = GraphDBRestoreBrf(server.URL, "", "", brfFile)
 		assert.NoError(t, err)
@@ -648,7 +648,7 @@ func TestGraphDBDeleteGraph(t *testing.T) {
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		err := GraphDBDeleteGraph(server.URL, "", "", "test-repo", "http://example.org/graph/delete")
 		assert.NoError(t, err)
@@ -664,7 +664,7 @@ HttpClient = server.Client()
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		graphURI := "http://example.org/test-graph"
 		GraphDBDeleteGraph(server.URL, "", "", "repo", graphURI)
@@ -872,7 +872,7 @@ func TestErrorMessageFormats(t *testing.T) {
 		}))
 		defer server.Close()
 
-HttpClient = server.Client()
+		HttpClient = server.Client()
 
 		err := GraphDBDeleteRepository(server.URL, "", "", "test")
 		require.Error(t, err)

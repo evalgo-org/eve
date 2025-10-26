@@ -368,8 +368,8 @@ func TestDeleteVMIntegration(t *testing.T) {
 func TestCreateVMResult(t *testing.T) {
 	t.Run("Result structure fields", func(t *testing.T) {
 		result := &VMResult{
-			VMName:   "test-vm",
-			ImagePath: "/path/to/image.qcow2",
+			VMName:       "test-vm",
+			ImagePath:    "/path/to/image.qcow2",
 			CloudInitISO: "/path/to/iso",
 		}
 

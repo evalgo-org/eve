@@ -182,7 +182,6 @@ func TestFlowProcessDocument(t *testing.T) {
 	assert.Equal(t, FlowProcessState("running"), doc.State)
 }
 
-
 // BenchmarkURLToFilePath benchmarks URL conversion
 func BenchmarkURLToFilePath(b *testing.B) {
 	url := "https://api.example.com/v1/users/123/profile"

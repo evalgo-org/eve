@@ -113,9 +113,9 @@ func TestSPARQLResult(t *testing.T) {
 // TestSPARQLValue tests SPARQL value struct
 func TestSPARQLValue(t *testing.T) {
 	tests := []struct {
-		name     string
-		value    SPARQLValue
-		jsonStr  string
+		name    string
+		value   SPARQLValue
+		jsonStr string
 	}{
 		{
 			name:    "URI value",

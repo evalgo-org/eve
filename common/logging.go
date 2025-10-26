@@ -36,8 +36,9 @@ package common
 
 import (
 	"bytes"
-	"github.com/sirupsen/logrus"
 	"os"
+
+	"github.com/sirupsen/logrus"
 )
 
 // OutputSplitter implements intelligent log output routing based on log content analysis.

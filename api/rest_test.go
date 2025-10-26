@@ -5,13 +5,14 @@
 package api
 
 import (
-	"github.com/labstack/echo/v4"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
 )
 
 // mockDB represents an in-memory database for testing purposes.
@@ -347,9 +348,9 @@ func TestAPIKeyAuth_MultipleRequests(t *testing.T) {
 	middleware := APIKeyAuth(validKey)
 
 	requests := []struct {
-		name      string
-		apiKey    string
-		expectOK  bool
+		name     string
+		apiKey   string
+		expectOK bool
 	}{
 		{"FirstValid", validKey, true},
 		{"Invalid", "wrong-key", false},

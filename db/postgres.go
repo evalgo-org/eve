@@ -42,11 +42,12 @@ package db
 import (
 	"encoding/base64"
 	"encoding/json"
-	eve "eve.evalgo.org/common"
 	"fmt"
+	"time"
+
+	eve "eve.evalgo.org/common"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"time"
 )
 
 // RabbitLog represents a RabbitMQ message processing log entry in the database.

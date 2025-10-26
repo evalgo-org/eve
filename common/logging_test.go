@@ -15,9 +15,9 @@ func TestOutputSplitter_ErrorToStderr(t *testing.T) {
 	splitter := &OutputSplitter{}
 
 	tests := []struct {
-		name          string
-		logMessage    []byte
-		expectStderr  bool
+		name         string
+		logMessage   []byte
+		expectStderr bool
 	}{
 		{
 			name:         "ErrorLevel",

@@ -36,9 +36,10 @@
 package common
 
 import (
-	"github.com/streadway/amqp"
 	"net/http"
 	"time"
+
+	"github.com/streadway/amqp"
 )
 
 // FlowProcessState represents the possible states of a workflow process in the EVE system.

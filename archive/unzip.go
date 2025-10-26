@@ -9,11 +9,12 @@ package archive
 
 import (
 	"archive/zip"
-	eve "eve.evalgo.org/common"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	eve "eve.evalgo.org/common"
 )
 
 // UnZip extracts all files from a ZIP archive to a specified target directory.

@@ -27,11 +27,11 @@ func TestCreateZipFromHTML(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
-		name           string
-		htmlContent    string
-		htmlFileName   string
-		zipFileName    string
-		expectError    bool
+		name         string
+		htmlContent  string
+		htmlFileName string
+		zipFileName  string
+		expectError  bool
 	}{
 		{
 			name:         "SimpleHTML",
@@ -104,10 +104,10 @@ func TestCreateZipFromHTML_InvalidInput(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
-		name        string
-		htmlPath    string
-		zipPath     string
-		createHTML  bool
+		name       string
+		htmlPath   string
+		zipPath    string
+		createHTML bool
 	}{
 		{
 			name:       "NonExistentHTMLFile",
@@ -216,9 +216,9 @@ func TestRapidMailCreateContentFromFile_InvalidInput(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
-		name         string
-		htmlPath     string
-		expectError  bool
+		name        string
+		htmlPath    string
+		expectError bool
 	}{
 		{
 			name:        "NonExistentFile",
@@ -280,10 +280,10 @@ func TestRapidMailSend(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:        "EmptyRecipients",
-			htmlContent: "<html><body><p>Test</p></body></html>",
-			subject:     "Test",
-			recipients:  []map[string]interface{}{},
+			name:           "EmptyRecipients",
+			htmlContent:    "<html><body><p>Test</p></body></html>",
+			subject:        "Test",
+			recipients:     []map[string]interface{}{},
 			responseStatus: http.StatusOK,
 			responseBody:   `{"status":"success"}`,
 			expectError:    false,
@@ -342,8 +342,8 @@ func TestRapidMailSend_InvalidHTML(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		htmlPath  string
+		name     string
+		htmlPath string
 	}{
 		{
 			name:     "NonExistentFile",

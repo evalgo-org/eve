@@ -577,11 +577,11 @@ func TestDrawBackground(t *testing.T) {
 
 			// Verify a few random pixels have the correct color
 			testPoints := [][2]int{
-				{0, 0},                                  // Top-left
-				{tt.width - 1, 0},                       // Top-right
-				{0, tt.height - 1},                      // Bottom-left
-				{tt.width - 1, tt.height - 1},           // Bottom-right
-				{tt.width / 2, tt.height / 2},           // Center
+				{0, 0},                        // Top-left
+				{tt.width - 1, 0},             // Top-right
+				{0, tt.height - 1},            // Bottom-left
+				{tt.width - 1, tt.height - 1}, // Bottom-right
+				{tt.width / 2, tt.height / 2}, // Center
 			}
 
 			for _, pt := range testPoints {

@@ -36,7 +36,7 @@ func TestExtractMACFromXML(t *testing.T) {
 			expected: "52:54:00:aa:bb:cc",
 		},
 		{
-			name: "MAC on single line",
+			name:     "MAC on single line",
 			xmlInput: `<mac address="52:54:00:de:ad:be"/>`,
 			expected: "52:54:00:de:ad:be",
 		},
@@ -83,12 +83,12 @@ func TestExtractMACFromXML(t *testing.T) {
 			expected: "52:54:00:11:11:11",
 		},
 		{
-			name: "Uppercase MAC",
+			name:     "Uppercase MAC",
 			xmlInput: `<mac address="52:54:00:AA:BB:CC"/>`,
 			expected: "52:54:00:AA:BB:CC",
 		},
 		{
-			name: "Mixed quotes priority (single quote found first)",
+			name:     "Mixed quotes priority (single quote found first)",
 			xmlInput: `<mac address='52:54:00:11:11:11'/>`,
 			expected: "52:54:00:11:11:11",
 		},

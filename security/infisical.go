@@ -34,9 +34,10 @@ package security
 
 import (
 	"context"
-	infisical "github.com/infisical/go-sdk"
 	"os"
 	"strings"
+
+	infisical "github.com/infisical/go-sdk"
 
 	eve "eve.evalgo.org/common"
 )
