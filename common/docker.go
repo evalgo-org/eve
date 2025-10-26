@@ -1761,3 +1761,186 @@ func CreateNetwork(ctx context.Context, cli *client.Client, name string) error {
 	})
 	return err
 }
+
+// Helper functions that accept DockerClient interface for testing
+
+// ContainersListWithClient is a testable version of ContainersList
+func ContainersListWithClient(ctx context.Context, cli DockerClient) []ContainerView {
+	containers, err := cli.ContainerList(ctx, containertypes.ListOptions{})
+	if err != nil {
+		panic(err)
+	}
+	nContainers := make([]ContainerView, len(containers))
+	localHost, err := os.Hostname()
+	if err != nil {
+		localHost = "unknown"
+	}
+	for _, container := range containers {
+		nContainers = append(nContainers, ContainerView{
+			ID:     container.ID,
+			Name:   container.Names[0],
+			Status: container.Status,
+			Host:   localHost,
+		})
+	}
+	return nContainers
+}
+
+// ContainersListToJSONWithClient is a testable version of ContainersListToJSON
+func ContainersListToJSONWithClient(ctx context.Context, cli DockerClient) string {
+	cList := ContainersListWithClient(ctx, cli)
+	containersJson, err := json.Marshal(cList)
+	if err != nil {
+		Logger.Error(err)
+	}
+	err = os.WriteFile("containers.json", containersJson, 0644)
+	if err != nil {
+		Logger.Error(err)
+	}
+	return "containers.json"
+}
+
+// ContainerExistsWithClient is a testable version of ContainerExists
+func ContainerExistsWithClient(ctx context.Context, cli DockerClient, name string) (bool, error) {
+	containers, err := cli.ContainerList(ctx, containertypes.ListOptions{
+		All: true,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to list containers: %w", err)
+	}
+
+	for _, container := range containers {
+		for _, n := range container.Names {
+			if n == "/"+name {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+// CreateVolumeWithClient is a testable version of CreateVolume
+func CreateVolumeWithClient(ctx context.Context, cli DockerClient, name string) error {
+	_, err := cli.VolumeCreate(ctx, volume.CreateOptions{
+		Name: name,
+	})
+	return err
+}
+
+// CreateNetworkWithClient is a testable version of CreateNetwork
+func CreateNetworkWithClient(ctx context.Context, cli DockerClient, name string) error {
+	_, err := cli.NetworkCreate(ctx, name, network.CreateOptions{
+		Driver: "bridge",
+	})
+	return err
+}
+
+// AddContainerToNetworkWithClient is a testable version of AddContainerToNetwork
+func AddContainerToNetworkWithClient(ctx context.Context, cli DockerClient, containerID, networkName string) error {
+	return cli.NetworkConnect(ctx, networkName, containerID, &networktypes.EndpointSettings{})
+}
+
+// ImagePullWithClient is a testable version of ImagePull
+func ImagePullWithClient(ctx context.Context, cli DockerClient, imageTag string, opts *ImagePullOptions) error {
+	var pullOpts image.PullOptions
+
+	if opts != nil && opts.CustomOptions != nil {
+		pullOpts = *opts.CustomOptions
+	} else if opts != nil {
+		if opts.Username != "" && opts.Password != "" {
+			pullOpts.RegistryAuth = RegistryAuth(opts.Username, opts.Password)
+		}
+		if opts.Platform != "" {
+			pullOpts.Platform = opts.Platform
+		}
+	}
+
+	reader, err := cli.ImagePull(ctx, imageTag, pullOpts)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	var output io.Writer = os.Stdout
+	if opts != nil && opts.Silent {
+		output = io.Discard
+	}
+
+	_, err = io.Copy(output, reader)
+	return err
+}
+
+// ImagePushWithClient is a testable version of ImagePush
+func ImagePushWithClient(ctx context.Context, cli DockerClient, tag, user, pass string) error {
+	resp, err := cli.ImagePush(ctx, tag, image.PushOptions{
+		RegistryAuth: RegistryAuth(user, pass),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to push image: %w", err)
+	}
+	defer resp.Close()
+
+	_, err = io.Copy(os.Stdout, resp)
+	if err != nil {
+		return fmt.Errorf("failed to copy push output: %w", err)
+	}
+
+	Logger.Info("\nImage push complete.")
+	return nil
+}
+
+// ContainerRunWithClient is a testable version of ContainerRun
+func ContainerRunWithClient(ctx context.Context, cli DockerClient, imageTag, cName string, envVars []string, remove bool) ([]byte, error) {
+	resp, err := cli.ContainerCreate(
+		ctx,
+		&containertypes.Config{
+			Image:        imageTag,
+			Env:          envVars,
+			AttachStdout: true,
+			AttachStderr: true},
+		&containertypes.HostConfig{AutoRemove: remove},
+		&networktypes.NetworkingConfig{},
+		&ocispec.Platform{},
+		cName)
+	if err != nil {
+		Logger.Info("error ", err)
+		return nil, err
+	}
+	Logger.Info(resp.ID)
+	err = cli.ContainerStart(ctx, resp.ID, containertypes.StartOptions{})
+	if err != nil {
+		Logger.Info("error ", err)
+		return nil, err
+	}
+	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, containertypes.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, err
+		}
+	case <-statusCh:
+	}
+	out, err := cli.ContainerLogs(ctx, resp.ID, containertypes.LogsOptions{ShowStdout: true})
+	if err != nil {
+		return nil, err
+	}
+	output, err := io.ReadAll(out)
+	if err != nil {
+		return nil, err
+	}
+	return output, nil
+}
+
+// CreateAndStartContainerWithClient is a testable version of CreateAndStartContainer
+func CreateAndStartContainerWithClient(ctx context.Context, cli DockerClient, config containertypes.Config, hostConfig containertypes.HostConfig, name, networkName string) error {
+	resp, err := cli.ContainerCreate(ctx, &config, &hostConfig, &networktypes.NetworkingConfig{
+		EndpointsConfig: map[string]*networktypes.EndpointSettings{networkName: {}},
+	}, nil, name)
+	if err != nil {
+		return err
+	}
+	if err = cli.ContainerStart(ctx, resp.ID, containertypes.StartOptions{}); err != nil {
+		return err
+	}
+	return nil
+}
