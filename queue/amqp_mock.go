@@ -42,15 +42,23 @@ type MockAMQPChannel struct {
 	// Errors to return from operations
 	QueueDeclareErr error
 	PublishErr      error
+	ConsumeErr      error
+	QueueInspectErr error
 	CloseErr        error
 	// Track function calls
 	QueueDeclareCalled bool
 	PublishCalled      bool
+	ConsumeCalled      bool
+	QueueInspectCalled bool
 	CloseCalled        bool
 	// Store last call parameters
 	LastQueueName string
 	LastExchange  string
 	LastKey       string
+	LastConsumer  string
+	// Mock data for queue inspection
+	QueueMessages  int
+	QueueConsumers int
 }
 
 // QueueDeclare mocks declaring a queue
@@ -78,6 +86,33 @@ func (m *MockAMQPChannel) Publish(exchange, key string, mandatory, immediate boo
 	m.PublishedMessages = append(m.PublishedMessages, msg)
 	m.PublishedKeys = append(m.PublishedKeys, key)
 	return nil
+}
+
+// Consume mocks consuming messages from a queue
+func (m *MockAMQPChannel) Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error) {
+	m.ConsumeCalled = true
+	m.LastQueueName = queue
+	m.LastConsumer = consumer
+	if m.ConsumeErr != nil {
+		return nil, m.ConsumeErr
+	}
+	// Return an empty channel for mocking
+	ch := make(chan amqp.Delivery)
+	return ch, nil
+}
+
+// QueueInspect mocks retrieving queue information
+func (m *MockAMQPChannel) QueueInspect(name string) (amqp.Queue, error) {
+	m.QueueInspectCalled = true
+	m.LastQueueName = name
+	if m.QueueInspectErr != nil {
+		return amqp.Queue{}, m.QueueInspectErr
+	}
+	return amqp.Queue{
+		Name:      name,
+		Messages:  m.QueueMessages,
+		Consumers: m.QueueConsumers,
+	}, nil
 }
 
 // Close mocks closing the channel

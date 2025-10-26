@@ -25,6 +25,12 @@ type AMQPChannel interface {
 	// Publish publishes a message to the specified exchange
 	Publish(exchange, key string, mandatory, immediate bool, msg amqp.Publishing) error
 
+	// Consume starts consuming messages from a queue
+	Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error)
+
+	// QueueInspect retrieves queue information
+	QueueInspect(name string) (amqp.Queue, error)
+
 	// Close closes the channel
 	Close() error
 }
@@ -68,6 +74,16 @@ func (r *RealAMQPChannel) QueueDeclare(name string, durable, autoDelete, exclusi
 // Publish publishes a message to the real channel
 func (r *RealAMQPChannel) Publish(exchange, key string, mandatory, immediate bool, msg amqp.Publishing) error {
 	return r.ch.Publish(exchange, key, mandatory, immediate, msg)
+}
+
+// Consume starts consuming messages from a queue on the real channel
+func (r *RealAMQPChannel) Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error) {
+	return r.ch.Consume(queue, consumer, autoAck, exclusive, noLocal, noWait, args)
+}
+
+// QueueInspect retrieves queue information from the real channel
+func (r *RealAMQPChannel) QueueInspect(name string) (amqp.Queue, error) {
+	return r.ch.QueueInspect(name)
 }
 
 // Close closes the real channel
