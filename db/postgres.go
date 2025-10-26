@@ -14,7 +14,7 @@
 //	Designed to capture and persist RabbitMQ message processing logs including:
 //	- Document processing states and transitions
 //	- Version tracking for document changes
-//	- Binary log data with base64 encoding
+//	- Binary log data with efficient bytea storage
 //	- Timestamp tracking with GORM's automatic timestamps
 //
 // Connection Management:
@@ -40,7 +40,6 @@
 package db
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -66,13 +65,13 @@ import (
 //   - DocumentID: Unique identifier for the processed document
 //   - State: Current processing state (started, running, completed, failed)
 //   - Version: Document version or processing version identifier
-//   - Log: Binary log data stored as base64-encoded text
+//   - Log: Binary log data stored as PostgreSQL bytea type
 //
 // Storage Considerations:
 //
-//	The Log field uses 'text' type instead of 'bytea' for broader compatibility
-//	and easier debugging, with base64 encoding to handle binary data safely.
-//	This trade-off prioritizes compatibility over storage efficiency.
+//	The Log field uses PostgreSQL's 'bytea' type for efficient binary data storage.
+//	This provides optimal performance and avoids encoding overhead while properly
+//	handling arbitrary binary content including null bytes and non-UTF8 data.
 //
 // Indexing Strategy:
 //
@@ -86,7 +85,7 @@ import (
 //   - DocumentID should be validated for proper format
 //   - State should be constrained to valid values
 //   - Version should follow semantic versioning if applicable
-//   - Log data should be validated for base64 encoding
+//   - Log data is stored as raw binary without encoding
 //
 // Example Database Record:
 //
@@ -97,14 +96,14 @@ import (
 //	  "DocumentID": "doc-12345",
 //	  "State": "completed",
 //	  "Version": "v1.2.3",
-//	  "Log": "SGVsbG8gV29ybGQ=" // base64 encoded log data
+//	  "Log": [binary data] // raw binary log data
 //	}
 type RabbitLog struct {
 	gorm.Model        // Embedded GORM model with ID, timestamps, soft delete
 	DocumentID string // Unique document identifier
 	State      string // Processing state (started, running, completed, failed)
 	Version    string // Document or processing version
-	Log        []byte `gorm:"type:text"` // Binary log data as base64-encoded text
+	Log        []byte `gorm:"type:bytea"` // Binary log data stored as PostgreSQL bytea
 }
 
 // PGInfo establishes a PostgreSQL connection and displays database information.
@@ -348,11 +347,11 @@ func PGRabbitLogNew(pgUrl, documentId, state, version string) {
 //   - Query errors are logged via eve.Logger.Error but don't halt execution
 //   - Graceful handling allows partial results even with some errors
 //
-// Log Data Decoding:
+// Log Data Display:
 //
-//	The Log field contains base64-encoded binary data which is displayed
-//	as a string for human readability, enabling inspection of log content
-//	without additional decoding steps.
+//	The Log field contains raw binary data which is displayed as a string
+//	for human readability, enabling inspection of log content. Binary data
+//	that is not valid UTF-8 may display with special characters.
 //
 // Performance Considerations:
 //   - Retrieves all records without pagination (may be slow with large datasets)
@@ -420,7 +419,7 @@ func PGRabbitLogList(pgUrl string) {
 //	- Marshals all log records to JSON byte array
 //	- Includes all fields from RabbitLog struct and embedded GORM model
 //	- Provides timestamp formatting according to JSON standards
-//	- Handles base64-encoded log data appropriately
+//	- Binary log data is automatically base64-encoded by JSON marshaler
 //
 // Struct Format:
 //
@@ -505,14 +504,14 @@ func PGRabbitLogFormatList(pgUrl string, format string) interface{} {
 //
 //	Updates existing RabbitLog records by DocumentID with:
 //	- New processing state to track progress
-//	- Base64-encoded log data for detailed logging
+//	- Raw binary log data stored directly in bytea field
 //	- Automatic UpdatedAt timestamp via GORM
 //
 // Parameters:
 //   - pgUrl: PostgreSQL connection string
 //   - documentId: Document identifier to locate the record for update
 //   - state: New processing state (e.g., "running", "completed", "failed")
-//   - logText: Binary log data to be base64-encoded and stored
+//   - logText: Binary log data to be stored directly
 //
 // Database Operation:
 //
@@ -522,13 +521,13 @@ func PGRabbitLogFormatList(pgUrl string, format string) interface{} {
 //	- Automatic timestamp management for UpdatedAt field
 //	- Safe parameter binding to prevent SQL injection
 //
-// Data Encoding:
+// Data Storage:
 //
-//	Binary log data is base64-encoded before storage to:
-//	- Ensure safe storage in text database fields
-//	- Handle arbitrary binary content without encoding issues
-//	- Maintain data integrity during database operations
-//	- Enable easy debugging with readable encoded data
+//	Binary log data is stored directly in PostgreSQL's bytea field:
+//	- No encoding overhead, saving CPU and storage space
+//	- Handles arbitrary binary content including null bytes
+//	- Maintains data integrity without encoding/decoding steps
+//	- Optimal performance for binary data storage
 //
 // Error Handling:
 //
@@ -554,7 +553,7 @@ func PGRabbitLogFormatList(pgUrl string, format string) interface{} {
 //   - Consider optimistic locking for critical update scenarios
 //
 // Performance Impact:
-//   - Base64 encoding adds CPU overhead and storage space (33% increase)
+//   - Direct binary storage without encoding overhead
 //   - Index on DocumentID ensures efficient record location
 //   - Single transaction minimizes database round trips
 //   - Large log data may impact update performance
@@ -562,8 +561,8 @@ func PGRabbitLogFormatList(pgUrl string, format string) interface{} {
 // Storage Optimization:
 //
 //	For production environments with large log data, consider:
-//	- Compression before base64 encoding
-//	- Separate blob storage for large log files
+//	- Compression before storage for space efficiency
+//	- Separate blob storage for very large log files
 //	- Log rotation and archival strategies
 //	- Database partitioning for time-based queries
 func PGRabbitLogUpdate(pgUrl, documentId, state string, logText []byte) {
@@ -573,9 +572,9 @@ func PGRabbitLogUpdate(pgUrl, documentId, state string, logText []byte) {
 		panic(err)
 	}
 
-	// Update existing record by DocumentID with new state and encoded log data
+	// Update existing record by DocumentID with new state and binary log data
 	db.Model(&RabbitLog{}).Where("document_id = ?", documentId).Updates(map[string]interface{}{
 		"state": state,
-		"log":   base64.StdEncoding.EncodeToString(logText),
+		"log":   logText,
 	})
 }
