@@ -406,7 +406,8 @@ func TestGraphDBRepositoryConf(t *testing.T) {
 
 		HttpClient = server.Client()
 
-		filename := GraphDBRepositoryConf(server.URL, "", "", "test-repo")
+		filename, err := GraphDBRepositoryConf(server.URL, "", "", "test-repo")
+		require.NoError(t, err)
 		assert.Equal(t, "test-repo.ttl", filename)
 
 		// Verify file was created
@@ -439,7 +440,8 @@ func TestGraphDBRepositoryBrf(t *testing.T) {
 
 		HttpClient = server.Client()
 
-		filename := GraphDBRepositoryBrf(server.URL, "", "", "test-repo")
+		filename, err := GraphDBRepositoryBrf(server.URL, "", "", "test-repo")
+		require.NoError(t, err)
 		assert.Equal(t, "test-repo.brf", filename)
 
 		// Verify file was created

@@ -65,17 +65,22 @@ type JobDetails struct {
 //   - url: Base URL of the GitLab instance (e.g., "https://gitlab.example.com")
 //   - token: Personal access token for authentication
 //
-// Note: This function will exit with a fatal error if client creation fails.
-func GitlabRunners(url, token string) {
+// Returns:
+//   - error: If client creation or runner listing fails
+func GitlabRunners(url, token string) error {
 	git, err := gitlab.NewClient(token, gitlab.WithBaseURL(url+"/api/v4"))
 	if err != nil {
-		eve.Logger.Fatal("Failed to create client:", err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	runners, _, _ := git.Runners.ListAllRunners(&gitlab.ListRunnersOptions{})
+	runners, _, err := git.Runners.ListAllRunners(&gitlab.ListRunnersOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list runners: %w", err)
+	}
 	for _, runner := range runners {
 		eve.Logger.Info(runner)
 	}
+	return nil
 }
 
 // GitlabRegisterNewRunner registers a new GitLab runner on the specified instance.
@@ -93,34 +98,42 @@ func GitlabRunners(url, token string) {
 //   - sudoPass: Sudo password for installing the runner
 //   - gitlabUser: User account to run the GitLab runner service
 //
-// Note: This function will exit with a fatal error if any step fails.
-func GitlabRegisterNewRunner(url, token, version, dataInit, registerArgs, sudoPass, gitlabUser string) {
+// Returns:
+//   - error: If any step fails during runner registration
+func GitlabRegisterNewRunner(url, token, version, dataInit, registerArgs, sudoPass, gitlabUser string) error {
 	// Download the GitLab runner binary
 	network.HttpClientDownloadFile("https://gitlab-runner-downloads.s3.amazonaws.com/"+version+"/binaries/gitlab-runner-linux-amd64", "gitlab-runner")
 
 	// Create GitLab client
 	git, err := gitlab.NewClient(token, gitlab.WithBaseURL(url+"/api/v4"))
 	if err != nil {
-		eve.Logger.Fatal("Failed to create client:", err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
 
 	// Parse registration options
 	initOptions := gitlab.CreateUserRunnerOptions{}
 	if err := json.Unmarshal([]byte(dataInit), &initOptions); err != nil {
-		eve.Logger.Fatal("Failed to create gitlab runner:", err)
+		return fmt.Errorf("failed to parse runner options: %w", err)
 	}
 
 	// Register the runner
 	runner, _, err := git.Users.CreateUserRunner(&initOptions)
 	if err != nil {
-		eve.Logger.Fatal("Failed to create gitlab runner:", err)
+		return fmt.Errorf("failed to create gitlab runner: %w", err)
 	}
 
 	// Install and configure the runner
 	eve.Logger.Info("running runner registration with token", runner.Token)
-	eve.ShellSudoExecute(sudoPass, "mv ./gitlab-runner /usr/bin/gitlab-runner && chmod +x /usr/bin/gitlab-runner")
-	eve.ShellSudoExecute(sudoPass, "gitlab-runner install --user "+gitlabUser)
-	eve.ShellSudoExecute(sudoPass, "gitlab-runner register --token "+runner.Token+" --url "+url+" "+registerArgs)
+	if _, err := eve.ShellSudoExecute(sudoPass, "mv ./gitlab-runner /usr/bin/gitlab-runner && chmod +x /usr/bin/gitlab-runner"); err != nil {
+		return fmt.Errorf("failed to install runner binary: %w", err)
+	}
+	if _, err := eve.ShellSudoExecute(sudoPass, "gitlab-runner install --user "+gitlabUser); err != nil {
+		return fmt.Errorf("failed to install runner service: %w", err)
+	}
+	if _, err := eve.ShellSudoExecute(sudoPass, "gitlab-runner register --token "+runner.Token+" --url "+url+" "+registerArgs); err != nil {
+		return fmt.Errorf("failed to register runner: %w", err)
+	}
+	return nil
 }
 
 // GitlabCreateTag creates a new tag on the specified GitLab repository.

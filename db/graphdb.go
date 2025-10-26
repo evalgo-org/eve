@@ -343,29 +343,33 @@ func GraphDBRepositories(url string, user string, pass string) (*GraphDBResponse
 //   - Easy editing and version control
 //   - Standard RDF serialization format
 //   - Compatible with RDF tools and editors
-func GraphDBRepositoryConf(url string, user string, pass string, repo string) string {
+func GraphDBRepositoryConf(url string, user string, pass string, repo string) (string, error) {
 	tgt_url := url + "/rest/repositories/" + repo + "/download-ttl"
-	req, _ := http.NewRequest("GET", tgt_url, nil)
+	req, err := http.NewRequest("GET", tgt_url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
 	if user != "" && pass != "" {
 		req.SetBasicAuth(user, pass)
 	}
 	req.Header.Add("Accept", "text/turtle")
 	res, err := HttpClient.Do(req)
 	if err != nil {
-		eve.Logger.Error(err)
+		return "", fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusOK {
 		out, err := os.Create(repo + ".ttl")
 		if err != nil {
-			eve.Logger.Info(err)
+			return "", fmt.Errorf("failed to create output file: %w", err)
 		}
 		defer out.Close()
-		_, _ = io.Copy(out, res.Body)
-		return repo + ".ttl"
+		if _, err = io.Copy(out, res.Body); err != nil {
+			return "", fmt.Errorf("failed to write repository config: %w", err)
+		}
+		return repo + ".ttl", nil
 	}
-	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
-	return ""
+	return "", fmt.Errorf("failed to download repository config: %d %s", res.StatusCode, http.StatusText(res.StatusCode))
 }
 
 // GraphDBRepositoryBrf exports all RDF data from a repository in Binary RDF format.
@@ -424,29 +428,33 @@ func GraphDBRepositoryConf(url string, user string, pass string, repo string) st
 //
 //	The exported BRF file can be restored using GraphDBRestoreBrf()
 //	function to recreate the repository with identical data content.
-func GraphDBRepositoryBrf(url string, user string, pass string, repo string) string {
+func GraphDBRepositoryBrf(url string, user string, pass string, repo string) (string, error) {
 	tgt_url := url + "/repositories/" + repo + "/statements"
-	req, _ := http.NewRequest("GET", tgt_url, nil)
+	req, err := http.NewRequest("GET", tgt_url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
 	if user != "" && pass != "" {
 		req.SetBasicAuth(user, pass)
 	}
 	req.Header.Add("Accept", "application/x-binary-rdf")
 	res, err := HttpClient.Do(req)
 	if err != nil {
-		eve.Logger.Error(err)
+		return "", fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusOK {
 		out, err := os.Create(repo + ".brf")
 		if err != nil {
-			eve.Logger.Info(err)
+			return "", fmt.Errorf("failed to create output file: %w", err)
 		}
 		defer out.Close()
-		_, _ = io.Copy(out, res.Body)
-		return repo + ".brf"
+		if _, err = io.Copy(out, res.Body); err != nil {
+			return "", fmt.Errorf("failed to write repository data: %w", err)
+		}
+		return repo + ".brf", nil
 	}
-	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
-	return ""
+	return "", fmt.Errorf("failed to download repository data: %d %s", res.StatusCode, http.StatusText(res.StatusCode))
 }
 
 // GraphDBRestoreConf restores a repository configuration from a Turtle file.
@@ -533,21 +541,29 @@ func GraphDBRestoreConf(url string, user string, pass string, restoreFile string
 		return err
 	}
 	tgt_url := url + "/rest/repositories"
-	req, _ := http.NewRequest("POST", tgt_url, buf)
+	req, err := http.NewRequest("POST", tgt_url, buf)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
 	if user != "" && pass != "" {
 		req.SetBasicAuth(user, pass)
 	}
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", w.FormDataContentType())
-	res, _ := HttpClient.Do(req)
-	body, _ := io.ReadAll(res.Body)
+	res, err := HttpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
 	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
 	if res.StatusCode == http.StatusCreated {
 		eve.Logger.Info(string(body))
 		return nil
 	}
-	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
-	return errors.New("could not run GraphDBRestoreConf")
+	return fmt.Errorf("failed to restore repository config: %d %s", res.StatusCode, http.StatusText(res.StatusCode))
 }
 
 // GraphDBRestoreBrf restores RDF data from a Binary RDF file into a repository.
@@ -624,21 +640,29 @@ func GraphDBRestoreBrf(url string, user string, pass string, restoreFile string)
 	}
 	repo := strings.TrimSuffix(filepath.Base(restoreFile), filepath.Ext(restoreFile))
 	tgt_url := url + "/repositories/" + repo + "/statements"
-	req, _ := http.NewRequest("POST", tgt_url, bytes.NewBuffer(fData))
+	req, err := http.NewRequest("POST", tgt_url, bytes.NewBuffer(fData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
 	if user != "" && pass != "" {
 		req.SetBasicAuth(user, pass)
 	}
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/x-binary-rdf")
-	res, _ := HttpClient.Do(req)
-	body, _ := io.ReadAll(res.Body)
+	res, err := HttpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
 	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
 	if res.StatusCode == http.StatusNoContent {
 		eve.Logger.Info(string(body))
 		return nil
 	}
-	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
-	return errors.New("could not run GraphDBRestoreBrf")
+	return fmt.Errorf("failed to restore repository data: %d %s", res.StatusCode, http.StatusText(res.StatusCode))
 }
 
 // GraphDBImportGraphRdf imports RDF data into a specific named graph within a repository.
@@ -922,20 +946,28 @@ func GraphDBDeleteGraph(URL, user, pass, repo, graph string) error {
 	tgt_url := URL + "/repositories/" + repo + "/statements"
 	eve.Logger.Info(tgt_url)
 	fData := []byte("DROP GRAPH <" + graph + ">")
-	req, _ := http.NewRequest("POST", tgt_url, bytes.NewBuffer(fData))
+	req, err := http.NewRequest("POST", tgt_url, bytes.NewBuffer(fData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
 	if user != "" && pass != "" {
 		req.SetBasicAuth(user, pass)
 	}
 	req.Header.Add("Content-Type", "application/sparql-update")
-	res, _ := HttpClient.Do(req)
-	body, _ := io.ReadAll(res.Body)
+	res, err := HttpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
 	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
 	if res.StatusCode == http.StatusNoContent {
 		eve.Logger.Info(string(body))
 		return nil
 	}
-	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
-	return errors.New("could not run GraphDBDeleteGraph")
+	return fmt.Errorf("failed to delete graph: %d %s", res.StatusCode, http.StatusText(res.StatusCode))
 }
 
 // GraphDBListGraphs retrieves a list of all named graphs in a repository.
@@ -1115,7 +1147,10 @@ func GraphDBListGraphs(url, user, pass, repo string) (*GraphDBResponse, error) {
 //   - Integration with external RDF tools and systems
 func GraphDBExportGraphRdf(url, user, pass, repo, graph, exportFile string) error {
 	tgt_url := url + "/repositories/" + repo + "/rdf-graphs/service"
-	req, _ := http.NewRequest("GET", tgt_url, nil)
+	req, err := http.NewRequest("GET", tgt_url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
 	values := req.URL.Query()
 	values.Add("graph", graph)
 	req.URL.RawQuery = values.Encode()
@@ -1125,24 +1160,19 @@ func GraphDBExportGraphRdf(url, user, pass, repo, graph, exportFile string) erro
 	req.Header.Add("Accept", "application/rdf+xml")
 	res, err := HttpClient.Do(req)
 	if err != nil {
-		eve.Logger.Info("Failed to create file:", err)
-		return err
+		return fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode == http.StatusOK {
 		outFile, err := os.Create(exportFile)
 		if err != nil {
-			eve.Logger.Info("Failed to create file:", err)
-			return err
+			return fmt.Errorf("failed to create output file: %w", err)
 		}
 		defer outFile.Close()
-		_, err = io.Copy(outFile, res.Body)
-		if err != nil {
-			eve.Logger.Info("Error writing response to file:", err)
-			return err
+		if _, err = io.Copy(outFile, res.Body); err != nil {
+			return fmt.Errorf("failed to write graph data to file: %w", err)
 		}
 		return nil
 	}
-	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
-	return errors.New("could not run GraphDBExportGraphRdf")
+	return fmt.Errorf("failed to export graph: %d %s", res.StatusCode, http.StatusText(res.StatusCode))
 }

@@ -40,13 +40,13 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"encoding/base64"
-	"encoding/json"
 
 	"github.com/docker/docker/api/types/build"
 	containertypes "github.com/docker/docker/api/types/container"
@@ -663,7 +663,7 @@ func ImageAuthPull(ctx context.Context, cli *client.Client, imageTag, user, pass
 // Example Usage:
 //
 //	ImageBuild(ctx, cli, "/path/to/project", "Dockerfile", "myapp:latest")
-func ImageBuild(ctx context.Context, cli *client.Client, workDir string, dockerFile string, tag string) {
+func ImageBuild(ctx context.Context, cli *client.Client, workDir string, dockerFile string, tag string) error {
 	opt := build.ImageBuildOptions{
 		Tags:       []string{tag},
 		Dockerfile: dockerFile,
@@ -671,23 +671,25 @@ func ImageBuild(ctx context.Context, cli *client.Client, workDir string, dockerF
 
 	filePath, err := homedir.Expand(workDir)
 	if err != nil {
-		Logger.Fatal(err)
+		return fmt.Errorf("failed to expand home directory: %w", err)
 	}
 
 	buildCtx, err := archive.TarWithOptions(filePath, &archive.TarOptions{}) //nolint:staticcheck // deprecated but still functional
 	if err != nil {
-		Logger.Fatal(err)
+		return fmt.Errorf("failed to create build context: %w", err)
 	}
 
 	x, err := cli.ImageBuild(context.Background(), buildCtx, opt)
 	if err != nil {
-		Logger.Fatal(err)
+		return fmt.Errorf("failed to build image: %w", err)
 	}
+	defer x.Body.Close()
 
 	if _, err := io.Copy(os.Stdout, x.Body); err != nil {
 		Logger.Error("Failed to copy build output:", err)
 	}
-	defer x.Body.Close()
+
+	return nil
 }
 
 // ImagePush uploads a Docker image to a registry with authentication.
@@ -734,19 +736,22 @@ func ImageBuild(ctx context.Context, cli *client.Client, workDir string, dockerF
 // Example Usage:
 //
 //	ImagePush(ctx, cli, "myregistry.com/myapp:v1.0", "username", "password")
-func ImagePush(ctx context.Context, cli *client.Client, tag, user, pass string) {
+func ImagePush(ctx context.Context, cli *client.Client, tag, user, pass string) error {
 	resp, err := cli.ImagePush(ctx, tag, image.PushOptions{
 		RegistryAuth: RegistryAuth(user, pass),
 	})
 	if err != nil {
-		Logger.Fatal(err)
+		return fmt.Errorf("failed to push image: %w", err)
 	}
 	defer resp.Close()
+
 	_, err = io.Copy(os.Stdout, resp)
 	if err != nil {
-		Logger.Fatal(err)
+		return fmt.Errorf("failed to copy push output: %w", err)
 	}
+
 	Logger.Info("\nImage push complete.")
+	return nil
 }
 
 // parseEnvFile reads environment variables from a file and returns them as a slice.
@@ -1235,18 +1240,21 @@ func CopyToContainer(ctx context.Context, cli *client.Client, containerID, hostF
 //	The containerFilePath parameter specifies the exact path and name
 //	the file should have within the container, regardless of its
 //	original name on the host.
-func CopyRenameToContainer(ctx context.Context, cli *client.Client, containerID, hostFilePath, containerFilePath, containerDestPath string) {
+func CopyRenameToContainer(ctx context.Context, cli *client.Client, containerID, hostFilePath, containerFilePath, containerDestPath string) error {
 	tarBuffer, err := createTarArchive(hostFilePath, containerFilePath)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to create tar archive: %w", err)
 	}
+
 	err = cli.CopyToContainer(ctx, containerID, containerDestPath, tarBuffer, containertypes.CopyToContainerOptions{
 		AllowOverwriteDirWithFile: false,
 		CopyUIDGID:                true,
 	})
 	if err != nil {
-		Logger.Fatal(err)
+		return fmt.Errorf("failed to copy to container: %w", err)
 	}
+
+	return nil
 }
 
 // AddContainerToNetwork connects an existing container to a Docker network.
@@ -1345,21 +1353,22 @@ func AddContainerToNetwork(ctx context.Context, cli *client.Client, containerID,
 //	} else {
 //	    // Create new container
 //	}
-func ContainerExists(ctx context.Context, cli *client.Client, name string) bool {
+func ContainerExists(ctx context.Context, cli *client.Client, name string) (bool, error) {
 	containers, err := cli.ContainerList(ctx, containertypes.ListOptions{
 		All: true,
 	})
 	if err != nil {
-		Logger.Fatal("Error listing containers:", err)
+		return false, fmt.Errorf("failed to list containers: %w", err)
 	}
+
 	for _, container := range containers {
 		for _, n := range container.Names {
 			if n == "/"+name {
-				return true
+				return true, nil
 			}
 		}
 	}
-	return false
+	return false, nil
 }
 
 // CreateAndStartContainer creates a new container with network configuration and starts it.
