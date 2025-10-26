@@ -11,6 +11,9 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.24', '1.25']
 
     steps:
     - name: Checkout code
@@ -19,7 +22,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: ${{ matrix.go-version }}
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -40,12 +43,15 @@ jobs:
       with:
         files: ./coverage-unit.out
         flags: unittests
-        name: unit-tests
+        name: unit-tests-go-${{ matrix.go-version }}
 
   # Integration tests - use testcontainers with GitHub Actions' Docker
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.24', '1.25']
 
     steps:
     - name: Checkout code
@@ -54,7 +60,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: ${{ matrix.go-version }}
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -84,9 +90,9 @@ jobs:
       with:
         files: ./coverage-integration.out
         flags: integrationtests
-        name: integration-tests
+        name: integration-tests-go-${{ matrix.go-version }}
 
-  # Combined coverage report
+  # Combined coverage report - runs on latest Go version only
   combined-coverage:
     name: Combined Coverage
     runs-on: ubuntu-latest
@@ -99,7 +105,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.25'
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -151,6 +157,28 @@ jobs:
           echo "✅ Coverage ${COVERAGE}% meets threshold ${THRESHOLD}%"
         fi
 
+  # Benchmarks
+  benchmark:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+        cache: true
+
+    - name: Run benchmarks
+      run: |
+        echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        go test -bench=. -benchmem ./... | tee -a $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+
   # Code quality checks
   lint:
     name: Lint
@@ -163,7 +191,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.25'
 
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v6
@@ -186,7 +214,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.25'
 
     - name: Run gosec security scanner
       uses: securego/gosec@master
