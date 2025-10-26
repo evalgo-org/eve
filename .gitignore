@@ -16,4 +16,5 @@ coverage*.out
 *-cov.out
 *-test-output.txt
 *-output.txt
+*-test.log
 
