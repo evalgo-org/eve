@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -828,4 +829,246 @@ func TestZitiCreateCSR_FileOverwrite(t *testing.T) {
 
 	// Keys should be different (different random generation)
 	assert.NotEqual(t, originalKey, newKey)
+}
+
+// ============================================================================
+// SAP BTP XSUAA Tests
+// ============================================================================
+
+// TestGetXSUAACredentials_Success tests successful credential extraction
+func TestGetXSUAACredentials_Success(t *testing.T) {
+	vcapJSON := `{
+		"xsuaa": [{
+			"credentials": {
+				"url": "https://tenant.authentication.eu10.hana.ondemand.com",
+				"clientid": "sb-myapp!t123",
+				"clientsecret": "secret123",
+				"xsappname": "myapp!t123"
+			}
+		}]
+	}`
+
+	os.Setenv("VCAP_SERVICES", vcapJSON)
+	defer os.Unsetenv("VCAP_SERVICES")
+
+	creds, err := GetXSUAACredentials()
+	require.NoError(t, err)
+	assert.NotNil(t, creds)
+	assert.Equal(t, "https://tenant.authentication.eu10.hana.ondemand.com", creds.URL)
+	assert.Equal(t, "sb-myapp!t123", creds.ClientID)
+	assert.Equal(t, "secret123", creds.ClientSecret)
+	assert.Equal(t, "myapp!t123", creds.XSAppName)
+}
+
+// TestGetXSUAACredentials_MissingEnv tests error when VCAP_SERVICES is not set
+func TestGetXSUAACredentials_MissingEnv(t *testing.T) {
+	os.Unsetenv("VCAP_SERVICES")
+
+	creds, err := GetXSUAACredentials()
+	assert.Error(t, err)
+	assert.Nil(t, creds)
+	assert.Contains(t, err.Error(), "VCAP_SERVICES environment variable not set")
+}
+
+// TestGetXSUAACredentials_InvalidJSON tests error handling for malformed JSON
+func TestGetXSUAACredentials_InvalidJSON(t *testing.T) {
+	os.Setenv("VCAP_SERVICES", "{ invalid json")
+	defer os.Unsetenv("VCAP_SERVICES")
+
+	creds, err := GetXSUAACredentials()
+	assert.Error(t, err)
+	assert.Nil(t, creds)
+	assert.Contains(t, err.Error(), "failed to parse VCAP_SERVICES")
+}
+
+// TestGetXSUAACredentials_NoXSUAAService tests error when XSUAA service is missing
+func TestGetXSUAACredentials_NoXSUAAService(t *testing.T) {
+	vcapJSON := `{
+		"other-service": [{
+			"credentials": {}
+		}]
+	}`
+
+	os.Setenv("VCAP_SERVICES", vcapJSON)
+	defer os.Unsetenv("VCAP_SERVICES")
+
+	creds, err := GetXSUAACredentials()
+	assert.Error(t, err)
+	assert.Nil(t, creds)
+	assert.Contains(t, err.Error(), "no XSUAA service found")
+}
+
+// TestGetXSUAACredentials_EmptyXSUAAArray tests error when XSUAA array is empty
+func TestGetXSUAACredentials_EmptyXSUAAArray(t *testing.T) {
+	vcapJSON := `{
+		"xsuaa": []
+	}`
+
+	os.Setenv("VCAP_SERVICES", vcapJSON)
+	defer os.Unsetenv("VCAP_SERVICES")
+
+	creds, err := GetXSUAACredentials()
+	assert.Error(t, err)
+	assert.Nil(t, creds)
+	assert.Contains(t, err.Error(), "no XSUAA service found")
+}
+
+// TestGetXSUAACredentials_MultipleServices tests getting first XSUAA service when multiple exist
+func TestGetXSUAACredentials_MultipleServices(t *testing.T) {
+	vcapJSON := `{
+		"xsuaa": [
+			{
+				"credentials": {
+					"url": "https://first.authentication.eu10.hana.ondemand.com",
+					"clientid": "first-client",
+					"clientsecret": "first-secret",
+					"xsappname": "first-app"
+				}
+			},
+			{
+				"credentials": {
+					"url": "https://second.authentication.eu10.hana.ondemand.com",
+					"clientid": "second-client",
+					"clientsecret": "second-secret",
+					"xsappname": "second-app"
+				}
+			}
+		]
+	}`
+
+	os.Setenv("VCAP_SERVICES", vcapJSON)
+	defer os.Unsetenv("VCAP_SERVICES")
+
+	creds, err := GetXSUAACredentials()
+	require.NoError(t, err)
+	assert.Equal(t, "https://first.authentication.eu10.hana.ondemand.com", creds.URL)
+	assert.Equal(t, "first-client", creds.ClientID)
+}
+
+// TestXSUAACredentials_JSON tests JSON marshaling/unmarshaling of credentials
+func TestXSUAACredentials_JSON(t *testing.T) {
+	creds := XSUAACredentials{
+		URL:          "https://tenant.authentication.eu10.hana.ondemand.com",
+		ClientID:     "test-client-id",
+		ClientSecret: "test-client-secret",
+		XSAppName:    "test-app",
+	}
+
+	// Marshal to JSON
+	data, err := json.Marshal(creds)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "test-client-id")
+
+	// Unmarshal back
+	var unmarshaled XSUAACredentials
+	err = json.Unmarshal(data, &unmarshaled)
+	require.NoError(t, err)
+	assert.Equal(t, creds.URL, unmarshaled.URL)
+	assert.Equal(t, creds.ClientID, unmarshaled.ClientID)
+	assert.Equal(t, creds.ClientSecret, unmarshaled.ClientSecret)
+	assert.Equal(t, creds.XSAppName, unmarshaled.XSAppName)
+}
+
+// TestTokenResponse_JSON tests JSON marshaling/unmarshaling of token response
+func TestTokenResponse_JSON(t *testing.T) {
+	token := TokenResponse{
+		AccessToken: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.test",
+		TokenType:   "bearer",
+		ExpiresIn:   3600,
+	}
+
+	// Marshal to JSON
+	data, err := json.Marshal(token)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "access_token")
+	assert.Contains(t, string(data), "bearer")
+
+	// Unmarshal back
+	var unmarshaled TokenResponse
+	err = json.Unmarshal(data, &unmarshaled)
+	require.NoError(t, err)
+	assert.Equal(t, token.AccessToken, unmarshaled.AccessToken)
+	assert.Equal(t, token.TokenType, unmarshaled.TokenType)
+	assert.Equal(t, token.ExpiresIn, unmarshaled.ExpiresIn)
+}
+
+// TestVCAPServices_JSON tests JSON unmarshaling of VCAP_SERVICES structure
+func TestVCAPServices_JSON(t *testing.T) {
+	vcapJSON := `{
+		"xsuaa": [{
+			"credentials": {
+				"url": "https://test.authentication.eu10.hana.ondemand.com",
+				"clientid": "test-id",
+				"clientsecret": "test-secret",
+				"xsappname": "test-app"
+			}
+		}]
+	}`
+
+	var services VCAPServices
+	err := json.Unmarshal([]byte(vcapJSON), &services)
+	require.NoError(t, err)
+	assert.Len(t, services.XSUAA, 1)
+	assert.Equal(t, "test-id", services.XSUAA[0].Credentials.ClientID)
+}
+
+// TestSetGetGlobalXSUAAToken tests token caching
+func TestSetGetGlobalXSUAAToken(t *testing.T) {
+	// Initially should be nil or previous value
+	originalToken := GetGlobalXSUAAToken()
+
+	// Set new token
+	testToken := &TokenResponse{
+		AccessToken: "test-access-token",
+		TokenType:   "bearer",
+		ExpiresIn:   3600,
+	}
+	SetGlobalXSUAAToken(testToken)
+
+	// Verify it was set
+	retrievedToken := GetGlobalXSUAAToken()
+	assert.NotNil(t, retrievedToken)
+	assert.Equal(t, "test-access-token", retrievedToken.AccessToken)
+	assert.Equal(t, "bearer", retrievedToken.TokenType)
+	assert.Equal(t, 3600, retrievedToken.ExpiresIn)
+
+	// Restore original token
+	SetGlobalXSUAAToken(originalToken)
+}
+
+// TestSetGetGlobalXSUAAToken_Nil tests setting nil token
+func TestSetGetGlobalXSUAAToken_Nil(t *testing.T) {
+	// Save original
+	originalToken := GetGlobalXSUAAToken()
+
+	// Set to nil
+	SetGlobalXSUAAToken(nil)
+	assert.Nil(t, GetGlobalXSUAAToken())
+
+	// Restore original
+	SetGlobalXSUAAToken(originalToken)
+}
+
+// TestTokenResponse_ExpiresIn tests different expiration values
+func TestTokenResponse_ExpiresIn(t *testing.T) {
+	tests := []struct {
+		name      string
+		expiresIn int
+	}{
+		{"OneHour", 3600},
+		{"TwelveHours", 43200},
+		{"OneDay", 86400},
+		{"ShortLived", 300},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token := TokenResponse{
+				AccessToken: "test-token",
+				TokenType:   "bearer",
+				ExpiresIn:   tt.expiresIn,
+			}
+			assert.Equal(t, tt.expiresIn, token.ExpiresIn)
+		})
+	}
 }
