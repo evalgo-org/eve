@@ -629,7 +629,7 @@ func TestPublishMessage_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	_ = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.Equal(t, "Message published successfully", response["status"])
 }
 
@@ -656,7 +656,7 @@ func TestPublishMessage_MissingProcessID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	_ = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.Equal(t, "process_id is required", response["error"])
 }
 
@@ -683,7 +683,7 @@ func TestPublishMessage_MissingState(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	_ = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.Equal(t, "state is required", response["error"])
 }
 
@@ -734,7 +734,7 @@ func TestPublishMessage_PublishError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	_ = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.Equal(t, "Failed to publish message", response["error"])
 }
 
@@ -788,7 +788,7 @@ func TestGetProcess_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	_ = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.Equal(t, "Process not found", response["error"])
 }
 
@@ -834,7 +834,7 @@ func TestGetProcess_DatabaseError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	_ = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.Equal(t, "Failed to retrieve process", response["error"])
 }
 
@@ -862,7 +862,7 @@ func TestGetProcessesByState_AllProcesses(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 
 	var response map[string]interface{}
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	_ = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.Equal(t, float64(2), response["count"])
 }
 
@@ -889,7 +889,7 @@ func TestGetProcessesByState_FilterByState(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 
 	var response map[string]interface{}
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	_ = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.Equal(t, float64(1), response["count"])
 }
 
@@ -910,7 +910,7 @@ func TestGetProcessesByState_InvalidState(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
 	var response map[string]string
-	json.Unmarshal(rec.Body.Bytes(), &response)
+	_ = json.Unmarshal(rec.Body.Bytes(), &response)
 	assert.Equal(t, "Invalid state value", response["error"])
 }
 
