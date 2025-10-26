@@ -2,7 +2,7 @@ package db
 
 import (
 	"encoding/xml"
-	"io/ioutil"
+	
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -155,7 +155,7 @@ func TestBaseXCreateDB(t *testing.T) {
 			assert.Equal(t, "testuser", username)
 			assert.Equal(t, "testpass", password)
 
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			assert.Contains(t, string(body), "create-db")
 			assert.Contains(t, string(body), "testdb")
 
@@ -202,7 +202,7 @@ func TestBaseXSaveDocument(t *testing.T) {
 			assert.Contains(t, r.URL.Path, "/rest/testdb/doc1.xml")
 			assert.Equal(t, "application/xml", r.Header.Get("Content-Type"))
 
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			assert.Contains(t, string(body), "<book>")
 
 			w.WriteHeader(http.StatusOK)
@@ -231,7 +231,7 @@ func TestBaseXQuery(t *testing.T) {
 			assert.Contains(t, r.URL.Path, "/rest/mydb/doc1.xml")
 			assert.Equal(t, "application/query+xml", r.Header.Get("Content-Type"))
 
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			assert.Contains(t, string(body), "//item")
 
 			w.WriteHeader(http.StatusOK)
@@ -260,7 +260,7 @@ func TestBaseXUploadFile(t *testing.T) {
 			assert.Contains(t, r.URL.Path, "/rest/testdb/data.json")
 			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			assert.Contains(t, string(body), "test data")
 
 			w.WriteHeader(http.StatusOK)
@@ -269,7 +269,7 @@ func TestBaseXUploadFile(t *testing.T) {
 
 		tmpDir := t.TempDir()
 		testFile := filepath.Join(tmpDir, "test.json")
-		err := ioutil.WriteFile(testFile, []byte(`{"key": "test data"}`), 0644)
+		err := os.WriteFile(testFile, []byte(`{"key": "test data"}`), 0644)
 		require.NoError(t, err)
 
 		os.Setenv("BASEX_URL", server.URL)
@@ -303,7 +303,7 @@ func TestBaseXUploadFile(t *testing.T) {
 
 		tmpDir := t.TempDir()
 		testFile := filepath.Join(tmpDir, "test.txt")
-		err := ioutil.WriteFile(testFile, []byte("data"), 0644)
+		err := os.WriteFile(testFile, []byte("data"), 0644)
 		require.NoError(t, err)
 
 		os.Setenv("BASEX_URL", server.URL)
@@ -332,7 +332,7 @@ func TestBaseXUploadXMLFile(t *testing.T) {
 
 		tmpDir := t.TempDir()
 		xmlFile := filepath.Join(tmpDir, "test.xml")
-		err := ioutil.WriteFile(xmlFile, []byte("<root><item>test</item></root>"), 0644)
+		err := os.WriteFile(xmlFile, []byte("<root><item>test</item></root>"), 0644)
 		require.NoError(t, err)
 
 		os.Setenv("BASEX_URL", server.URL)
@@ -351,7 +351,7 @@ func TestBaseXUploadXMLFile(t *testing.T) {
 	t.Run("invalid XML file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		xmlFile := filepath.Join(tmpDir, "invalid.xml")
-		err := ioutil.WriteFile(xmlFile, []byte("not valid xml <unclosed"), 0644)
+		err := os.WriteFile(xmlFile, []byte("not valid xml <unclosed"), 0644)
 		require.NoError(t, err)
 
 		result, err := BaseXUploadXMLFile("testdb", xmlFile, "test.xml")
@@ -369,7 +369,7 @@ func TestBaseXUploadBinaryFile(t *testing.T) {
 			assert.Equal(t, "/rest", r.URL.Path)
 			assert.Equal(t, "application/xquery", r.Header.Get("Content-Type"))
 
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			bodyStr := string(body)
 			assert.Contains(t, bodyStr, "db:add")
 			assert.Contains(t, bodyStr, "testdb")
@@ -381,7 +381,7 @@ func TestBaseXUploadBinaryFile(t *testing.T) {
 
 		tmpDir := t.TempDir()
 		binFile := filepath.Join(tmpDir, "test.jpg")
-		err := ioutil.WriteFile(binFile, []byte{0xFF, 0xD8, 0xFF, 0xE0}, 0644)
+		err := os.WriteFile(binFile, []byte{0xFF, 0xD8, 0xFF, 0xE0}, 0644)
 		require.NoError(t, err)
 
 		os.Setenv("BASEX_URL", server.URL)
@@ -455,7 +455,7 @@ func TestBaseXUploadFileAuto(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			testFile := filepath.Join(tmpDir, tt.fileName)
-			err := ioutil.WriteFile(testFile, tt.content, 0644)
+			err := os.WriteFile(testFile, tt.content, 0644)
 			require.NoError(t, err)
 
 			var routeCalled string
@@ -511,7 +511,7 @@ func TestBaseXUploadToFilesystem(t *testing.T) {
 
 		tmpDir := t.TempDir()
 		testFile := filepath.Join(tmpDir, "test.txt")
-		err := ioutil.WriteFile(testFile, []byte("test content"), 0644)
+		err := os.WriteFile(testFile, []byte("test content"), 0644)
 		require.NoError(t, err)
 
 		os.Setenv("BASEX_URL", server.URL)

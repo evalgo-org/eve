@@ -664,12 +664,6 @@ func ImageAuthPull(ctx context.Context, cli *client.Client, imageTag, user, pass
 //
 //	ImageBuild(ctx, cli, "/path/to/project", "Dockerfile", "myapp:latest")
 func ImageBuild(ctx context.Context, cli *client.Client, workDir string, dockerFile string, tag string) {
-	dockerBuildContext, err := os.Open("test.tar")
-	if err != nil {
-		Logger.Fatal(err)
-	}
-	defer dockerBuildContext.Close()
-
 	opt := build.ImageBuildOptions{
 		Tags:       []string{tag},
 		Dockerfile: dockerFile,

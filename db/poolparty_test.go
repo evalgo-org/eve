@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
-	"io/ioutil"
+	
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -248,7 +248,7 @@ func TestLoadTemplate(t *testing.T) {
 		tmpDir := t.TempDir()
 		templateFile := filepath.Join(tmpDir, "test.sparql")
 		templateContent := "SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT {{.Limit}}"
-		err := ioutil.WriteFile(templateFile, []byte(templateContent), 0644)
+		err := os.WriteFile(templateFile, []byte(templateContent), 0644)
 		require.NoError(t, err)
 
 		client := NewPoolPartyClient("http://localhost", "user", "pass", tmpDir)
@@ -283,7 +283,7 @@ func TestLoadTemplate(t *testing.T) {
 		tmpDir := t.TempDir()
 		templateFile := filepath.Join(tmpDir, "invalid.sparql")
 		invalidContent := "SELECT {{.Invalid"
-		err := ioutil.WriteFile(templateFile, []byte(invalidContent), 0644)
+		err := os.WriteFile(templateFile, []byte(invalidContent), 0644)
 		require.NoError(t, err)
 
 		client := NewPoolPartyClient("http://localhost", "user", "pass", tmpDir)
@@ -309,7 +309,7 @@ func TestExecuteSPARQL(t *testing.T) {
 			assert.Equal(t, "admin", username)
 			assert.Equal(t, "password", password)
 
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			assert.Contains(t, string(body), "query=")
 
 			w.WriteHeader(http.StatusOK)
@@ -365,7 +365,7 @@ func TestExecuteSPARQLFromTemplate(t *testing.T) {
 		tmpDir := t.TempDir()
 		templateFile := filepath.Join(tmpDir, "concepts.sparql")
 		templateContent := "SELECT ?concept WHERE { ?concept a skos:Concept } LIMIT {{.Limit}}"
-		err := ioutil.WriteFile(templateFile, []byte(templateContent), 0644)
+		err := os.WriteFile(templateFile, []byte(templateContent), 0644)
 		require.NoError(t, err)
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -510,7 +510,7 @@ func TestPrintProjects(t *testing.T) {
 	PrintProjects(projects)
 
 	w.Close()
-	output, _ := ioutil.ReadAll(r)
+	output, _ := io.ReadAll(r)
 	os.Stdout = oldStdout
 
 	outputStr := string(output)
@@ -527,7 +527,7 @@ func TestRunSparQLFromFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	templateFile := filepath.Join(tmpDir, "query.sparql")
 	templateContent := "SELECT * WHERE { ?s ?p ?o } LIMIT {{.Limit}}"
-	err := ioutil.WriteFile(templateFile, []byte(templateContent), 0644)
+	err := os.WriteFile(templateFile, []byte(templateContent), 0644)
 	require.NoError(t, err)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -600,7 +600,7 @@ func TestPoolPartyClient_TemplateCache(t *testing.T) {
 	templates := []string{"query1.sparql", "query2.sparql", "query3.sparql"}
 	for _, tmplName := range templates {
 		content := "SELECT ?s WHERE { ?s ?p ?o }"
-		err := ioutil.WriteFile(filepath.Join(tmpDir, tmplName), []byte(content), 0644)
+		err := os.WriteFile(filepath.Join(tmpDir, tmplName), []byte(content), 0644)
 		require.NoError(t, err)
 	}
 
@@ -644,7 +644,7 @@ func BenchmarkExecuteSPARQL(b *testing.B) {
 func BenchmarkLoadTemplate(b *testing.B) {
 	tmpDir := b.TempDir()
 	templateFile := filepath.Join(tmpDir, "test.sparql")
-	err := ioutil.WriteFile(templateFile, []byte("SELECT ?s WHERE { ?s ?p ?o }"), 0644)
+	err := os.WriteFile(templateFile, []byte("SELECT ?s WHERE { ?s ?p ?o }"), 0644)
 	if err != nil {
 		b.Fatal(err)
 	}

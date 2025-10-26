@@ -31,7 +31,7 @@
 package db
 
 import (
-	"io/ioutil"
+	
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -231,7 +231,7 @@ func TestExportRDFXml_Success(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	data, _ := ioutil.ReadFile(outputFile)
+	data, _ := os.ReadFile(outputFile)
 	if string(data) != "<rdf>test</rdf>" {
 		t.Fatalf("expected '<rdf>test</rdf>', got %s", string(data))
 	}
@@ -424,7 +424,7 @@ func mockRDF4JServer(t *testing.T, expectedRepoID string, expectedContentType st
 			t.Errorf("expected Content-Type %s, got %s", expectedContentType, r.Header.Get("Content-Type"))
 		}
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		if !containsRepoID(string(body), expectedRepoID) {
 			t.Errorf("expected repoID %s in body, got %s", expectedRepoID, string(body))
 		}
