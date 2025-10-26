@@ -52,6 +52,34 @@ import (
 	_ "github.com/go-kivik/kivik/v4/couchdb" // The CouchDB driver
 )
 
+// DocumentStore defines the interface for flow process document storage and retrieval.
+// This interface allows for easy mocking and testing of document operations.
+type DocumentStore interface {
+	// GetDocument retrieves a flow process document by its ID.
+	// Returns the document if found, or an error if not found or on failure.
+	GetDocument(id string) (*eve.FlowProcessDocument, error)
+
+	// GetAllDocuments retrieves all flow process documents from the database.
+	// Returns a slice of all documents, or an error on failure.
+	GetAllDocuments() ([]eve.FlowProcessDocument, error)
+
+	// GetDocumentsByState retrieves flow process documents filtered by state.
+	// Returns a slice of documents matching the specified state, or an error on failure.
+	GetDocumentsByState(state eve.FlowProcessState) ([]eve.FlowProcessDocument, error)
+
+	// SaveDocument saves a flow process document to the database.
+	// Returns a response with revision information, or an error on failure.
+	SaveDocument(doc eve.FlowProcessDocument) (*eve.FlowCouchDBResponse, error)
+
+	// DeleteDocument deletes a flow process document by ID and revision.
+	// Returns an error if deletion fails.
+	DeleteDocument(id, rev string) error
+
+	// Close closes the database connection.
+	// Returns an error if closing fails.
+	Close() error
+}
+
 // CouchDBService encapsulates CouchDB client functionality for flow processing operations.
 // This service provides a high-level abstraction over CouchDB operations with specialized
 // support for flow document management, state tracking, and audit trail maintenance.

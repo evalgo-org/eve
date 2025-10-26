@@ -15,12 +15,12 @@ import (
 )
 
 // Handlers contains the service dependencies required for API operations.
-// It provides access to RabbitMQ for message queuing, CouchDB for data persistence,
-// and JWT service for authentication.
+// It provides access to message publishing, document storage, and JWT authentication.
+// Uses interfaces to enable easy testing and mocking.
 type Handlers struct {
-	RabbitMQ *queue.RabbitMQService // RabbitMQ service for message publishing
-	CouchDB  *db.CouchDBService     // CouchDB service for document storage
-	JWT      *security.JWTService   // JWT service for token generation and validation
+	RabbitMQ queue.MessagePublisher // Message publisher for flow process messages
+	CouchDB  db.DocumentStore        // Document store for process data
+	JWT      *security.JWTService    // JWT service for token generation and validation
 }
 
 // SetupRoutes configures all API routes for the EVE service.

@@ -5,12 +5,14 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	eve "eve.evalgo.org/common"
 	"eve.evalgo.org/security"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -527,4 +529,429 @@ func BenchmarkGenerateToken(b *testing.B) {
 
 		handlers.GenerateToken(c)
 	}
+}
+
+// Mock implementations for testing handlers
+
+// MockMessagePublisher is a mock message publisher for testing
+type MockMessagePublisher struct {
+	PublishMessageFunc func(eve.FlowProcessMessage) error
+	CloseFunc          func() error
+}
+
+func (m *MockMessagePublisher) PublishMessage(msg eve.FlowProcessMessage) error {
+	if m.PublishMessageFunc != nil {
+		return m.PublishMessageFunc(msg)
+	}
+	return nil
+}
+
+func (m *MockMessagePublisher) Close() error {
+	if m.CloseFunc != nil {
+		return m.CloseFunc()
+	}
+	return nil
+}
+
+// MockDocumentStore is a mock document store for testing
+type MockDocumentStore struct {
+	GetDocumentFunc         func(string) (*eve.FlowProcessDocument, error)
+	GetAllDocumentsFunc     func() ([]eve.FlowProcessDocument, error)
+	GetDocumentsByStateFunc func(eve.FlowProcessState) ([]eve.FlowProcessDocument, error)
+	SaveDocumentFunc        func(eve.FlowProcessDocument) (*eve.FlowCouchDBResponse, error)
+	DeleteDocumentFunc      func(string, string) error
+	CloseFunc               func() error
+}
+
+func (m *MockDocumentStore) GetDocument(id string) (*eve.FlowProcessDocument, error) {
+	if m.GetDocumentFunc != nil {
+		return m.GetDocumentFunc(id)
+	}
+	return nil, nil
+}
+
+func (m *MockDocumentStore) GetAllDocuments() ([]eve.FlowProcessDocument, error) {
+	if m.GetAllDocumentsFunc != nil {
+		return m.GetAllDocumentsFunc()
+	}
+	return []eve.FlowProcessDocument{}, nil
+}
+
+func (m *MockDocumentStore) GetDocumentsByState(state eve.FlowProcessState) ([]eve.FlowProcessDocument, error) {
+	if m.GetDocumentsByStateFunc != nil {
+		return m.GetDocumentsByStateFunc(state)
+	}
+	return []eve.FlowProcessDocument{}, nil
+}
+
+func (m *MockDocumentStore) SaveDocument(doc eve.FlowProcessDocument) (*eve.FlowCouchDBResponse, error) {
+	if m.SaveDocumentFunc != nil {
+		return m.SaveDocumentFunc(doc)
+	}
+	return &eve.FlowCouchDBResponse{}, nil
+}
+
+func (m *MockDocumentStore) DeleteDocument(id, rev string) error {
+	if m.DeleteDocumentFunc != nil {
+		return m.DeleteDocumentFunc(id, rev)
+	}
+	return nil
+}
+
+func (m *MockDocumentStore) Close() error {
+	if m.CloseFunc != nil {
+		return m.CloseFunc()
+	}
+	return nil
+}
+
+// TestPublishMessage_Success tests successful message publishing
+func TestPublishMessage_Success(t *testing.T) {
+	e := echo.New()
+	mockPublisher := &MockMessagePublisher{}
+	handlers := &Handlers{
+		RabbitMQ: mockPublisher,
+	}
+
+	requestBody := `{
+		"process_id": "proc-123",
+		"state": "running",
+		"description": "Test process"
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/api/publish", strings.NewReader(requestBody))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handlers.PublishMessage(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response map[string]string
+	json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.Equal(t, "Message published successfully", response["status"])
+}
+
+// TestPublishMessage_MissingProcessID tests publishing without process ID
+func TestPublishMessage_MissingProcessID(t *testing.T) {
+	e := echo.New()
+	mockPublisher := &MockMessagePublisher{}
+	handlers := &Handlers{
+		RabbitMQ: mockPublisher,
+	}
+
+	requestBody := `{
+		"state": "running",
+		"description": "Test"
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/api/publish", strings.NewReader(requestBody))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handlers.PublishMessage(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.Equal(t, "process_id is required", response["error"])
+}
+
+// TestPublishMessage_MissingState tests publishing without state
+func TestPublishMessage_MissingState(t *testing.T) {
+	e := echo.New()
+	mockPublisher := &MockMessagePublisher{}
+	handlers := &Handlers{
+		RabbitMQ: mockPublisher,
+	}
+
+	requestBody := `{
+		"process_id": "proc-123",
+		"description": "Test"
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/api/publish", strings.NewReader(requestBody))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handlers.PublishMessage(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.Equal(t, "state is required", response["error"])
+}
+
+// TestPublishMessage_InvalidJSON tests publishing with malformed JSON
+func TestPublishMessage_InvalidJSON(t *testing.T) {
+	e := echo.New()
+	mockPublisher := &MockMessagePublisher{}
+	handlers := &Handlers{
+		RabbitMQ: mockPublisher,
+	}
+
+	requestBody := `{"process_id": "invalid json`
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/api/publish", strings.NewReader(requestBody))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handlers.PublishMessage(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+// TestPublishMessage_PublishError tests error handling when publishing fails
+func TestPublishMessage_PublishError(t *testing.T) {
+	e := echo.New()
+	mockPublisher := &MockMessagePublisher{
+		PublishMessageFunc: func(msg eve.FlowProcessMessage) error {
+			return assert.AnError
+		},
+	}
+	handlers := &Handlers{
+		RabbitMQ: mockPublisher,
+	}
+
+	requestBody := `{
+		"process_id": "proc-123",
+		"state": "running"
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/api/publish", strings.NewReader(requestBody))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handlers.PublishMessage(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	var response map[string]string
+	json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.Equal(t, "Failed to publish message", response["error"])
+}
+
+// TestGetProcess_Success tests successful process retrieval
+func TestGetProcess_Success(t *testing.T) {
+	e := echo.New()
+	mockStore := &MockDocumentStore{
+		GetDocumentFunc: func(id string) (*eve.FlowProcessDocument, error) {
+			return &eve.FlowProcessDocument{
+				ID:        id,
+				ProcessID: id,
+				State:     eve.StateRunning,
+			}, nil
+		},
+	}
+	handlers := &Handlers{
+		CouchDB: mockStore,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/api/processes/proc-123", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("proc-123")
+
+	err := handlers.GetProcess(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+// TestGetProcess_NotFound tests process not found scenario
+func TestGetProcess_NotFound(t *testing.T) {
+	e := echo.New()
+	mockStore := &MockDocumentStore{
+		GetDocumentFunc: func(id string) (*eve.FlowProcessDocument, error) {
+			return nil, fmt.Errorf("document not found")
+		},
+	}
+	handlers := &Handlers{
+		CouchDB: mockStore,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/api/processes/nonexistent", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("nonexistent")
+
+	err := handlers.GetProcess(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+
+	var response map[string]string
+	json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.Equal(t, "Process not found", response["error"])
+}
+
+// TestGetProcess_EmptyID tests process retrieval with empty ID
+func TestGetProcess_EmptyID(t *testing.T) {
+	e := echo.New()
+	mockStore := &MockDocumentStore{}
+	handlers := &Handlers{
+		CouchDB: mockStore,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/api/processes/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("")
+
+	err := handlers.GetProcess(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+// TestGetProcess_DatabaseError tests database error handling
+func TestGetProcess_DatabaseError(t *testing.T) {
+	e := echo.New()
+	mockStore := &MockDocumentStore{
+		GetDocumentFunc: func(id string) (*eve.FlowProcessDocument, error) {
+			return nil, fmt.Errorf("database connection error")
+		},
+	}
+	handlers := &Handlers{
+		CouchDB: mockStore,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/api/processes/proc-123", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetParamNames("id")
+	c.SetParamValues("proc-123")
+
+	err := handlers.GetProcess(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	var response map[string]string
+	json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.Equal(t, "Failed to retrieve process", response["error"])
+}
+
+// TestGetProcessesByState_AllProcesses tests getting all processes without filter
+func TestGetProcessesByState_AllProcesses(t *testing.T) {
+	e := echo.New()
+	mockStore := &MockDocumentStore{
+		GetAllDocumentsFunc: func() ([]eve.FlowProcessDocument, error) {
+			return []eve.FlowProcessDocument{
+				{ProcessID: "proc-1", State: eve.StateRunning},
+				{ProcessID: "proc-2", State: eve.StateSuccessful},
+			}, nil
+		},
+	}
+	handlers := &Handlers{
+		CouchDB: mockStore,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/api/processes", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handlers.GetProcessesByState(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.Equal(t, float64(2), response["count"])
+}
+
+// TestGetProcessesByState_FilterByState tests filtering processes by state
+func TestGetProcessesByState_FilterByState(t *testing.T) {
+	e := echo.New()
+	mockStore := &MockDocumentStore{
+		GetDocumentsByStateFunc: func(state eve.FlowProcessState) ([]eve.FlowProcessDocument, error) {
+			return []eve.FlowProcessDocument{
+				{ProcessID: "proc-1", State: state},
+			}, nil
+		},
+	}
+	handlers := &Handlers{
+		CouchDB: mockStore,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/api/processes?state=running", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handlers.GetProcessesByState(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response map[string]interface{}
+	json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.Equal(t, float64(1), response["count"])
+}
+
+// TestGetProcessesByState_InvalidState tests filtering with invalid state
+func TestGetProcessesByState_InvalidState(t *testing.T) {
+	e := echo.New()
+	mockStore := &MockDocumentStore{}
+	handlers := &Handlers{
+		CouchDB: mockStore,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/api/processes?state=invalid", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handlers.GetProcessesByState(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var response map[string]string
+	json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.Equal(t, "Invalid state value", response["error"])
+}
+
+// TestGetProcessesByState_DatabaseError tests database error when getting all docs
+func TestGetProcessesByState_DatabaseError(t *testing.T) {
+	e := echo.New()
+	mockStore := &MockDocumentStore{
+		GetAllDocumentsFunc: func() ([]eve.FlowProcessDocument, error) {
+			return nil, fmt.Errorf("database error")
+		},
+	}
+	handlers := &Handlers{
+		CouchDB: mockStore,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/api/processes", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handlers.GetProcessesByState(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+// TestGetProcessesByState_FilteredDatabaseError tests database error when filtering
+func TestGetProcessesByState_FilteredDatabaseError(t *testing.T) {
+	e := echo.New()
+	mockStore := &MockDocumentStore{
+		GetDocumentsByStateFunc: func(state eve.FlowProcessState) ([]eve.FlowProcessDocument, error) {
+			return nil, fmt.Errorf("database error")
+		},
+	}
+	handlers := &Handlers{
+		CouchDB: mockStore,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/api/processes?state=running", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handlers.GetProcessesByState(c)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }

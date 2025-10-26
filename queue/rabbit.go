@@ -22,6 +22,18 @@ import (
 	"github.com/streadway/amqp"
 )
 
+// MessagePublisher defines the interface for publishing flow process messages.
+// This interface allows for easy mocking and testing of message publishing functionality.
+type MessagePublisher interface {
+	// PublishMessage publishes a flow process message to the queue.
+	// Returns an error if message serialization or publishing fails.
+	PublishMessage(message eve.FlowProcessMessage) error
+
+	// Close closes the connection to the message queue.
+	// Returns an error if closing fails.
+	Close() error
+}
+
 // RabbitMQService represents a service for interacting with RabbitMQ.
 // It manages a connection and channel to a RabbitMQ server and provides
 // methods for publishing messages to a queue.
