@@ -180,6 +180,15 @@ jobs:
         with:
           args: '-no-fail -fmt sarif -out results.sarif ./...'
 
+      - name: Fix SARIF format
+        if: always()
+        run: |
+          if [ -f results.sarif ]; then
+            # Remove invalid fixes field that causes SARIF validation errors
+            jq 'del(.runs[].results[].fixes)' results.sarif > results-fixed.sarif
+            mv results-fixed.sarif results.sarif
+          fi
+
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         if: always()
