@@ -86,6 +86,8 @@ func ssh_keyfile(privateKeyPath string, certKeyPath string) (ssh.Signer, error) 
 //  2. Handles encrypted keys by decrypting them
 //  3. Parses the key based on its type (RSA, EC, DSA)
 //  4. Creates and returns an SSH signer from the key
+//
+// nolint:unused
 func signerFromPem(pemBytes []byte, password []byte) (ssh.Signer, error) {
 	// Read PEM block
 	pemBlock, _ := pem.Decode(pemBytes)
@@ -138,6 +140,8 @@ func signerFromPem(pemBytes []byte, password []byte) (ssh.Signer, error) {
 //   - RSA PRIVATE KEY
 //   - EC PRIVATE KEY
 //   - DSA PRIVATE KEY
+//
+// nolint:unused
 func parsePemBlock(block *pem.Block) (interface{}, error) {
 	switch block.Type {
 	case "RSA PRIVATE KEY":

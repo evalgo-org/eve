@@ -161,6 +161,8 @@ type UploadSummary struct {
 //	- Network connectivity and upload failures
 //	- LakeFS authentication and authorization errors
 //	- Branch permission and access control violations
+//
+// nolint:unused
 func lakeFsUploadFile(ctx context.Context, client *s3.Client, branch, bucket, objectKey, filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -214,6 +216,8 @@ func lakeFsUploadFile(ctx context.Context, client *s3.Client, branch, bucket, ob
 //	- Repository name conflicts or invalid names
 //	- Insufficient permissions for repository creation
 //	- LakeFS server errors or capacity limitations
+//
+// nolint:unused
 func lakeFsEnsureBucketExists(ctx context.Context, client *s3.Client, bucket string) error {
 	_, err := client.HeadBucket(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(bucket),

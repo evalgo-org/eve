@@ -108,6 +108,8 @@ func (h *handler) createUser(c echo.Context) error {
 //	h := &handler{mockDB}
 //	c := createTestContextWithParam("email", "jon@labstack.com")
 //	err := h.getUser(c)
+//
+// nolint:unused
 func (h *handler) getUser(c echo.Context) error {
 	email := c.Param("email")
 	user := h.db[email]

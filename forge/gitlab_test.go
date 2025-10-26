@@ -604,7 +604,7 @@ func BenchmarkGlabUnZip(b *testing.B) {
 	// Add multiple files
 	for i := 0; i < 50; i++ {
 		fileWriter, _ := zipWriter.Create("file" + string(rune(i)) + ".txt")
-		fileWriter.Write([]byte("content for file " + string(rune(i))))
+		_, _ = fileWriter.Write([]byte("content for file " + string(rune(i))))
 	}
 	zipWriter.Close()
 	zipFile.Close()
