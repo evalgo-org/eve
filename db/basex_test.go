@@ -2,7 +2,7 @@ package db
 
 import (
 	"encoding/xml"
-	
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
