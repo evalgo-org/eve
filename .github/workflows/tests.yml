@@ -73,6 +73,7 @@ jobs:
         docker pull couchdb:3.5
         docker pull postgres:16-alpine
         docker pull rabbitmq:3.13-management-alpine
+        docker pull minio/minio:latest
 
     - name: Run integration tests
       run: go test -v -race -tags=integration -coverprofile=coverage-integration.out -covermode=atomic ./...
@@ -117,6 +118,7 @@ jobs:
         docker pull couchdb:3.5
         docker pull postgres:16-alpine
         docker pull rabbitmq:3.13-management-alpine
+        docker pull minio/minio:latest
 
     - name: Run all tests with coverage
       run: go test -v -race -tags=integration -coverprofile=coverage-combined.out -covermode=atomic ./...
