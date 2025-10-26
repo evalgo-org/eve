@@ -169,7 +169,7 @@ func setupCouchDBContainer(t *testing.T) (string, func()) {
     ctx := context.Background()
 
     req := testcontainers.ContainerRequest{
-        Image:        "couchdb:3.3",
+        Image:        "couchdb:3.5",
         ExposedPorts: []string{"5984/tcp"},
         Env: map[string]string{
             "COUCHDB_USER":     "admin",

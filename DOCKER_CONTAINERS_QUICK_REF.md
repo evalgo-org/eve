@@ -74,7 +74,7 @@ docker inspect eve-rabbitmq-test --format='{{.State.Health.Status}}'
 
 ### CouchDB
 - **Container**: `eve-couchdb-test`
-- **Image**: `couchdb:3.3`
+- **Image**: `couchdb:3.5`
 - **Port**: `5985:5984`
 - **Volume**: `eve-couchdb-test-data`
 - **User**: `admin`
@@ -225,7 +225,7 @@ docker run -d \
   -e COUCHDB_PASSWORD=testpass \
   -p 5985:5984 \
   -v eve-couchdb-test-data:/opt/couchdb/data \
-  couchdb:3.3
+  couchdb:3.5
 
 # RabbitMQ
 docker run -d \

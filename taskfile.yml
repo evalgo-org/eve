@@ -1,11 +1,17 @@
 version: '3'
 
 vars:
+  # Coverage and testing
   COVERAGE_FILE: coverage.out
   COVERAGE_HTML: coverage.html
   COVERAGE_TXT: coverage.txt
   SECURITY_REPORT: security-report.txt
   MIN_COVERAGE: 60
+
+  # Container versions for integration tests
+  POSTGRES_VERSION: "16-alpine"
+  COUCHDB_VERSION: "3.5"
+  RABBITMQ_VERSION: "3.13-management-alpine"
 
 tasks:
   default:
@@ -315,7 +321,7 @@ tasks:
           --health-interval=5s \
           --health-timeout=5s \
           --health-retries=5 \
-          postgres:16-alpine 2>/dev/null || echo "PostgreSQL container already running"
+          postgres:{{.POSTGRES_VERSION}} 2>/dev/null || echo "PostgreSQL container already running"
 
   containers:couchdb:
     desc: Start CouchDB test container
@@ -333,7 +339,7 @@ tasks:
           --health-interval=5s \
           --health-timeout=5s \
           --health-retries=5 \
-          couchdb:3.3 2>/dev/null || echo "CouchDB container already running"
+          couchdb:{{.COUCHDB_VERSION}} 2>/dev/null || echo "CouchDB container already running"
       - |
         # Wait for CouchDB to be ready, then create databases
         echo "Waiting for CouchDB to be ready..."
@@ -364,7 +370,7 @@ tasks:
           --health-interval=5s \
           --health-timeout=5s \
           --health-retries=5 \
-          rabbitmq:3.13-management-alpine 2>/dev/null || echo "RabbitMQ container already running"
+          rabbitmq:{{.RABBITMQ_VERSION}} 2>/dev/null || echo "RabbitMQ container already running"
 
   containers:up:
     desc: Start all test containers (PostgreSQL, CouchDB, RabbitMQ)

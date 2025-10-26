@@ -70,7 +70,7 @@ jobs:
     # Pre-pull Docker images to avoid timeouts
     - name: Pull Docker images
       run: |
-        docker pull couchdb:3.3
+        docker pull couchdb:3.5
         docker pull postgres:16-alpine
         docker pull rabbitmq:3.13-management-alpine
 
@@ -114,7 +114,7 @@ jobs:
     # Pull images for integration tests
     - name: Pull Docker images
       run: |
-        docker pull couchdb:3.3
+        docker pull couchdb:3.5
         docker pull postgres:16-alpine
         docker pull rabbitmq:3.13-management-alpine
 
