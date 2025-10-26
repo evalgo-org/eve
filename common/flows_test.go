@@ -303,12 +303,12 @@ func TestFlowProcessMessage_Metadata(t *testing.T) {
 			State:     StateRunning,
 			Timestamp: now,
 			Metadata: map[string]interface{}{
-				"string":  "value",
-				"number":  42,
-				"float":   3.14,
-				"bool":    true,
-				"nested":  map[string]interface{}{"key": "nested_value"},
-				"array":   []interface{}{1, 2, 3},
+				"string": "value",
+				"number": 42,
+				"float":  3.14,
+				"bool":   true,
+				"nested": map[string]interface{}{"key": "nested_value"},
+				"array":  []interface{}{1, 2, 3},
 			},
 		}
 
