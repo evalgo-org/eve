@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -690,4 +691,140 @@ func BenchmarkDecryptFile(b *testing.B) {
 		decryptFile := filepath.Join(tmpDir, "decrypt"+string(rune(i))+".txt")
 		_ = DecryptFile("password", cipherFile, decryptFile)
 	}
+}
+// TestZitiCreateCSR_ErrorPaths tests error handling in CSR creation
+func TestZitiCreateCSR_ErrorPaths(t *testing.T) {
+	t.Run("invalid private key path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		privKeyPath := filepath.Join(tmpDir, "nonexistent", "subdir", "private.pem")
+		csrPath := filepath.Join(tmpDir, "csr.pem")
+
+		err := ZitiCreateCSR(privKeyPath, csrPath)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create private key file")
+	})
+
+	t.Run("invalid csr path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		privKeyPath := filepath.Join(tmpDir, "private.pem")
+		csrPath := filepath.Join(tmpDir, "nonexistent", "subdir", "csr.pem")
+
+		err := ZitiCreateCSR(privKeyPath, csrPath)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create CSR file")
+	})
+
+	t.Run("read-only directory for private key", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		subDir := filepath.Join(tmpDir, "readonly")
+		err := os.MkdirAll(subDir, 0755)
+		require.NoError(t, err)
+
+		// Make directory read-only
+		err = os.Chmod(subDir, 0444)
+		require.NoError(t, err)
+		defer os.Chmod(subDir, 0755) // Restore for cleanup
+
+		privKeyPath := filepath.Join(subDir, "private.pem")
+		csrPath := filepath.Join(tmpDir, "csr.pem")
+
+		err = ZitiCreateCSR(privKeyPath, csrPath)
+		assert.Error(t, err)
+	})
+
+	t.Run("read-only directory for csr", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		privKeyPath := filepath.Join(tmpDir, "private.pem")
+
+		subDir := filepath.Join(tmpDir, "readonly")
+		err := os.MkdirAll(subDir, 0755)
+		require.NoError(t, err)
+
+		// Make directory read-only
+		err = os.Chmod(subDir, 0444)
+		require.NoError(t, err)
+		defer os.Chmod(subDir, 0755) // Restore for cleanup
+
+		csrPath := filepath.Join(subDir, "csr.pem")
+
+		err = ZitiCreateCSR(privKeyPath, csrPath)
+		assert.Error(t, err)
+	})
+}
+
+// TestZitiCreateCSR_FileContents tests the actual contents of generated files
+func TestZitiCreateCSR_FileContents(t *testing.T) {
+	tmpDir := t.TempDir()
+	privKeyPath := filepath.Join(tmpDir, "key.pem")
+	csrPath := filepath.Join(tmpDir, "request.pem")
+
+	err := ZitiCreateCSR(privKeyPath, csrPath)
+	require.NoError(t, err)
+
+	// Verify private key PEM format
+	privKeyData, err := os.ReadFile(privKeyPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(privKeyData), "BEGIN EC PRIVATE KEY")
+	assert.Contains(t, string(privKeyData), "END EC PRIVATE KEY")
+
+	// Verify CSR PEM format
+	csrData, err := os.ReadFile(csrPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(csrData), "BEGIN CERTIFICATE REQUEST")
+	assert.Contains(t, string(csrData), "END CERTIFICATE REQUEST")
+
+	// Verify CSR can be parsed
+	block, _ := pem.Decode(csrData)
+	require.NotNil(t, block)
+	csr, err := x509.ParseCertificateRequest(block.Bytes)
+	require.NoError(t, err)
+	assert.Equal(t, "ziti-edge-router", csr.Subject.CommonName)
+	assert.Contains(t, csr.Subject.Organization, "OpenZiti")
+}
+
+// TestZitiCreateCSR_MultipleInvocations tests creating multiple CSRs
+func TestZitiCreateCSR_MultipleInvocations(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	for i := 0; i < 3; i++ {
+		privKeyPath := filepath.Join(tmpDir, fmt.Sprintf("key%d.pem", i))
+		csrPath := filepath.Join(tmpDir, fmt.Sprintf("csr%d.pem", i))
+
+		err := ZitiCreateCSR(privKeyPath, csrPath)
+		require.NoError(t, err)
+
+		assert.FileExists(t, privKeyPath)
+		assert.FileExists(t, csrPath)
+	}
+
+	// Verify all files were created
+	files, err := os.ReadDir(tmpDir)
+	require.NoError(t, err)
+	assert.Len(t, files, 6) // 3 keys + 3 CSRs
+}
+
+// TestZitiCreateCSR_FileOverwrite tests overwriting existing files
+func TestZitiCreateCSR_FileOverwrite(t *testing.T) {
+	tmpDir := t.TempDir()
+	privKeyPath := filepath.Join(tmpDir, "key.pem")
+	csrPath := filepath.Join(tmpDir, "csr.pem")
+
+	// Create first time
+	err := ZitiCreateCSR(privKeyPath, csrPath)
+	require.NoError(t, err)
+
+	// Read original content
+	originalKey, err := os.ReadFile(privKeyPath)
+	require.NoError(t, err)
+
+	// Create second time (should overwrite)
+	err = ZitiCreateCSR(privKeyPath, csrPath)
+	require.NoError(t, err)
+
+	// Verify files still exist and have new content
+	newKey, err := os.ReadFile(privKeyPath)
+	require.NoError(t, err)
+
+	// Keys should be different (different random generation)
+	assert.NotEqual(t, originalKey, newKey)
 }
