@@ -5,6 +5,7 @@ run:
   allow-parallel-runners: true
 
 linters:
+  disable-all: true
   enable:
     - errcheck
     - unused
@@ -13,9 +14,6 @@ linters:
     - govet
     - gofmt
     - goimports
-  disable:
-    - typecheck
-  disable-all: false
 
 linters-settings:
   errcheck:
