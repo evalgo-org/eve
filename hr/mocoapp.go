@@ -124,4 +124,3 @@ type MocoUserContract struct {
 // Note: MocoAppProjects and other Moco functions have been moved to client.go
 // with proper dependency injection for testability. The old function signatures
 // are preserved as backward-compatible wrappers in client.go.
-
