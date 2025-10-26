@@ -334,6 +334,18 @@ tasks:
           --health-timeout=5s \
           --health-retries=5 \
           couchdb:3.3 2>/dev/null || echo "CouchDB container already running"
+      - |
+        # Wait for CouchDB to be ready, then create databases
+        echo "Waiting for CouchDB to be ready..."
+        until curl -sf http://admin:testpass@localhost:5985/_up > /dev/null 2>&1; do
+          sleep 1
+        done
+        echo "Creating CouchDB system databases..."
+        curl -X PUT http://admin:testpass@localhost:5985/_users 2>/dev/null || true
+        curl -X PUT http://admin:testpass@localhost:5985/_replicator 2>/dev/null || true
+        echo "Creating test_flows database..."
+        curl -X PUT http://admin:testpass@localhost:5985/test_flows 2>/dev/null || true
+        echo "CouchDB databases initialized"
 
   containers:rabbitmq:
     desc: Start RabbitMQ test container
