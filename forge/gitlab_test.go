@@ -768,8 +768,8 @@ func TestGitlabListJobsForTag(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode([]map[string]interface{}{
 					{
-						"id":  100,
-						"ref": "v1.0.0",
+						"id":     100,
+						"ref":    "v1.0.0",
 						"status": "success",
 					},
 				})
@@ -918,19 +918,19 @@ func TestGitlabGetJobDetails(t *testing.T) {
 
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(map[string]interface{}{
-					"id":               123,
-					"name":             "build-job",
-					"status":           "failed",
-					"stage":            "build",
-					"ref":              "main",
-					"pipeline":         map[string]interface{}{"id": 456},
-					"created_at":       now.Add(-10 * time.Minute).Format(time.RFC3339),
-					"started_at":       started.Format(time.RFC3339),
-					"finished_at":      finished.Format(time.RFC3339),
-					"duration":         300.0,
-					"queued_duration":  60.0,
-					"web_url":          "https://gitlab.example.com/jobs/123",
-					"failure_reason":   "script_failure",
+					"id":              123,
+					"name":            "build-job",
+					"status":          "failed",
+					"stage":           "build",
+					"ref":             "main",
+					"pipeline":        map[string]interface{}{"id": 456},
+					"created_at":      now.Add(-10 * time.Minute).Format(time.RFC3339),
+					"started_at":      started.Format(time.RFC3339),
+					"finished_at":     finished.Format(time.RFC3339),
+					"duration":        300.0,
+					"queued_duration": 60.0,
+					"web_url":         "https://gitlab.example.com/jobs/123",
+					"failure_reason":  "script_failure",
 				})
 			}
 		}))
@@ -955,16 +955,16 @@ func TestGitlabGetJobDetails(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(map[string]interface{}{
-					"id":               456,
-					"name":             "test-job",
-					"status":           "success",
-					"stage":            "test",
-					"ref":              "main",
-					"pipeline":         map[string]interface{}{"id": 789},
-					"created_at":       now.Format(time.RFC3339),
-					"duration":         120.0,
-					"queued_duration":  30.0,
-					"web_url":          "https://gitlab.example.com/jobs/456",
+					"id":              456,
+					"name":            "test-job",
+					"status":          "success",
+					"stage":           "test",
+					"ref":             "main",
+					"pipeline":        map[string]interface{}{"id": 789},
+					"created_at":      now.Format(time.RFC3339),
+					"duration":        120.0,
+					"queued_duration": 30.0,
+					"web_url":         "https://gitlab.example.com/jobs/456",
 				})
 			}
 		}))
@@ -1009,19 +1009,19 @@ func TestGitlabDisplayJobState(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(map[string]interface{}{
-					"id":               123,
-					"name":             "test-job",
-					"status":           "failed",
-					"stage":            "test",
-					"ref":              "feature-branch",
-					"pipeline":         map[string]interface{}{"id": 456},
-					"created_at":       now.Add(-10 * time.Minute).Format(time.RFC3339),
-					"started_at":       now.Add(-8 * time.Minute).Format(time.RFC3339),
-					"finished_at":      now.Format(time.RFC3339),
-					"duration":         480.0,
-					"queued_duration":  120.0,
-					"web_url":          "https://gitlab.example.com/jobs/123",
-					"failure_reason":   "script_failure",
+					"id":              123,
+					"name":            "test-job",
+					"status":          "failed",
+					"stage":           "test",
+					"ref":             "feature-branch",
+					"pipeline":        map[string]interface{}{"id": 456},
+					"created_at":      now.Add(-10 * time.Minute).Format(time.RFC3339),
+					"started_at":      now.Add(-8 * time.Minute).Format(time.RFC3339),
+					"finished_at":     now.Format(time.RFC3339),
+					"duration":        480.0,
+					"queued_duration": 120.0,
+					"web_url":         "https://gitlab.example.com/jobs/123",
+					"failure_reason":  "script_failure",
 				})
 			}
 		}))
@@ -1041,18 +1041,18 @@ func TestGitlabDisplayJobState(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(map[string]interface{}{
-					"id":               456,
-					"name":             "deploy-job",
-					"status":           "success",
-					"stage":            "deploy",
-					"ref":              "main",
-					"pipeline":         map[string]interface{}{"id": 789},
-					"created_at":       now.Format(time.RFC3339),
-					"started_at":       now.Add(-5 * time.Minute).Format(time.RFC3339),
-					"finished_at":      now.Format(time.RFC3339),
-					"duration":         300.0,
-					"queued_duration":  60.0,
-					"web_url":          "https://gitlab.example.com/jobs/456",
+					"id":              456,
+					"name":            "deploy-job",
+					"status":          "success",
+					"stage":           "deploy",
+					"ref":             "main",
+					"pipeline":        map[string]interface{}{"id": 789},
+					"created_at":      now.Format(time.RFC3339),
+					"started_at":      now.Add(-5 * time.Minute).Format(time.RFC3339),
+					"finished_at":     now.Format(time.RFC3339),
+					"duration":        300.0,
+					"queued_duration": 60.0,
+					"web_url":         "https://gitlab.example.com/jobs/456",
 				})
 			}
 		}))
