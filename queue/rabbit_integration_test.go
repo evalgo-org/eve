@@ -6,6 +6,7 @@ package queue
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -323,10 +324,13 @@ func TestRabbitMQService_Integration_ConcurrentPublish(t *testing.T) {
 
 	// Publish messages concurrently
 	numMessages := 50
+	var wg sync.WaitGroup
 	errChan := make(chan error, numMessages)
 
+	wg.Add(numMessages)
 	for i := 0; i < numMessages; i++ {
 		go func(id int) {
+			defer wg.Done()
 			msg := eve.FlowProcessMessage{
 				ProcessID: fmt.Sprintf("concurrent-%d", id),
 				State:     eve.StateRunning,
@@ -336,11 +340,17 @@ func TestRabbitMQService_Integration_ConcurrentPublish(t *testing.T) {
 		}(i)
 	}
 
+	// Wait for all publishes to complete
+	wg.Wait()
+	close(errChan)
+
 	// Check all publishes succeeded
-	for i := 0; i < numMessages; i++ {
-		err := <-errChan
-		assert.NoError(t, err, "Concurrent publish %d should succeed", i)
+	for err := range errChan {
+		assert.NoError(t, err, "Concurrent publish should succeed")
 	}
+
+	// Give RabbitMQ a moment to process all messages
+	time.Sleep(100 * time.Millisecond)
 
 	// Verify queue has messages
 	queue, err := service.channel.QueueInspect(config.QueueName)
