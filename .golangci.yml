@@ -53,6 +53,7 @@ issues:
         - goimports
   max-issues-per-linter: 0
   max-same-issues: 0
+  uniq-by-line: false
 
 output:
   formats:
@@ -60,4 +61,3 @@ output:
       path: stdout
   print-issued-lines: true
   print-linter-name: true
-  uniq-by-line: false

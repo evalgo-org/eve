@@ -692,6 +692,7 @@ func BenchmarkDecryptFile(b *testing.B) {
 		_ = DecryptFile("password", cipherFile, decryptFile)
 	}
 }
+
 // TestZitiCreateCSR_ErrorPaths tests error handling in CSR creation
 func TestZitiCreateCSR_ErrorPaths(t *testing.T) {
 	t.Run("invalid private key path", func(t *testing.T) {

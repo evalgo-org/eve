@@ -102,7 +102,9 @@ func GitlabRunners(url, token string) error {
 //   - error: If any step fails during runner registration
 func GitlabRegisterNewRunner(url, token, version, dataInit, registerArgs, sudoPass, gitlabUser string) error {
 	// Download the GitLab runner binary
-	network.HttpClientDownloadFile("https://gitlab-runner-downloads.s3.amazonaws.com/"+version+"/binaries/gitlab-runner-linux-amd64", "gitlab-runner")
+	if err := network.HttpClientDownloadFile("https://gitlab-runner-downloads.s3.amazonaws.com/"+version+"/binaries/gitlab-runner-linux-amd64", "gitlab-runner"); err != nil {
+		return fmt.Errorf("failed to download GitLab runner: %w", err)
+	}
 
 	// Create GitLab client
 	git, err := gitlab.NewClient(token, gitlab.WithBaseURL(url+"/api/v4"))
