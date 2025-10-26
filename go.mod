@@ -1,6 +1,6 @@
 module eve.evalgo.org
 
-go 1.25
+go 1.24.0
 
 require (
 	code.gitea.io/sdk/gitea v0.21.0
