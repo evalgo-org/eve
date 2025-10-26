@@ -109,7 +109,7 @@ func UnZip(zipPath string, tgtPath string) {
 		// Handle directory entries
 		if f.FileInfo().IsDir() {
 			eve.Logger.Info("creating directory", filePath)
-			os.MkdirAll(filePath, os.ModePerm)
+			_ = os.MkdirAll(filePath, os.ModePerm)
 			continue
 		}
 

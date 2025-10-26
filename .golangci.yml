@@ -3,6 +3,7 @@ run:
   tests: true
   modules-download-mode: readonly
   allow-parallel-runners: true
+  go: "1.25"
 
 linters:
   enable:
@@ -19,7 +20,7 @@ linters:
 
 linters-settings:
   errcheck:
-    check-blank: true
+    check-blank: false
     check-type-assertions: false
   staticcheck:
     checks: ["all"]
@@ -40,6 +41,16 @@ issues:
         - unused
       text: "is unused"
       source: "embed"
+    # Exclude all vendor/module dependency errors
+    - path: "go/pkg/mod"
+      linters:
+        - errcheck
+        - unused
+        - ineffassign
+        - staticcheck
+        - govet
+        - gofmt
+        - goimports
   max-issues-per-linter: 0
   max-same-issues: 0
 

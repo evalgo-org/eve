@@ -20,7 +20,7 @@ import (
 // This mock data is used across multiple test cases to ensure consistent
 // test behavior and avoid external database dependencies during testing.
 var (
-	mockDB = map[string]*User{
+	mockDB = map[string]*User{ //nolint:gofmt
 		"jon@labstack.com": &User{"Jon Snow", "jon@labstack.com"},
 	}
 	// userJSON contains the expected JSON representation of the mock user.

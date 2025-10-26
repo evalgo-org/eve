@@ -674,7 +674,7 @@ func ImageBuild(ctx context.Context, cli *client.Client, workDir string, dockerF
 		Logger.Fatal(err)
 	}
 
-	buildCtx, err := archive.TarWithOptions(filePath, &archive.TarOptions{})
+	buildCtx, err := archive.TarWithOptions(filePath, &archive.TarOptions{}) //nolint:staticcheck // deprecated but still functional
 	if err != nil {
 		Logger.Fatal(err)
 	}

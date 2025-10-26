@@ -72,7 +72,7 @@ func GitlabRunners(url, token string) {
 		eve.Logger.Fatal("Failed to create client:", err)
 	}
 
-	runners, _, err := git.Runners.ListAllRunners(&gitlab.ListRunnersOptions{})
+	runners, _, _ := git.Runners.ListAllRunners(&gitlab.ListRunnersOptions{})
 	for _, runner := range runners {
 		eve.Logger.Info(runner)
 	}
@@ -514,7 +514,7 @@ func glabUnzipStripTop(src, destDir string) error {
 		fPath := filepath.Join(destDir, relativePath)
 
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(fPath, os.ModePerm)
+			_ = os.MkdirAll(fPath, os.ModePerm)
 			continue
 		}
 
@@ -564,7 +564,7 @@ func glabUnZip(src, dest string) error {
 		fpath := filepath.Join(dest, f.Name)
 
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(fpath, os.ModePerm)
+			_ = os.MkdirAll(fpath, os.ModePerm)
 			continue
 		}
 

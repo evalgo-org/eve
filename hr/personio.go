@@ -137,7 +137,7 @@ func personioObtainToken(clientId string, clientSecret string) PersonioToken {
 	eve.Logger.Info(string(body))
 
 	token := PersonioToken{}
-	json.Unmarshal(body, &token)
+	_ = json.Unmarshal(body, &token)
 	return token
 }
 

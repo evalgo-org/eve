@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.21', '1.22']
+        go-version: ['1.24', '1.25']
 
     steps:
       - name: Checkout code
@@ -84,7 +84,7 @@ jobs:
           retention-days: 30
 
       - name: Comment coverage on PR
-        if: github.event_name == 'pull_request' && matrix.go-version == '1.22'
+        if: github.event_name == 'pull_request' && matrix.go-version == '1.25'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -128,7 +128,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.25'
           cache: true
 
       - name: Run benchmarks
@@ -149,7 +149,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.25'
           cache: true
 
       - name: golangci-lint
@@ -173,7 +173,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.25'
           cache: true
 
       - name: Run Gosec Security Scanner

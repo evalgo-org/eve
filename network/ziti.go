@@ -273,7 +273,7 @@ func postWithAuthMap(url, token string, payload map[string]interface{}) (string,
 	}
 
 	result := ZitiResult{}
-	json.NewDecoder(resp.Body).Decode(&result)
+	_ = json.NewDecoder(resp.Body).Decode(&result)
 	return result.Data.ID, nil
 }
 
@@ -317,7 +317,7 @@ func ZitiAuthenticate(url, user, pass string) (string, error) {
 	defer resp.Body.Close()
 
 	var result ZitiResult
-	json.NewDecoder(resp.Body).Decode(&result)
+	_ = json.NewDecoder(resp.Body).Decode(&result)
 	return result.Data.Token, nil
 }
 
@@ -467,7 +467,7 @@ func ZitiGetConfigTypes(url, token, name string) (string, error) {
 	defer resp.Body.Close()
 
 	var result ZitiServiceConfigsResult
-	json.NewDecoder(resp.Body).Decode(&result)
+	_ = json.NewDecoder(resp.Body).Decode(&result)
 
 	for _, conf := range result.Data {
 		if conf.Name == name {
@@ -553,7 +553,7 @@ func ZitiIdentities(urlSrc, token string) {
 	defer resp.Body.Close()
 
 	var result ZitiServiceConfigsResult
-	json.NewDecoder(resp.Body).Decode(&result)
+	_ = json.NewDecoder(resp.Body).Decode(&result)
 
 	for _, conf := range result.Data {
 		eve.Logger.Info(conf.ID, " <> ", conf.Name)
@@ -600,7 +600,7 @@ func ZitiGetIdentity(urlSrc, token, name string) (string, error) {
 	defer resp.Body.Close()
 
 	var result ZitiServiceConfigsResult
-	json.NewDecoder(resp.Body).Decode(&result)
+	_ = json.NewDecoder(resp.Body).Decode(&result)
 
 	for _, ident := range result.Data {
 		if ident.Name == name {

@@ -153,7 +153,7 @@ func MocoAppProjects(domain string, token string) []MocoProject {
 	eve.Logger.Info(string(body))
 
 	projects := []MocoProject{}
-	json.Unmarshal(body, &projects)
+	_ = json.Unmarshal(body, &projects)
 	return projects
 }
 
@@ -181,7 +181,7 @@ func MocoAppProjectsContracts(domain string, token string, project_id int) []Moc
 
 	body, _ := io.ReadAll(res.Body)
 	users := []MocoUserGroup{}
-	json.Unmarshal(body, &users)
+	_ = json.Unmarshal(body, &users)
 	return users
 }
 
@@ -210,7 +210,7 @@ func MocoAppUsers(domain string, token string) []MocoUser {
 	eve.Logger.Info(string(body))
 
 	users := []MocoUser{}
-	json.Unmarshal(body, &users)
+	_ = json.Unmarshal(body, &users)
 	return users
 }
 
@@ -242,7 +242,7 @@ func MocoUserEmployments(domain string, token string, user_id int) []MocoUserEmp
 	eve.Logger.Info(string(body))
 
 	employments := []MocoUserEmployment{}
-	json.Unmarshal(body, &employments)
+	_ = json.Unmarshal(body, &employments)
 	return employments
 }
 
@@ -274,7 +274,7 @@ func MocoAppProjectsTasks(domain string, token string, project_id int) []MocoTas
 	eve.Logger.Info(string(body))
 
 	tasks := []MocoTask{}
-	json.Unmarshal(body, &tasks)
+	_ = json.Unmarshal(body, &tasks)
 	return tasks
 }
 
@@ -308,7 +308,7 @@ func MocoAppActivities(domain string, token string, project_id int, task_id int)
 	eve.Logger.Info(string(body))
 
 	activities := []MocoActivity{}
-	json.Unmarshal(body, &activities)
+	_ = json.Unmarshal(body, &activities)
 	return activities
 }
 

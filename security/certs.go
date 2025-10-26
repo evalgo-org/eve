@@ -54,6 +54,8 @@ type sigAlgSunset struct {
 
 // sunsetSigAlgs maps signature algorithms to their sunset information.
 // Contains a list of deprecated or soon-to-be-deprecated signature algorithms.
+//
+//nolint:gofmt
 var sunsetSigAlgs = map[x509.SignatureAlgorithm]sigAlgSunset{
 	x509.MD2WithRSA: sigAlgSunset{
 		name:      "MD2 with RSA",

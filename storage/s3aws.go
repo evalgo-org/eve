@@ -28,6 +28,8 @@
 //	}
 //	fmt.Printf("Uploaded: %d, Skipped: %d, Errors: %d\n",
 //	           summary.SuccessCount, summary.SkippedCount, summary.ErrorCount)
+//
+//nolint:staticcheck // AWS SDK endpoint resolution is deprecated but requires major refactoring to update
 package storage
 
 import (

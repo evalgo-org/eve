@@ -170,7 +170,7 @@ func PGInfo(pgUrl string) {
 	}
 
 	// Get underlying sql.DB for connection pool configuration
-	sqlDB, err := db.DB()
+	sqlDB, _ := db.DB()
 
 	// Configure connection pool for production use
 	sqlDB.SetMaxIdleConns(10)           // Maximum idle connections

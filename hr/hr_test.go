@@ -204,8 +204,7 @@ func TestMocoAppProjects(t *testing.T) {
 			defer server.Close()
 
 			// Extract domain from server URL
-			domain := server.URL[7:] // Remove "http://"
-			domain = domain[:len(domain)-len(".mocoapp.com")]
+			_ = server.URL[7:] // Remove "http://"
 
 			// We can't easily test this without modifying the source to use server.URL
 			// So this is a structural test only

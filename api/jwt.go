@@ -19,8 +19,8 @@ import (
 // Uses interfaces to enable easy testing and mocking.
 type Handlers struct {
 	RabbitMQ queue.MessagePublisher // Message publisher for flow process messages
-	CouchDB  db.DocumentStore        // Document store for process data
-	JWT      *security.JWTService    // JWT service for token generation and validation
+	CouchDB  db.DocumentStore       // Document store for process data
+	JWT      *security.JWTService   // JWT service for token generation and validation
 }
 
 // SetupRoutes configures all API routes for the EVE service.

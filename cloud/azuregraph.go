@@ -345,7 +345,7 @@ func AzureCalendar(tenantId string, clientId string, clientSecret string, email 
 	}
 
 	// Iterate through all calendar events with pagination support
-	err = eit.Iterate(context.Background(), func(ev models.Eventable) bool {
+	_ = eit.Iterate(context.Background(), func(ev models.Eventable) bool {
 		// Log event information with structured format
 		eve.Logger.Info(" TIME: ", *ev.GetStart().GetDateTime(), " => ",
 			*ev.GetEnd().GetDateTime(), " Subject: ", *ev.GetSubject())

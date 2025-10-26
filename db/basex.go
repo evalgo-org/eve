@@ -506,9 +506,9 @@ func BaseXUploadToFilesystem(localFilePath, remotePath string) (*UploadResult, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to create form file: %w", err)
 	}
-	fileWriter.Write(fileContent)
+	_, _ = fileWriter.Write(fileContent)
 
-	writer.Close()
+	_ = writer.Close()
 
 	url := fmt.Sprintf("%s/upload-filesystem", strings.TrimSuffix(os.Getenv("BASEX_URL"), "/"))
 	req, err := http.NewRequest("POST", url, &requestBody)

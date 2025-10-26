@@ -485,6 +485,8 @@ type FlowConfig struct {
 //	}
 //	defer consumer.Close()
 //	consumer.StartConsuming()
+//
+//nolint:unused // FlowConsumer fields are reserved for future use
 type FlowConsumer struct {
 	config     FlowConfig       // System configuration
 	connection *amqp.Connection // RabbitMQ connection

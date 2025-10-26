@@ -361,7 +361,7 @@ func GraphDBRepositoryConf(url string, user string, pass string, repo string) st
 			eve.Logger.Info(err)
 		}
 		defer out.Close()
-		io.Copy(out, res.Body)
+		_, _ = io.Copy(out, res.Body)
 		return repo + ".ttl"
 	}
 	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
@@ -442,7 +442,7 @@ func GraphDBRepositoryBrf(url string, user string, pass string, repo string) str
 			eve.Logger.Info(err)
 		}
 		defer out.Close()
-		io.Copy(out, res.Body)
+		_, _ = io.Copy(out, res.Body)
 		return repo + ".brf"
 	}
 	eve.Logger.Fatal(res.StatusCode, http.StatusText(res.StatusCode))
