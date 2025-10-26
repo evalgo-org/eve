@@ -44,6 +44,7 @@ jobs:
         files: ./coverage-unit.out
         flags: unittests
         name: unit-tests-go-${{ matrix.go-version }}
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   # Integration tests - use testcontainers with GitHub Actions' Docker
   integration-tests:
