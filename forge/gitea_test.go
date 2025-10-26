@@ -1,6 +1,7 @@
 package forge
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -149,4 +150,48 @@ func TestJobDetails_TimeDurations(t *testing.T) {
 	assert.Equal(t, 300.5, details.Duration)
 	assert.Equal(t, 60.25, details.QueuedDuration)
 	assert.Greater(t, details.Duration, details.QueuedDuration)
+}
+
+// TestGiteaGetRepo validates Gitea repository archive retrieval functionality.
+// Note: These tests are skipped because the Gitea SDK has complex internal behavior
+// that requires a real Gitea server or very specific mock responses.
+// The function is tested through integration tests with real Gitea instances.
+//
+// Test Coverage:
+//   - Error handling for invalid URLs
+//   - Error handling for network errors
+func TestGiteaGetRepo(t *testing.T) {
+	t.Run("InvalidURL", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		originalDir, _ := os.Getwd()
+		os.Chdir(tmpDir)
+		defer os.Chdir(originalDir)
+
+		// Invalid URL should fail during client creation
+		filename, err := GiteaGetRepo("http://[::1]:namedport", "test-token", "owner", "repo", "main")
+		assert.Error(t, err)
+		assert.Empty(t, filename)
+	})
+
+	t.Run("EmptyParameters", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		originalDir, _ := os.Getwd()
+		os.Chdir(tmpDir)
+		defer os.Chdir(originalDir)
+
+		// Test with empty URL
+		_, err := GiteaGetRepo("", "token", "owner", "repo", "main")
+		assert.Error(t, err)
+	})
+
+	t.Run("NonexistentServer", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		originalDir, _ := os.Getwd()
+		os.Chdir(tmpDir)
+		defer os.Chdir(originalDir)
+
+		// This should fail when trying to connect
+		_, err := GiteaGetRepo("http://nonexistent-gitea-server.invalid:9999", "token", "owner", "repo", "main")
+		assert.Error(t, err)
+	})
 }

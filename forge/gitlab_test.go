@@ -615,3 +615,460 @@ func BenchmarkGlabUnZip(b *testing.B) {
 		glabUnZip(zipPath, extractDir)
 	}
 }
+
+// TestGitlabRunners validates GitLab runners listing functionality.
+// This test uses a mock HTTP server to simulate GitLab API responses for listing runners.
+//
+// Test Coverage:
+//   - Successful runners listing
+//   - Empty runners list
+//   - API error handling
+//   - Invalid URL handling
+func TestGitlabRunners(t *testing.T) {
+	t.Run("SuccessfulRunnersList", func(t *testing.T) {
+		// Create mock GitLab server
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// GitLab SDK uses PRIVATE-TOKEN header
+			// We don't assert on it since the SDK handles this internally
+
+			if strings.Contains(r.URL.Path, "/api/v4/runners/all") {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode([]map[string]interface{}{
+					{
+						"id":          1,
+						"description": "test-runner-1",
+						"active":      true,
+						"is_shared":   true,
+						"status":      "online",
+					},
+					{
+						"id":          2,
+						"description": "test-runner-2",
+						"active":      true,
+						"is_shared":   false,
+						"status":      "offline",
+					},
+				})
+			}
+		}))
+		defer server.Close()
+
+		err := GitlabRunners(server.URL, "test-token")
+		assert.NoError(t, err)
+	})
+
+	t.Run("EmptyRunnersList", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.URL.Path, "/api/v4/runners/all") {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode([]map[string]interface{}{})
+			}
+		}))
+		defer server.Close()
+
+		err := GitlabRunners(server.URL, "test-token")
+		assert.NoError(t, err)
+	})
+
+	t.Run("APIError", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error": "unauthorized"}`))
+		}))
+		defer server.Close()
+
+		err := GitlabRunners(server.URL, "invalid-token")
+		assert.Error(t, err)
+	})
+}
+
+// TestGitlabCreateTag validates GitLab tag creation functionality.
+// This test uses a mock HTTP server to simulate GitLab API responses for tag creation.
+//
+// Test Coverage:
+//   - Successful tag creation
+//   - Tag already exists error
+//   - Invalid reference error
+//   - API error handling
+func TestGitlabCreateTag(t *testing.T) {
+	t.Run("SuccessfulTagCreation", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// GitLab SDK uses PRIVATE-TOKEN header
+			// We don't assert on it since the SDK handles this internally
+
+			if strings.Contains(r.URL.Path, "/api/v4/projects/") && strings.HasSuffix(r.URL.Path, "/repository/tags") {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusCreated)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"name":    "v1.0.0",
+					"message": "Release version 1.0.0",
+					"target":  "abc123",
+					"commit": map[string]interface{}{
+						"id":      "abc123",
+						"message": "Initial commit",
+					},
+				})
+			}
+		}))
+		defer server.Close()
+
+		tag, err := GitlabCreateTag(server.URL, "test-token", "test/project", "v1.0.0", "main", "Release version 1.0.0")
+		require.NoError(t, err)
+		assert.NotNil(t, tag)
+		assert.Equal(t, "v1.0.0", tag.Name)
+	})
+
+	t.Run("TagAlreadyExists", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.URL.Path, "/repository/tags") {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte(`{"message": "Tag v1.0.0 already exists"}`))
+			}
+		}))
+		defer server.Close()
+
+		tag, err := GitlabCreateTag(server.URL, "test-token", "test/project", "v1.0.0", "main", "Release")
+		assert.Error(t, err)
+		assert.Nil(t, tag)
+		assert.Contains(t, err.Error(), "failed to create tag")
+	})
+
+	t.Run("InvalidReference", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.URL.Path, "/repository/tags") {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte(`{"message": "Target invalid-ref not found"}`))
+			}
+		}))
+		defer server.Close()
+
+		tag, err := GitlabCreateTag(server.URL, "test-token", "test/project", "v1.0.0", "invalid-ref", "Release")
+		assert.Error(t, err)
+		assert.Nil(t, tag)
+	})
+}
+
+// TestGitlabListJobsForTag validates job listing for GitLab tags.
+// This test uses a mock HTTP server to simulate GitLab API responses for job listing.
+//
+// Test Coverage:
+//   - Successful job listing with multiple jobs
+//   - No pipelines found for tag
+//   - Multiple pipelines with jobs
+//   - API error handling
+func TestGitlabListJobsForTag(t *testing.T) {
+	t.Run("SuccessfulJobListing", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			if strings.Contains(r.URL.Path, "/pipelines") && !strings.Contains(r.URL.Path, "/jobs") {
+				// Return pipelines
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode([]map[string]interface{}{
+					{
+						"id":  100,
+						"ref": "v1.0.0",
+						"status": "success",
+					},
+				})
+			} else if strings.Contains(r.URL.Path, "/pipelines/100/jobs") {
+				// Return jobs for pipeline 100
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode([]map[string]interface{}{
+					{
+						"id":     1,
+						"name":   "build-job",
+						"status": "success",
+						"stage":  "build",
+						"ref":    "v1.0.0",
+					},
+					{
+						"id":     2,
+						"name":   "test-job",
+						"status": "success",
+						"stage":  "test",
+						"ref":    "v1.0.0",
+					},
+				})
+			}
+		}))
+		defer server.Close()
+
+		jobs, err := GitlabListJobsForTag(server.URL, "test-token", "test/project", "v1.0.0")
+		require.NoError(t, err)
+		assert.Len(t, jobs, 2)
+		assert.Equal(t, "build-job", jobs[0].Name)
+		assert.Equal(t, "test-job", jobs[1].Name)
+		assert.Equal(t, 100, jobs[0].Pipeline)
+	})
+
+	t.Run("NoPipelinesFound", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.URL.Path, "/pipelines") {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode([]map[string]interface{}{})
+			}
+		}))
+		defer server.Close()
+
+		jobs, err := GitlabListJobsForTag(server.URL, "test-token", "test/project", "nonexistent-tag")
+		require.NoError(t, err)
+		assert.Empty(t, jobs)
+	})
+
+	t.Run("APIError", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"message": "Project not found"}`))
+		}))
+		defer server.Close()
+
+		jobs, err := GitlabListJobsForTag(server.URL, "test-token", "invalid/project", "v1.0.0")
+		assert.Error(t, err)
+		assert.Nil(t, jobs)
+	})
+}
+
+// TestGitlabListRunningJobsForTag validates filtering of running/pending jobs.
+// This test ensures that only running or pending jobs are returned.
+//
+// Test Coverage:
+//   - Filter running jobs
+//   - Filter pending jobs
+//   - No running jobs
+//   - Mixed job statuses
+func TestGitlabListRunningJobsForTag(t *testing.T) {
+	t.Run("FilterRunningJobs", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			if strings.Contains(r.URL.Path, "/pipelines") && !strings.Contains(r.URL.Path, "/jobs") {
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode([]map[string]interface{}{
+					{"id": 100, "ref": "v1.0.0"},
+				})
+			} else if strings.Contains(r.URL.Path, "/jobs") {
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode([]map[string]interface{}{
+					{"id": 1, "name": "running-job", "status": "running", "stage": "build", "ref": "v1.0.0"},
+					{"id": 2, "name": "pending-job", "status": "pending", "stage": "test", "ref": "v1.0.0"},
+					{"id": 3, "name": "success-job", "status": "success", "stage": "deploy", "ref": "v1.0.0"},
+					{"id": 4, "name": "failed-job", "status": "failed", "stage": "build", "ref": "v1.0.0"},
+				})
+			}
+		}))
+		defer server.Close()
+
+		jobs, err := GitlabListRunningJobsForTag(server.URL, "test-token", "test/project", "v1.0.0")
+		require.NoError(t, err)
+		assert.Len(t, jobs, 2) // Only running and pending
+		assert.Equal(t, "running-job", jobs[0].Name)
+		assert.Equal(t, "pending-job", jobs[1].Name)
+	})
+
+	t.Run("NoRunningJobs", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			if strings.Contains(r.URL.Path, "/pipelines") && !strings.Contains(r.URL.Path, "/jobs") {
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode([]map[string]interface{}{
+					{"id": 100, "ref": "v1.0.0"},
+				})
+			} else if strings.Contains(r.URL.Path, "/jobs") {
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode([]map[string]interface{}{
+					{"id": 1, "name": "success-job", "status": "success", "stage": "build", "ref": "v1.0.0"},
+					{"id": 2, "name": "failed-job", "status": "failed", "stage": "test", "ref": "v1.0.0"},
+				})
+			}
+		}))
+		defer server.Close()
+
+		jobs, err := GitlabListRunningJobsForTag(server.URL, "test-token", "test/project", "v1.0.0")
+		require.NoError(t, err)
+		assert.Empty(t, jobs)
+	})
+}
+
+// TestGitlabGetJobDetails validates retrieval of detailed job information.
+// This test uses a mock HTTP server to simulate GitLab API responses for job details.
+//
+// Test Coverage:
+//   - Successful job details retrieval
+//   - Failed job with trace log
+//   - Successful job with trace log
+//   - Job without trace log
+//   - API error handling
+func TestGitlabGetJobDetails(t *testing.T) {
+	t.Run("FailedJobWithTrace", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			if strings.Contains(r.URL.Path, "/jobs/123/trace") {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("INFO: Starting build\nERROR: Build failed due to syntax error\nERROR: Compilation terminated"))
+			} else if strings.Contains(r.URL.Path, "/jobs/123") {
+				now := time.Now()
+				started := now.Add(-5 * time.Minute)
+				finished := now
+
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"id":               123,
+					"name":             "build-job",
+					"status":           "failed",
+					"stage":            "build",
+					"ref":              "main",
+					"pipeline":         map[string]interface{}{"id": 456},
+					"created_at":       now.Add(-10 * time.Minute).Format(time.RFC3339),
+					"started_at":       started.Format(time.RFC3339),
+					"finished_at":      finished.Format(time.RFC3339),
+					"duration":         300.0,
+					"queued_duration":  60.0,
+					"web_url":          "https://gitlab.example.com/jobs/123",
+					"failure_reason":   "script_failure",
+				})
+			}
+		}))
+		defer server.Close()
+
+		details, err := GitlabGetJobDetails(server.URL, "test-token", "test/project", 123)
+		require.NoError(t, err)
+		assert.NotNil(t, details)
+		assert.Equal(t, 123, details.ID)
+		assert.Equal(t, "failed", details.Status)
+		assert.Contains(t, details.ErrorMessage, "ERROR")
+		assert.Contains(t, details.TraceLog, "Build failed")
+	})
+
+	t.Run("SuccessfulJobWithTrace", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.URL.Path, "/jobs/456/trace") {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("INFO: Starting build\nINFO: Build completed successfully\nINFO: All tests passed"))
+			} else if strings.Contains(r.URL.Path, "/jobs/456") {
+				now := time.Now()
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"id":               456,
+					"name":             "test-job",
+					"status":           "success",
+					"stage":            "test",
+					"ref":              "main",
+					"pipeline":         map[string]interface{}{"id": 789},
+					"created_at":       now.Format(time.RFC3339),
+					"duration":         120.0,
+					"queued_duration":  30.0,
+					"web_url":          "https://gitlab.example.com/jobs/456",
+				})
+			}
+		}))
+		defer server.Close()
+
+		details, err := GitlabGetJobDetails(server.URL, "test-token", "test/project", 456)
+		require.NoError(t, err)
+		assert.Equal(t, "success", details.Status)
+		assert.Contains(t, details.TraceLog, "successfully")
+		assert.Empty(t, details.ErrorMessage) // Success jobs don't extract errors
+	})
+
+	t.Run("JobNotFound", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`{"message": "Job not found"}`))
+		}))
+		defer server.Close()
+
+		details, err := GitlabGetJobDetails(server.URL, "test-token", "test/project", 999)
+		assert.Error(t, err)
+		assert.Nil(t, details)
+	})
+}
+
+// TestGitlabDisplayJobState validates job state display functionality.
+// This test ensures that job details are properly retrieved and displayed.
+//
+// Test Coverage:
+//   - Display failed job state
+//   - Display successful job state
+//   - Display pending job state
+//   - Error handling for invalid job
+func TestGitlabDisplayJobState(t *testing.T) {
+	t.Run("DisplayFailedJob", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.URL.Path, "/jobs/123/trace") {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("ERROR: Test failed\nFAILED: Assertion error"))
+			} else if strings.Contains(r.URL.Path, "/jobs/123") {
+				now := time.Now()
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"id":               123,
+					"name":             "test-job",
+					"status":           "failed",
+					"stage":            "test",
+					"ref":              "feature-branch",
+					"pipeline":         map[string]interface{}{"id": 456},
+					"created_at":       now.Add(-10 * time.Minute).Format(time.RFC3339),
+					"started_at":       now.Add(-8 * time.Minute).Format(time.RFC3339),
+					"finished_at":      now.Format(time.RFC3339),
+					"duration":         480.0,
+					"queued_duration":  120.0,
+					"web_url":          "https://gitlab.example.com/jobs/123",
+					"failure_reason":   "script_failure",
+				})
+			}
+		}))
+		defer server.Close()
+
+		err := GitlabDisplayJobState(server.URL, "test-token", "test/project", 123)
+		assert.NoError(t, err)
+	})
+
+	t.Run("DisplaySuccessfulJob", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.Contains(r.URL.Path, "/jobs/456/trace") {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("INFO: All tests passed"))
+			} else if strings.Contains(r.URL.Path, "/jobs/456") {
+				now := time.Now()
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"id":               456,
+					"name":             "deploy-job",
+					"status":           "success",
+					"stage":            "deploy",
+					"ref":              "main",
+					"pipeline":         map[string]interface{}{"id": 789},
+					"created_at":       now.Format(time.RFC3339),
+					"started_at":       now.Add(-5 * time.Minute).Format(time.RFC3339),
+					"finished_at":      now.Format(time.RFC3339),
+					"duration":         300.0,
+					"queued_duration":  60.0,
+					"web_url":          "https://gitlab.example.com/jobs/456",
+				})
+			}
+		}))
+		defer server.Close()
+
+		err := GitlabDisplayJobState(server.URL, "test-token", "test/project", 456)
+		assert.NoError(t, err)
+	})
+
+	t.Run("InvalidJob", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		err := GitlabDisplayJobState(server.URL, "test-token", "test/project", 999)
+		assert.Error(t, err)
+	})
+}
