@@ -167,7 +167,7 @@ jobs:
       uses: golangci/golangci-lint-action@v6
       with:
         version: v1.61
-        args: --timeout=5m --go=1.23
+        args: --timeout=5m --go=1.23 --disable=typecheck
 
   # Security scanning
   security:

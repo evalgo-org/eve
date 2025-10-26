@@ -5,7 +5,6 @@ run:
   allow-parallel-runners: true
 
 linters:
-  disable-all: true
   enable:
     - errcheck
     - unused
