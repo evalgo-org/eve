@@ -1,0 +1,194 @@
+name: Tests and Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Unit tests - fast, no external dependencies
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run unit tests
+      run: go test -v -race -coverprofile=coverage-unit.out -covermode=atomic ./...
+
+    - name: Upload unit test coverage
+      uses: codecov/codecov-action@v5
+      with:
+        files: ./coverage-unit.out
+        flags: unittests
+        name: unit-tests
+
+  # Integration tests - use testcontainers with GitHub Actions' Docker
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    # Pre-pull Docker images to avoid timeouts
+    - name: Pull Docker images
+      run: |
+        docker pull couchdb:3.3
+        docker pull postgres:16-alpine
+        docker pull rabbitmq:3.13-management-alpine
+
+    - name: Run integration tests
+      run: go test -v -race -tags=integration -coverprofile=coverage-integration.out -covermode=atomic ./...
+      timeout-minutes: 10
+
+    - name: Upload integration test coverage
+      uses: codecov/codecov-action@v5
+      with:
+        files: ./coverage-integration.out
+        flags: integrationtests
+        name: integration-tests
+
+  # Combined coverage report
+  combined-coverage:
+    name: Combined Coverage
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    # Pull images for integration tests
+    - name: Pull Docker images
+      run: |
+        docker pull couchdb:3.3
+        docker pull postgres:16-alpine
+        docker pull rabbitmq:3.13-management-alpine
+
+    - name: Run all tests with coverage
+      run: go test -v -race -tags=integration -coverprofile=coverage-combined.out -covermode=atomic ./...
+      timeout-minutes: 10
+
+    - name: Display coverage summary
+      run: |
+        go tool cover -func=coverage-combined.out
+        echo "---"
+        COVERAGE=$(go tool cover -func=coverage-combined.out | grep total | awk '{print $3}')
+        echo "Total Coverage: $COVERAGE"
+
+    - name: Upload combined coverage
+      uses: codecov/codecov-action@v5
+      with:
+        files: ./coverage-combined.out
+        flags: combined
+        name: combined-coverage
+
+    - name: Check coverage threshold
+      run: |
+        COVERAGE=$(go tool cover -func=coverage-combined.out | grep total | awk '{print $3}' | sed 's/%//')
+        THRESHOLD=60
+        echo "Current coverage: ${COVERAGE}%"
+        echo "Required threshold: ${THRESHOLD}%"
+        if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+          echo "❌ Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+          exit 1
+        else
+          echo "✅ Coverage ${COVERAGE}% meets threshold ${THRESHOLD}%"
+        fi
+
+  # Code quality checks
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: latest
+        args: --timeout=5m
+
+  # Security scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+
+    - name: Run gosec security scanner
+      uses: securego/gosec@master
+      with:
+        args: '-no-fail -fmt sarif -out results.sarif ./...'
+
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: results.sarif

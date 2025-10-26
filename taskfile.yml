@@ -16,9 +16,9 @@ tasks:
 
   # Testing tasks
   test:
-    desc: Run all tests
+    desc: Run all unit tests (no integration)
     cmds:
-      - echo "Running tests..."
+      - echo "Running unit tests..."
       - go test -v -race ./...
 
   test:quick:
@@ -26,11 +26,48 @@ tasks:
     cmds:
       - go test ./...
 
-  coverage:
-    desc: Run tests with coverage report
+  test:integration:
+    desc: Run integration tests (requires containers)
     cmds:
-      - echo "Running tests with coverage..."
+      - echo "Running integration tests..."
+      - echo "Make sure test containers are running - task containers up"
+      - go test -v -race -tags=integration ./...
+
+  test:integration:local:
+    desc: Run integration tests with taskfile-managed containers
+    deps: [containers:up, containers:wait]
+    cmds:
+      - echo "Running integration tests against local containers..."
+      - |
+        export POSTGRES_URL="host=localhost port=5433 user=testuser password=testpass dbname=testdb sslmode=disable"
+        export COUCHDB_URL="http://admin:testpass@localhost:5985"
+        export RABBITMQ_URL="amqp://guest:guest@localhost:5673/"
+        go test -v -race -tags=integration ./...
+
+  test:all:
+    desc: Run all tests (unit + integration)
+    deps: [test, test:integration:local]
+    cmds:
+      - echo "✓ All tests passed!"
+
+  coverage:
+    desc: Run unit tests with coverage report
+    cmds:
+      - echo "Running unit tests with coverage..."
       - go test -v -race -coverprofile={{.COVERAGE_FILE}} -covermode=atomic ./...
+      - echo "\nCoverage Summary:"
+      - go tool cover -func={{.COVERAGE_FILE}} | grep total
+
+  coverage:integration:
+    desc: Run all tests (unit + integration) with coverage
+    deps: [containers:up, containers:wait]
+    cmds:
+      - echo "Running all tests with coverage..."
+      - |
+        export POSTGRES_URL="host=localhost port=5433 user=testuser password=testpass dbname=testdb sslmode=disable"
+        export COUCHDB_URL="http://admin:testpass@localhost:5985"
+        export RABBITMQ_URL="amqp://guest:guest@localhost:5673/"
+        go test -v -race -tags=integration -coverprofile={{.COVERAGE_FILE}} -covermode=atomic ./...
       - echo "\nCoverage Summary:"
       - go tool cover -func={{.COVERAGE_FILE}} | grep total
 
@@ -253,6 +290,162 @@ tasks:
         echo "" >> {{.COVERAGE_TXT}}
         go tool cover -func={{.COVERAGE_FILE}} >> {{.COVERAGE_TXT}}
         cat {{.COVERAGE_TXT}}
+
+  # Container management for integration tests
+  containers:network:
+    desc: Create Docker network for test containers
+    cmds:
+      - docker network create eve-test-network 2>/dev/null || true
+    silent: true
+
+  containers:postgres:
+    desc: Start PostgreSQL test container
+    deps: [containers:network]
+    cmds:
+      - |
+        docker run -d \
+          --name eve-postgres-test \
+          --network eve-test-network \
+          -e POSTGRES_USER=testuser \
+          -e POSTGRES_PASSWORD=testpass \
+          -e POSTGRES_DB=testdb \
+          -p 5433:5432 \
+          -v eve-postgres-test-data:/var/lib/postgresql/data \
+          --health-cmd="pg_isready -U testuser -d testdb" \
+          --health-interval=5s \
+          --health-timeout=5s \
+          --health-retries=5 \
+          postgres:16-alpine 2>/dev/null || echo "PostgreSQL container already running"
+
+  containers:couchdb:
+    desc: Start CouchDB test container
+    deps: [containers:network]
+    cmds:
+      - |
+        docker run -d \
+          --name eve-couchdb-test \
+          --network eve-test-network \
+          -e COUCHDB_USER=admin \
+          -e COUCHDB_PASSWORD=testpass \
+          -p 5985:5984 \
+          -v eve-couchdb-test-data:/opt/couchdb/data \
+          --health-cmd="curl -f http://localhost:5984/_up || exit 1" \
+          --health-interval=5s \
+          --health-timeout=5s \
+          --health-retries=5 \
+          couchdb:3.3 2>/dev/null || echo "CouchDB container already running"
+
+  containers:rabbitmq:
+    desc: Start RabbitMQ test container
+    deps: [containers:network]
+    cmds:
+      - |
+        docker run -d \
+          --name eve-rabbitmq-test \
+          --network eve-test-network \
+          -e RABBITMQ_DEFAULT_USER=guest \
+          -e RABBITMQ_DEFAULT_PASS=guest \
+          -p 5673:5672 \
+          -p 15673:15672 \
+          -v eve-rabbitmq-test-data:/var/lib/rabbitmq \
+          --health-cmd="rabbitmq-diagnostics -q ping" \
+          --health-interval=5s \
+          --health-timeout=5s \
+          --health-retries=5 \
+          rabbitmq:3.13-management-alpine 2>/dev/null || echo "RabbitMQ container already running"
+
+  containers:up:
+    desc: Start all test containers (PostgreSQL, CouchDB, RabbitMQ)
+    deps: [containers:postgres, containers:couchdb, containers:rabbitmq]
+    cmds:
+      - echo "✓ Test containers started"
+      - echo "  PostgreSQL - localhost:5433 (user testuser, pass testpass, db testdb)"
+      - echo "  CouchDB - http://localhost:5985 (user admin, pass testpass)"
+      - echo "  RabbitMQ - amqp://localhost:5673 (user guest, pass guest)"
+      - echo "  RabbitMQ Management UI - http://localhost:15673"
+
+  containers:down:
+    desc: Stop and remove test containers
+    cmds:
+      - echo "Stopping test containers..."
+      - docker stop eve-postgres-test eve-couchdb-test eve-rabbitmq-test 2>/dev/null || true
+      - docker rm eve-postgres-test eve-couchdb-test eve-rabbitmq-test 2>/dev/null || true
+      - echo "✓ Test containers stopped"
+
+  containers:restart:
+    desc: Restart test containers
+    cmds:
+      - task: containers:down
+      - task: containers:up
+
+  containers:logs:
+    desc: Show logs from test containers
+    cmds:
+      - echo "=== PostgreSQL Logs ==="
+      - docker logs eve-postgres-test --tail 50 2>/dev/null || echo "PostgreSQL not running"
+      - echo ""
+      - echo "=== CouchDB Logs ==="
+      - docker logs eve-couchdb-test --tail 50 2>/dev/null || echo "CouchDB not running"
+      - echo ""
+      - echo "=== RabbitMQ Logs ==="
+      - docker logs eve-rabbitmq-test --tail 50 2>/dev/null || echo "RabbitMQ not running"
+
+  containers:logs:follow:
+    desc: Follow logs from all test containers
+    cmds:
+      - echo "Following logs (Ctrl+C to stop)..."
+      - |
+        docker logs -f eve-postgres-test 2>/dev/null &
+        docker logs -f eve-couchdb-test 2>/dev/null &
+        docker logs -f eve-rabbitmq-test 2>/dev/null &
+        wait
+
+  containers:clean:
+    desc: Stop containers and remove volumes (clean slate)
+    cmds:
+      - echo "Stopping containers and removing volumes..."
+      - docker stop eve-postgres-test eve-couchdb-test eve-rabbitmq-test 2>/dev/null || true
+      - docker rm eve-postgres-test eve-couchdb-test eve-rabbitmq-test 2>/dev/null || true
+      - docker volume rm eve-postgres-test-data eve-couchdb-test-data eve-rabbitmq-test-data 2>/dev/null || true
+      - docker network rm eve-test-network 2>/dev/null || true
+      - echo "✓ Test containers, volumes, and network removed"
+
+  containers:status:
+    desc: Show status of test containers
+    cmds:
+      - echo "Container Status:"
+      - docker ps -a --filter "name=eve-postgres-test" --filter "name=eve-couchdb-test" --filter "name=eve-rabbitmq-test" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+  containers:wait:
+    desc: Wait for test containers to be healthy
+    cmds:
+      - echo "Waiting for containers to be healthy..."
+      - |
+        # Wait for PostgreSQL
+        echo -n "Waiting for PostgreSQL..."
+        until docker exec eve-postgres-test pg_isready -U testuser -d testdb 2>/dev/null; do
+          echo -n "."
+          sleep 1
+        done
+        echo " ready!"
+
+        # Wait for CouchDB
+        echo -n "Waiting for CouchDB..."
+        until curl -sf http://localhost:5985/_up > /dev/null 2>&1; do
+          echo -n "."
+          sleep 1
+        done
+        echo " ready!"
+
+        # Wait for RabbitMQ
+        echo -n "Waiting for RabbitMQ..."
+        until docker exec eve-rabbitmq-test rabbitmq-diagnostics -q ping 2>/dev/null; do
+          echo -n "."
+          sleep 1
+        done
+        echo " ready!"
+
+        echo "✓ All containers are healthy and ready!"
 
   # Git hooks
   hooks:install:
