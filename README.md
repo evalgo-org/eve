@@ -1,6 +1,6 @@
 # eve
 
-[![Go Tests and Coverage](https://github.com/evalgo-org/eve/actions/workflows/go-test-coverage.yml/badge.svg)](https://github.com/evalgo-org/eve/actions/workflows/go-test-coverage.yml)
+[![Go Tests and Coverage](https://github.com/evalgo-org/eve/actions/workflows/tests.yml/badge.svg)](https://github.com/evalgo-org/eve/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/evalgo-org/eve/branch/main/graph/badge.svg)](https://codecov.io/gh/evalgo-org/eve)
 [![Go Report Card](https://goreportcard.com/badge/github.com/evalgo-org/eve)](https://goreportcard.com/report/github.com/evalgo-org/eve)
 
