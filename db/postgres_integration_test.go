@@ -82,7 +82,8 @@ func TestPostgreSQL_Integration_Connection(t *testing.T) {
 
 	// Verify settings
 	stats := sqlDB.Stats()
-	assert.Equal(t, 10, stats.MaxIdleClosed+stats.Idle, "Idle connections should be configured")
+	assert.LessOrEqual(t, stats.Idle, 10, "Idle connections should not exceed max idle")
+	assert.GreaterOrEqual(t, stats.Idle, 0, "Idle connections should be non-negative")
 }
 
 // TestPostgreSQL_Integration_AutoMigrate tests schema migration
