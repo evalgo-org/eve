@@ -43,8 +43,8 @@ type MessagePublisher interface {
 //   - channel: The AMQP channel used for publishing messages
 //   - config: Configuration for the RabbitMQ connection and queue
 type RabbitMQService struct {
-	connection *amqp.Connection
-	channel    *amqp.Channel
+	connection AMQPConnection
+	channel    AMQPChannel
 	config     eve.FlowConfig
 }
 
@@ -68,8 +68,15 @@ type RabbitMQService struct {
 // The queue is declared as durable, meaning it will survive server restarts.
 // If any step fails, the function cleans up any created resources before returning the error.
 func NewRabbitMQService(config eve.FlowConfig) (*RabbitMQService, error) {
+	dialer := &RealAMQPDialer{}
+	return NewRabbitMQServiceWithDialer(config, dialer)
+}
+
+// NewRabbitMQServiceWithDialer creates a new RabbitMQ service with dependency injection.
+// This function allows injecting a custom dialer for testing purposes.
+func NewRabbitMQServiceWithDialer(config eve.FlowConfig, dialer AMQPDialer) (*RabbitMQService, error) {
 	// Connect to RabbitMQ
-	conn, err := amqp.Dial(config.RabbitMQURL)
+	conn, err := dialer.Dial(config.RabbitMQURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
@@ -152,11 +159,15 @@ func (r *RabbitMQService) PublishMessage(message eve.FlowProcessMessage) error {
 //  1. Closes the channel if it exists
 //  2. Closes the connection if it exists
 //  3. Handles nil pointers gracefully
-func (r *RabbitMQService) Close() {
+//
+// Returns:
+//   - error: Always returns nil in the current implementation
+func (r *RabbitMQService) Close() error {
 	if r.channel != nil {
 		r.channel.Close()
 	}
 	if r.connection != nil {
 		r.connection.Close()
 	}
+	return nil
 }

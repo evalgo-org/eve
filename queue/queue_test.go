@@ -426,3 +426,223 @@ func BenchmarkMessageUnmarshaling(b *testing.B) {
 		_ = json.Unmarshal(data, &msg)
 	}
 }
+
+// TestNewRabbitMQServiceWithDialer_Success tests successful service creation with mock dialer
+func TestNewRabbitMQServiceWithDialer_Success(t *testing.T) {
+	mockDialer, mockChannel, mockConn := SetupMockDialerForTest()
+
+	config := eve.FlowConfig{
+		RabbitMQURL: "amqp://localhost:5672",
+		QueueName:   "test-queue",
+	}
+
+	service, err := NewRabbitMQServiceWithDialer(config, mockDialer)
+	require.NoError(t, err)
+	assert.NotNil(t, service)
+
+	// Verify dialer was called correctly
+	assert.True(t, mockDialer.DialCalled)
+	assert.Equal(t, config.RabbitMQURL, mockDialer.LastURL)
+
+	// Verify connection channel was created
+	assert.True(t, mockConn.ChannelCalled)
+
+	// Verify queue was declared
+	assert.True(t, mockChannel.QueueDeclareCalled)
+	assert.Equal(t, config.QueueName, mockChannel.LastQueueName)
+
+	// Clean up
+	service.Close()
+}
+
+// TestNewRabbitMQServiceWithDialer_DialError tests dial failure
+func TestNewRabbitMQServiceWithDialer_DialError(t *testing.T) {
+	mockDialer := NewMockAMQPDialerWithError(assert.AnError)
+
+	config := eve.FlowConfig{
+		RabbitMQURL: "amqp://invalid:5672",
+		QueueName:   "test-queue",
+	}
+
+	service, err := NewRabbitMQServiceWithDialer(config, mockDialer)
+	assert.Error(t, err)
+	assert.Nil(t, service)
+	assert.Contains(t, err.Error(), "failed to connect to RabbitMQ")
+}
+
+// TestNewRabbitMQServiceWithDialer_ChannelError tests channel creation failure
+func TestNewRabbitMQServiceWithDialer_ChannelError(t *testing.T) {
+	mockDialer := SetupMockDialerWithChannelError()
+
+	config := eve.FlowConfig{
+		RabbitMQURL: "amqp://localhost:5672",
+		QueueName:   "test-queue",
+	}
+
+	service, err := NewRabbitMQServiceWithDialer(config, mockDialer)
+	assert.Error(t, err)
+	assert.Nil(t, service)
+	assert.Contains(t, err.Error(), "failed to open a channel")
+}
+
+// TestNewRabbitMQServiceWithDialer_QueueDeclareError tests queue declaration failure
+func TestNewRabbitMQServiceWithDialer_QueueDeclareError(t *testing.T) {
+	mockDialer, mockChannel := SetupMockDialerWithQueueError()
+
+	config := eve.FlowConfig{
+		RabbitMQURL: "amqp://localhost:5672",
+		QueueName:   "test-queue",
+	}
+
+	service, err := NewRabbitMQServiceWithDialer(config, mockDialer)
+	assert.Error(t, err)
+	assert.Nil(t, service)
+	assert.Contains(t, err.Error(), "failed to declare queue")
+
+	// Verify queue declare was attempted
+	assert.True(t, mockChannel.QueueDeclareCalled)
+}
+
+// TestRabbitMQService_PublishMessage_Success tests successful message publishing
+func TestRabbitMQService_PublishMessage_Success(t *testing.T) {
+	mockDialer, mockChannel, _ := SetupMockDialerForTest()
+
+	config := eve.FlowConfig{
+		RabbitMQURL: "amqp://localhost:5672",
+		QueueName:   "test-queue",
+	}
+
+	service, err := NewRabbitMQServiceWithDialer(config, mockDialer)
+	require.NoError(t, err)
+
+	message := eve.FlowProcessMessage{
+		ProcessID:   "test-process-123",
+		State:       "running",
+		Description: "Test process for unit testing",
+	}
+
+	err = service.PublishMessage(message)
+	require.NoError(t, err)
+
+	// Verify message was published
+	assert.True(t, mockChannel.PublishCalled)
+	assert.Equal(t, "", mockChannel.LastExchange) // Default exchange
+	assert.Equal(t, config.QueueName, mockChannel.LastKey)
+
+	// Verify message was stored
+	assert.Len(t, mockChannel.PublishedMessages, 1)
+	assert.Len(t, mockChannel.PublishedKeys, 1)
+	assert.Equal(t, config.QueueName, mockChannel.PublishedKeys[0])
+
+	// Verify message content
+	publishedMsg := mockChannel.PublishedMessages[0]
+	assert.Equal(t, "application/json", publishedMsg.ContentType)
+
+	var decodedMsg eve.FlowProcessMessage
+	err = json.Unmarshal(publishedMsg.Body, &decodedMsg)
+	require.NoError(t, err)
+	assert.Equal(t, message.ProcessID, decodedMsg.ProcessID)
+	assert.Equal(t, message.State, decodedMsg.State)
+	assert.Equal(t, message.Description, decodedMsg.Description)
+
+	service.Close()
+}
+
+// TestRabbitMQService_PublishMessage_PublishError tests publish failure
+func TestRabbitMQService_PublishMessage_PublishError(t *testing.T) {
+	mockDialer, mockChannel, _ := SetupMockDialerForTest()
+
+	// Set publish error
+	mockChannel.PublishErr = assert.AnError
+
+	config := eve.FlowConfig{
+		RabbitMQURL: "amqp://localhost:5672",
+		QueueName:   "test-queue",
+	}
+
+	service, err := NewRabbitMQServiceWithDialer(config, mockDialer)
+	require.NoError(t, err)
+
+	message := eve.FlowProcessMessage{
+		ProcessID: "test-process",
+		State:     "running",
+	}
+
+	err = service.PublishMessage(message)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to publish message")
+
+	service.Close()
+}
+
+// TestRabbitMQService_PublishMultipleMessages tests publishing multiple messages
+func TestRabbitMQService_PublishMultipleMessages(t *testing.T) {
+	mockDialer, mockChannel, _ := SetupMockDialerForTest()
+
+	config := eve.FlowConfig{
+		RabbitMQURL: "amqp://localhost:5672",
+		QueueName:   "multi-test-queue",
+	}
+
+	service, err := NewRabbitMQServiceWithDialer(config, mockDialer)
+	require.NoError(t, err)
+
+	messages := []eve.FlowProcessMessage{
+		{ProcessID: "proc-1", State: "running", Description: "First process"},
+		{ProcessID: "proc-2", State: "completed", Description: "Second process"},
+		{ProcessID: "proc-3", State: "failed", ErrorMsg: "Test error"},
+	}
+
+	for _, msg := range messages {
+		err := service.PublishMessage(msg)
+		require.NoError(t, err)
+	}
+
+	// Verify all messages were published
+	assert.Len(t, mockChannel.PublishedMessages, 3)
+	assert.Len(t, mockChannel.PublishedKeys, 3)
+
+	// Verify each message routing key
+	for _, key := range mockChannel.PublishedKeys {
+		assert.Equal(t, config.QueueName, key)
+	}
+
+	service.Close()
+}
+
+// TestRabbitMQService_CloseWithMock tests closing service with mock
+func TestRabbitMQService_CloseWithMock(t *testing.T) {
+	mockDialer, mockChannel, mockConn := SetupMockDialerForTest()
+
+	config := eve.FlowConfig{
+		RabbitMQURL: "amqp://localhost:5672",
+		QueueName:   "test-queue",
+	}
+
+	service, err := NewRabbitMQServiceWithDialer(config, mockDialer)
+	require.NoError(t, err)
+
+	service.Close()
+
+	// Verify channel and connection were closed
+	assert.True(t, mockChannel.CloseCalled)
+	assert.True(t, mockConn.CloseCalled)
+}
+
+// TestRabbitMQService_InterfaceCompliance tests that RabbitMQService implements MessagePublisher
+func TestRabbitMQService_InterfaceCompliance(t *testing.T) {
+	mockDialer, _, _ := SetupMockDialerForTest()
+
+	config := eve.FlowConfig{
+		RabbitMQURL: "amqp://localhost:5672",
+		QueueName:   "test-queue",
+	}
+
+	service, err := NewRabbitMQServiceWithDialer(config, mockDialer)
+	require.NoError(t, err)
+	defer service.Close()
+
+	// Verify service implements MessagePublisher interface
+	var _ MessagePublisher = service
+	assert.NotNil(t, service)
+}
