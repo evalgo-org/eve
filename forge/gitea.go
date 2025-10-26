@@ -9,11 +9,11 @@
 package forge
 
 import (
+	"fmt"
 	"io"
 	"os"
 
 	"code.gitea.io/sdk/gitea"
-	eve "eve.evalgo.org/common"
 )
 
 // GiteaGetRepo retrieves a repository archive from a Gitea instance and saves it as a local file.
@@ -29,34 +29,42 @@ import (
 //   - repo: Name of the repository
 //   - branch: Branch, tag, or commit hash to retrieve
 //
+// Returns:
+//   - string: Path to the created archive file
+//   - error: Error if any step fails, nil on success
+//
 // The resulting archive file will be saved in the current working directory with the name:
 //
 //	"{repo}-{branch}.tar.gz"
 //
 // Example:
 //
-//	GiteaGetRepo("https://gitea.example.com", "my-token", "my-org", "my-repo", "main")
-//
-// Note: This function will exit the program with a fatal error if any step fails.
-func GiteaGetRepo(url, token, owner, repo, branch string) {
+//	filename, err := GiteaGetRepo("https://gitea.example.com", "my-token", "my-org", "my-repo", "main")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+func GiteaGetRepo(url, token, owner, repo, branch string) (string, error) {
 	client, err := gitea.NewClient(url, gitea.SetToken(token))
 	if err != nil {
-		eve.Logger.Fatal("Gitea error: ", err)
+		return "", fmt.Errorf("failed to create Gitea client: %w", err)
 	}
 
 	reader, resp, err := client.GetArchiveReader(owner, repo, branch, gitea.TarGZArchive)
 	if err != nil {
-		eve.Logger.Fatal("Gitea error: ", err)
+		return "", fmt.Errorf("failed to get archive reader: %w", err)
 	}
 	defer resp.Body.Close()
 
-	out, err := os.Create(repo + "-" + branch + ".tar.gz")
+	filename := repo + "-" + branch + ".tar.gz"
+	out, err := os.Create(filename)
 	if err != nil {
-		eve.Logger.Fatal("Gitea error: ", err)
+		return "", fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer out.Close()
 
 	if _, err = io.Copy(out, reader); err != nil {
-		eve.Logger.Fatal("Gitea error: ", err)
+		return "", fmt.Errorf("failed to write archive: %w", err)
 	}
+
+	return filename, nil
 }

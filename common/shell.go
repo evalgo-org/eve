@@ -41,29 +41,32 @@ import (
 	"strings"
 )
 
-// ShellExecute runs a shell command and logs the output or terminates on error.
+// ShellExecute runs a shell command and returns output or error.
 // This function provides a simple interface for executing shell commands with
-// automatic output capture and logging integration.
+// automatic output capture and error handling.
 //
 // Execution Process:
 //  1. Creates a bash subprocess with the provided command
 //  2. Captures both stdout and stderr output
 //  3. Executes the command and waits for completion
-//  4. Logs successful output or terminates with fatal error on failure
+//  4. Returns output and error for caller to handle
 //
 // Output Handling:
-//   - Successful execution: Logs stdout via Logger.Info
-//   - Failed execution: Terminates program via Logger.Fatal with error details
+//   - Successful execution: Returns stdout output
+//   - Failed execution: Returns error with stderr details
 //   - Both stdout and stderr are captured for complete command output
 //
 // Parameters:
 //   - cmdToRun: Shell command string to execute (passed to bash -c)
 //
+// Returns:
+//   - string: stdout output from the command
+//   - error: error with stderr details if command fails, nil on success
+//
 // Error Handling:
 //
-//	The function uses Logger.Fatal for error conditions, which will terminate
-//	the program immediately. This design is intended for scripting scenarios
-//	where command failure should halt execution.
+//	The function returns errors instead of terminating, allowing callers
+//	to handle failures appropriately for their use case.
 //
 // Security Warnings:
 //
@@ -109,7 +112,7 @@ import (
 //	- Restricted command execution with allowlists
 //	- Sandboxed execution environments
 //	- Process isolation and resource limits
-func ShellExecute(cmdToRun string) {
+func ShellExecute(cmdToRun string) (string, error) {
 	// Create bash subprocess for command execution
 	cmd := exec.Command("bash", "-c", cmdToRun)
 
@@ -122,12 +125,12 @@ func ShellExecute(cmdToRun string) {
 	// Execute command and handle results
 	err := cmd.Run()
 	if err != nil {
-		// Fatal error terminates program with detailed error information
-		Logger.Fatal("Error:", err, "\nStderr:", stderr.String(), "\n")
+		// Return error with stderr details
+		return "", fmt.Errorf("command failed: %w, stderr: %s", err, stderr.String())
 	}
 
-	// Log successful command output
-	Logger.Info("Output:\n", out.String(), "\n")
+	// Return successful command output
+	return out.String(), nil
 }
 
 // ShellSudoExecute runs a shell command with sudo privileges using password authentication.
@@ -197,10 +200,10 @@ func ShellExecute(cmdToRun string) {
 //	- Service accounts with appropriate permissions
 //	- Container-based privilege isolation
 //	- SSH key-based authentication for remote operations
-func ShellSudoExecute(password, cmdToRun string) {
+func ShellSudoExecute(password, cmdToRun string) (string, error) {
 	// Construct sudo command with password input
 	// WARNING: This approach exposes passwords in process lists
-	ShellExecute(fmt.Sprintf("echo %s | sudo -S %s", password, cmdToRun))
+	return ShellExecute(fmt.Sprintf("echo %s | sudo -S %s", password, cmdToRun))
 }
 
 // URLToFilePath converts a URL to a filesystem-safe filename.
