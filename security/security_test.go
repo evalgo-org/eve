@@ -23,7 +23,8 @@ func TestZitiCreateCSR(t *testing.T) {
 	csrPath := filepath.Join(tmpDir, "csr.pem")
 
 	// Generate CSR
-	ZitiCreateCSR(privKeyPath, csrPath)
+	err := ZitiCreateCSR(privKeyPath, csrPath)
+	require.NoError(t, err)
 
 	// Verify private key file exists
 	assert.FileExists(t, privKeyPath)
@@ -186,7 +187,7 @@ func BenchmarkZitiCreateCSR(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		privPath := filepath.Join(tmpDir, "priv.pem")
 		csrPath := filepath.Join(tmpDir, "csr.pem")
-		ZitiCreateCSR(privPath, csrPath)
+		_ = ZitiCreateCSR(privPath, csrPath)
 		os.Remove(privPath)
 		os.Remove(csrPath)
 	}

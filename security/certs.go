@@ -110,22 +110,22 @@ func randReader() *os.File {
 //   - Common Name: "ziti-edge-router"
 //   - Organization: "OpenZiti"
 //   - Signature Algorithm: ECDSA with SHA-256
-func ZitiCreateCSR(privateFilePath, csrFilePath string) {
+func ZitiCreateCSR(privateFilePath, csrFilePath string) error {
 	// Step 1: Generate ECDSA key pair
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), randReader())
 	if err != nil {
-		eve.Logger.Fatal("Failed to generate key:", err)
+		return fmt.Errorf("failed to generate key: %w", err)
 	}
 
 	// Save private key to file
 	privKeyBytes, err := x509.MarshalECPrivateKey(privateKey)
 	if err != nil {
-		eve.Logger.Fatal("Failed to marshal EC private key:", err)
+		return fmt.Errorf("failed to marshal EC private key: %w", err)
 	}
 
 	privKeyFile, err := os.Create(privateFilePath)
 	if err != nil {
-		eve.Logger.Fatal("Failed to create private key file:", err)
+		return fmt.Errorf("failed to create private key file: %w", err)
 	}
 	defer privKeyFile.Close()
 
@@ -134,7 +134,7 @@ func ZitiCreateCSR(privateFilePath, csrFilePath string) {
 		Bytes: privKeyBytes,
 	})
 	if err != nil {
-		eve.Logger.Fatal("Failed to write private key:", err)
+		return fmt.Errorf("failed to write private key: %w", err)
 	}
 
 	// Step 2: Create CSR template
@@ -151,22 +151,23 @@ func ZitiCreateCSR(privateFilePath, csrFilePath string) {
 	// Step 3: Generate CSR
 	csrBytes, err := x509.CreateCertificateRequest(randReader(), &csrTemplate, privateKey)
 	if err != nil {
-		eve.Logger.Fatal("Failed to create CSR:", err)
+		return fmt.Errorf("failed to create CSR: %w", err)
 	}
 
 	// Save CSR to file
 	csrFile, err := os.Create(csrFilePath)
 	if err != nil {
-		eve.Logger.Fatal("Failed to create CSR file:", err)
+		return fmt.Errorf("failed to create CSR file: %w", err)
 	}
 	defer csrFile.Close()
 
 	err = pem.Encode(csrFile, &pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrBytes})
 	if err != nil {
-		eve.Logger.Fatal("Failed to write CSR:", err)
+		return fmt.Errorf("failed to write CSR: %w", err)
 	}
 
 	eve.Logger.Info("✅ CSR and private key saved to", csrFilePath, "and", privateFilePath)
+	return nil
 }
 
 // CertsCheckHost checks the TLS certificates of a host for expiration and security issues.

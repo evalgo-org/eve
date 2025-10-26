@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -266,7 +267,7 @@ func postWithAuthMap(url, token string, payload map[string]interface{}) (string,
 	if resp.StatusCode >= 300 {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			eve.Logger.Fatal(err)
+			return "", fmt.Errorf("failed to read error response body: %w", err)
 		}
 		eve.Logger.Info(string(body))
 		return "", errors.New(resp.Status)
@@ -488,8 +489,11 @@ func ZitiGetConfigTypes(url, token, name string) (string, error) {
 // The function:
 //  1. Makes a GET request to the service-policies endpoint
 //  2. Logs the raw response body
-func ZitiServicePolicies(url, token string) {
-	req, _ := http.NewRequest("GET", url+"/edge/management/v1/service-policies", nil)
+func ZitiServicePolicies(url, token string) error {
+	req, err := http.NewRequest("GET", url+"/edge/management/v1/service-policies", nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Zt-Session", token)
 
@@ -502,16 +506,17 @@ func ZitiServicePolicies(url, token string) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		eve.Logger.Fatal(err)
+		return fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		eve.Logger.Fatal(err)
+		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	eve.Logger.Info(string(body))
+	return nil
 }
 
 // ZitiIdentities retrieves all Ziti identities and logs them.
@@ -524,18 +529,21 @@ func ZitiServicePolicies(url, token string) {
 // The function:
 //  1. Makes a GET request to the identities endpoint with a large limit
 //  2. Decodes the response and logs each identity's ID and name
-func ZitiIdentities(urlSrc, token string) {
+func ZitiIdentities(urlSrc, token string) error {
 	q := url.Values{}
 	q.Add("limit", "10000")
 	tgtURL := urlSrc + "/edge/management/v1/identities"
 
 	parsedURL, err := url.Parse(tgtURL)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to parse URL: %w", err)
 	}
 	parsedURL.RawQuery = q.Encode()
 
-	req, _ := http.NewRequest("GET", parsedURL.String(), nil)
+	req, err := http.NewRequest("GET", parsedURL.String(), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Zt-Session", token)
 
@@ -548,16 +556,19 @@ func ZitiIdentities(urlSrc, token string) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		eve.Logger.Fatal(err)
+		return fmt.Errorf("failed to execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	var result ZitiServiceConfigsResult
-	_ = json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
 
 	for _, conf := range result.Data {
 		eve.Logger.Info(conf.ID, " <> ", conf.Name)
 	}
+	return nil
 }
 
 // ZitiGetIdentity finds a Ziti identity by name and returns its ID.

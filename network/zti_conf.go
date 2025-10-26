@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -126,7 +127,7 @@ type ZitiControllerConfig struct {
 func WriteZitiRouterConfig(filename string, cfg ZitiRouterConfig) error {
 	file, err := os.Create(filename)
 	if err != nil {
-		eve.Logger.Fatal("failed to create file ", filename, ":", err)
+		return fmt.Errorf("failed to create file %s: %w", filename, err)
 	}
 	defer file.Close()
 
@@ -134,7 +135,7 @@ func WriteZitiRouterConfig(filename string, cfg ZitiRouterConfig) error {
 	encoder.SetIndent(2)
 
 	if err := encoder.Encode(cfg); err != nil {
-		eve.Logger.Fatal("failed to encode router config to YAML:", err)
+		return fmt.Errorf("failed to encode router config to YAML: %w", err)
 	}
 
 	eve.Logger.Info("Ziti router config written to ", filename, "\n")
@@ -144,7 +145,7 @@ func WriteZitiRouterConfig(filename string, cfg ZitiRouterConfig) error {
 func WriteZitiControllerConfig(filename string, cfg ZitiControllerConfig) error {
 	file, err := os.Create(filename)
 	if err != nil {
-		eve.Logger.Fatal("failed to create file ", filename, ":", err)
+		return fmt.Errorf("failed to create file %s: %w", filename, err)
 	}
 	defer file.Close()
 
@@ -152,14 +153,14 @@ func WriteZitiControllerConfig(filename string, cfg ZitiControllerConfig) error 
 	encoder.SetIndent(2)
 
 	if err := encoder.Encode(cfg); err != nil {
-		eve.Logger.Fatal("failed to encode controller config to YAML:", err)
+		return fmt.Errorf("failed to encode controller config to YAML: %w", err)
 	}
 
 	eve.Logger.Info("Ziti controller config written to ", filename, " \n")
 	return nil
 }
 
-func ZitiGenerateCtrlConfig(outFile string) {
+func ZitiGenerateCtrlConfig(outFile string) error {
 	ctrlCfg := ZitiControllerConfig{
 		Version: 3,
 		DB:      "ctrl.db",
@@ -193,11 +194,12 @@ func ZitiGenerateCtrlConfig(outFile string) {
 		},
 	}
 	if err := WriteZitiControllerConfig(outFile, ctrlCfg); err != nil {
-		eve.Logger.Fatal(err)
+		return fmt.Errorf("failed to write controller config: %w", err)
 	}
+	return nil
 }
 
-func ZitiGenerateRouterConfig(outFile string) {
+func ZitiGenerateRouterConfig(outFile string) error {
 	routerCfg := ZitiRouterConfig{
 		Version: 3,
 		Identity: ZitiIdentity{
@@ -242,6 +244,7 @@ func ZitiGenerateRouterConfig(outFile string) {
 		},
 	}
 	if err := WriteZitiRouterConfig(outFile, routerCfg); err != nil {
-		eve.Logger.Fatal(err)
+		return fmt.Errorf("failed to write router config: %w", err)
 	}
+	return nil
 }

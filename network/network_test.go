@@ -200,13 +200,25 @@ func TestHttpClientDownloadFile_MockServer(t *testing.T) {
 		name        string
 		content     string
 		statusCode  int
-		expectPanic bool
+		expectError bool
 	}{
 		{
 			name:        "SuccessfulDownload",
 			content:     "Test content",
 			statusCode:  http.StatusOK,
-			expectPanic: false,
+			expectError: false,
+		},
+		{
+			name:        "BadStatus",
+			content:     "",
+			statusCode:  http.StatusNotFound,
+			expectError: true,
+		},
+		{
+			name:        "ServerError",
+			content:     "",
+			statusCode:  http.StatusInternalServerError,
+			expectError: true,
 		},
 	}
 
@@ -226,15 +238,14 @@ func TestHttpClientDownloadFile_MockServer(t *testing.T) {
 
 			filePath := filepath.Join(tmpDir, tt.name+".txt")
 
-			if tt.expectPanic {
-				assert.Panics(t, func() {
-					HttpClientDownloadFile(server.URL, filePath)
-				})
+			err := HttpClientDownloadFile(server.URL, filePath)
+
+			if tt.expectError {
+				assert.Error(t, err)
 				return
 			}
 
-			// This function uses Logger.Fatal on errors, so we can only test success
-			HttpClientDownloadFile(server.URL, filePath)
+			require.NoError(t, err)
 
 			// Verify file exists and content
 			assert.FileExists(t, filePath)

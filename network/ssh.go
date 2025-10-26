@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"os"
 
-	eve "eve.evalgo.org/common"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -192,14 +191,14 @@ func parsePemBlock(block *pem.Block) (interface{}, error) {
 // Note: This function uses InsecureIgnoreHostKey() for host key verification,
 // which is not secure for production use. In production, you should implement
 // proper host key verification.
-func SshExec(address string, username string, keyfile string, certfile string, cmd string) {
+func SshExec(address string, username string, keyfile string, certfile string, cmd string) error {
 	var signer ssh.Signer
 	var err error
 
 	// Create signer from key files
 	signer, err = ssh_keyfile(keyfile, certfile)
 	if err != nil {
-		eve.Logger.Fatal("Failed to create signer: ", err)
+		return fmt.Errorf("failed to create signer: %w", err)
 	}
 
 	// Configure SSH client
@@ -214,23 +213,24 @@ func SshExec(address string, username string, keyfile string, certfile string, c
 	// Connect to the remote host
 	client, err := ssh.Dial("tcp", address, config)
 	if err != nil {
-		eve.Logger.Fatal("Failed to dial: ", err)
+		return fmt.Errorf("failed to dial: %w", err)
 	}
 	defer client.Close()
 
 	// Create a new session
 	session, err := client.NewSession()
 	if err != nil {
-		eve.Logger.Fatal("Failed to create session: ", err)
+		return fmt.Errorf("failed to create session: %w", err)
 	}
 	defer session.Close()
 
 	// Execute the command and capture output
 	out, err := session.CombinedOutput(cmd)
 	if err != nil {
-		eve.Logger.Fatal("Command execution failed: ", err)
+		return fmt.Errorf("command execution failed: %w", err)
 	}
 
 	// Print the command output
 	fmt.Println(string(out))
+	return nil
 }
