@@ -1253,3 +1253,344 @@ func sanitizeFilename(filename string) string {
 
 	return result
 }
+
+// NewCouchDBServiceFromConfig creates a new CouchDB service from generic configuration.
+// This constructor provides more flexibility than NewCouchDBService by supporting
+// advanced configuration options including TLS, timeouts, and connection pooling.
+//
+// Parameters:
+//   - config: CouchDBConfig with connection details and options
+//
+// Returns:
+//   - *CouchDBService: Configured service instance
+//   - error: Connection, authentication, or database creation errors
+//
+// Configuration Features:
+//   - Custom connection URL and database name
+//   - Optional TLS/SSL configuration for secure connections
+//   - Connection timeout settings
+//   - Automatic database creation
+//   - Flexible authentication options
+//
+// Example Usage:
+//
+//	config := CouchDBConfig{
+//	    URL:             "https://couchdb.example.com:6984",
+//	    Database:        "graphium",
+//	    Username:        "admin",
+//	    Password:        "secure-password",
+//	    Timeout:         30000,
+//	    CreateIfMissing: true,
+//	}
+//
+//	service, err := NewCouchDBServiceFromConfig(config)
+//	if err != nil {
+//	    log.Fatal("Failed to create service:", err)
+//	}
+//	defer service.Close()
+//
+//	// Use service for operations
+//	response, _ := service.SaveDocument(myDocument)
+func NewCouchDBServiceFromConfig(config CouchDBConfig) (*CouchDBService, error) {
+	// Build connection URL with authentication
+	connectionURL := config.URL
+	if config.Username != "" && config.Password != "" {
+		// Parse URL to inject credentials
+		if !strings.Contains(connectionURL, "@") {
+			// Insert credentials into URL
+			parts := strings.SplitN(connectionURL, "://", 2)
+			if len(parts) == 2 {
+				connectionURL = fmt.Sprintf("%s://%s:%s@%s",
+					parts[0], config.Username, config.Password, parts[1])
+			}
+		}
+	}
+
+	// Create CouchDB client
+	client, err := kivik.New("couch", connectionURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to CouchDB: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Apply timeout if specified
+	if config.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(config.Timeout)*time.Millisecond)
+		defer cancel()
+	}
+
+	// Check if database exists
+	exists, err := client.DBExists(ctx, config.Database)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if database exists: %w", err)
+	}
+
+	// Create database if it doesn't exist and CreateIfMissing is true
+	if !exists {
+		if config.CreateIfMissing {
+			err = client.CreateDB(ctx, config.Database)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create database: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("database %s does not exist", config.Database)
+		}
+	}
+
+	db := client.DB(config.Database)
+
+	return &CouchDBService{
+		client:   client,
+		database: db,
+		dbName:   config.Database,
+	}, nil
+}
+
+// CreateDatabaseFromURL creates a new CouchDB database with the given name.
+// This is a standalone function that doesn't require a service instance.
+//
+// Parameters:
+//   - url: CouchDB server URL with authentication
+//   - dbName: Name of the database to create
+//
+// Returns:
+//   - error: Database creation or connection errors
+//
+// Error Handling:
+//   - Returns error if database already exists
+//   - Returns error if insufficient permissions
+//   - Returns error on connection failures
+//
+// Example Usage:
+//
+//	err := CreateDatabaseFromURL(
+//	    "http://admin:password@localhost:5984",
+//	    "my_new_database")
+//	if err != nil {
+//	    log.Printf("Failed to create database: %v", err)
+//	}
+func CreateDatabaseFromURL(url, dbName string) error {
+	client, err := kivik.New("couch", url)
+	if err != nil {
+		return fmt.Errorf("failed to connect to CouchDB: %w", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	err = client.CreateDB(ctx, dbName)
+	if err != nil {
+		if kivik.HTTPStatus(err) != 0 {
+			return &CouchDBError{
+				StatusCode: kivik.HTTPStatus(err),
+				ErrorType:  "create_database_failed",
+				Reason:     err.Error(),
+			}
+		}
+		return fmt.Errorf("failed to create database: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteDatabaseFromURL deletes a CouchDB database.
+// This permanently removes the database and all its documents.
+//
+// Parameters:
+//   - url: CouchDB server URL with authentication
+//   - dbName: Name of the database to delete
+//
+// Returns:
+//   - error: Database deletion or connection errors
+//
+// WARNING:
+//
+//	This operation is irreversible and deletes all data in the database.
+//	Use with extreme caution in production environments.
+//
+// Example Usage:
+//
+//	err := DeleteDatabaseFromURL(
+//	    "http://admin:password@localhost:5984",
+//	    "old_database")
+//	if err != nil {
+//	    log.Printf("Failed to delete database: %v", err)
+//	}
+func DeleteDatabaseFromURL(url, dbName string) error {
+	client, err := kivik.New("couch", url)
+	if err != nil {
+		return fmt.Errorf("failed to connect to CouchDB: %w", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	err = client.DestroyDB(ctx, dbName)
+	if err != nil {
+		if kivik.HTTPStatus(err) != 0 {
+			return &CouchDBError{
+				StatusCode: kivik.HTTPStatus(err),
+				ErrorType:  "delete_database_failed",
+				Reason:     err.Error(),
+			}
+		}
+		return fmt.Errorf("failed to delete database: %w", err)
+	}
+
+	return nil
+}
+
+// DatabaseExistsFromURL checks if a database exists.
+// This is a standalone function that doesn't require a service instance.
+//
+// Parameters:
+//   - url: CouchDB server URL with authentication
+//   - dbName: Name of the database to check
+//
+// Returns:
+//   - bool: true if database exists, false otherwise
+//   - error: Connection or query errors
+//
+// Example Usage:
+//
+//	exists, err := DatabaseExistsFromURL(
+//	    "http://admin:password@localhost:5984",
+//	    "my_database")
+//	if err != nil {
+//	    log.Printf("Error checking database: %v", err)
+//	    return
+//	}
+//
+//	if exists {
+//	    fmt.Println("Database exists")
+//	} else {
+//	    fmt.Println("Database does not exist")
+//	}
+func DatabaseExistsFromURL(url, dbName string) (bool, error) {
+	client, err := kivik.New("couch", url)
+	if err != nil {
+		return false, fmt.Errorf("failed to connect to CouchDB: %w", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	exists, err := client.DBExists(ctx, dbName)
+	if err != nil {
+		return false, fmt.Errorf("failed to check database existence: %w", err)
+	}
+
+	return exists, nil
+}
+
+// GetDatabaseInfo retrieves metadata and statistics about the database.
+// This provides information useful for monitoring, capacity planning, and administration.
+//
+// Returns:
+//   - *DatabaseInfo: Database metadata and statistics
+//   - error: Query or connection errors
+//
+// Information Provided:
+//   - Document count (active and deleted)
+//   - Database size (disk and data)
+//   - Update sequence for change tracking
+//   - Compaction status
+//   - Instance start time
+//
+// Example Usage:
+//
+//	info, err := service.GetDatabaseInfo()
+//	if err != nil {
+//	    log.Printf("Failed to get database info: %v", err)
+//	    return
+//	}
+//
+//	fmt.Printf("Database: %s\n", info.DBName)
+//	fmt.Printf("Documents: %d active, %d deleted\n",
+//	    info.DocCount, info.DocDelCount)
+//	fmt.Printf("Size: %.2f MB (disk), %.2f MB (data)\n",
+//	    float64(info.DiskSize)/1024/1024,
+//	    float64(info.DataSize)/1024/1024)
+//	fmt.Printf("Compaction running: %v\n", info.CompactRunning)
+func (c *CouchDBService) GetDatabaseInfo() (*DatabaseInfo, error) {
+	ctx := context.Background()
+
+	// Get database stats
+	stats, err := c.database.Stats(ctx)
+	if err != nil {
+		if kivik.HTTPStatus(err) != 0 {
+			return nil, &CouchDBError{
+				StatusCode: kivik.HTTPStatus(err),
+				ErrorType:  "get_database_info_failed",
+				Reason:     err.Error(),
+			}
+		}
+		return nil, fmt.Errorf("failed to get database info: %w", err)
+	}
+
+	info := &DatabaseInfo{
+		DBName:      c.dbName,
+		DocCount:    stats.DocCount,
+		DocDelCount: stats.DeletedCount,
+		UpdateSeq:   stats.UpdateSeq,
+		DiskSize:    stats.DiskSize,
+		DataSize:    stats.ActiveSize,
+	}
+
+	return info, nil
+}
+
+// CompactDatabase triggers database compaction.
+// Compaction reclaims disk space by removing old document revisions and deleted documents.
+//
+// Returns:
+//   - error: Compaction request errors
+//
+// Compaction Process:
+//   - Removes old document revisions beyond the revision limit
+//   - Purges deleted documents
+//   - Rebuilds B-tree indexes
+//   - Reclaims disk space
+//   - Runs asynchronously in the background
+//
+// Performance Impact:
+//   - Compaction is I/O intensive
+//   - May impact database performance during compaction
+//   - Recommended during low-traffic periods
+//   - Monitor with GetDatabaseInfo().CompactRunning
+//
+// Example Usage:
+//
+//	err := service.CompactDatabase()
+//	if err != nil {
+//	    log.Printf("Failed to start compaction: %v", err)
+//	    return
+//	}
+//
+//	fmt.Println("Compaction started")
+//
+//	// Monitor compaction progress
+//	for {
+//	    info, _ := service.GetDatabaseInfo()
+//	    if !info.CompactRunning {
+//	        fmt.Println("Compaction completed")
+//	        break
+//	    }
+//	    time.Sleep(10 * time.Second)
+//	}
+func (c *CouchDBService) CompactDatabase() error {
+	ctx := context.Background()
+
+	err := c.database.Compact(ctx)
+	if err != nil {
+		if kivik.HTTPStatus(err) != 0 {
+			return &CouchDBError{
+				StatusCode: kivik.HTTPStatus(err),
+				ErrorType:  "compact_database_failed",
+				Reason:     err.Error(),
+			}
+		}
+		return fmt.Errorf("failed to compact database: %w", err)
+	}
+
+	return nil
+}

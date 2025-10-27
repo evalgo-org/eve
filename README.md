@@ -401,6 +401,410 @@ task containers:status
 docker inspect eve-postgres-test --format='{{.State.Health.Status}}'
 ```
 
+## CouchDB Features
+
+The `eve.evalgo.org/db` package provides comprehensive CouchDB integration with support for advanced querying, graph traversal, real-time updates, and JSON-LD validation.
+
+### Quick Start
+
+```go
+import "eve.evalgo.org/db"
+
+// Create service from config
+config := db.CouchDBConfig{
+    URL:             "http://localhost:5984",
+    Database:        "myapp",
+    Username:        "admin",
+    Password:        "password",
+    CreateIfMissing: true,
+}
+
+service, err := db.NewCouchDBServiceFromConfig(config)
+if err != nil {
+    log.Fatal(err)
+}
+defer service.Close()
+```
+
+### Generic Document Operations
+
+Type-safe document operations using Go generics:
+
+```go
+type Container struct {
+    ID       string `json:"_id,omitempty"`
+    Rev      string `json:"_rev,omitempty"`
+    Type     string `json:"@type"`
+    Name     string `json:"name"`
+    Status   string `json:"status"`
+    HostedOn string `json:"hostedOn"`
+}
+
+// Save document with type safety
+container := Container{
+    ID:       "container-123",
+    Type:     "SoftwareApplication",
+    Name:     "nginx",
+    Status:   "running",
+    HostedOn: "host-456",
+}
+
+response, err := db.SaveDocument(service, container)
+
+// Retrieve with type safety
+retrieved, err := db.GetDocument[Container](service, "container-123")
+
+// Query by type
+containers, err := db.GetDocumentsByType[Container](service, "SoftwareApplication")
+```
+
+### MapReduce Views
+
+Create and query CouchDB views for efficient data access:
+
+```go
+// Create design document with views
+designDoc := db.DesignDoc{
+    ID:       "_design/graphium",
+    Language: "javascript",
+    Views: map[string]db.View{
+        "containers_by_host": {
+            Map: `function(doc) {
+                if (doc['@type'] === 'SoftwareApplication' && doc.hostedOn) {
+                    emit(doc.hostedOn, {name: doc.name, status: doc.status});
+                }
+            }`,
+        },
+        "container_count": {
+            Map: `function(doc) {
+                if (doc['@type'] === 'SoftwareApplication') {
+                    emit(doc.hostedOn, 1);
+                }
+            }`,
+            Reduce: "_sum",
+        },
+    },
+}
+
+err := service.CreateDesignDoc(designDoc)
+
+// Query view
+opts := db.ViewOptions{
+    Key:         "host-123",
+    IncludeDocs: true,
+    Limit:       50,
+}
+result, err := service.QueryView("graphium", "containers_by_host", opts)
+```
+
+### Mango Queries with QueryBuilder
+
+Build complex queries with a fluent API:
+
+```go
+// Fluent query builder
+query := db.NewQueryBuilder().
+    Where("status", "eq", "running").
+    And().
+    Where("location", "regex", "^us-east").
+    Select("_id", "name", "status", "hostedOn").
+    Sort("name", "asc").
+    Limit(50).
+    Build()
+
+results, err := service.Find(query)
+
+// Type-safe queries
+containers, err := db.FindTyped[Container](service, query)
+
+// Simple count
+count, err := service.Count(map[string]interface{}{
+    "status": "running",
+    "@type":  "SoftwareApplication",
+})
+```
+
+### Index Management
+
+Create indexes for query performance:
+
+```go
+// Create compound index
+index := db.Index{
+    Name:   "status-location-index",
+    Fields: []string{"status", "location"},
+    Type:   "json",
+}
+err := service.CreateIndex(index)
+
+// List all indexes
+indexes, err := service.ListIndexes()
+
+// Ensure index exists (idempotent)
+created, err := service.EnsureIndex(index)
+```
+
+### Graph Traversal
+
+Navigate relationships between documents:
+
+```go
+// Find all containers on a host (reverse traversal)
+opts := db.TraversalOptions{
+    StartID:       "host-123",
+    Depth:         1,
+    RelationField: "hostedOn",
+    Direction:     "reverse",
+}
+containers, err := service.Traverse(opts)
+
+// Find host and datacenter for container (forward traversal)
+opts = db.TraversalOptions{
+    StartID:       "container-456",
+    Depth:         2,
+    RelationField: "hostedOn",
+    Direction:     "forward",
+}
+related, err := service.Traverse(opts)
+
+// Type-safe traversal
+typedContainers, err := db.TraverseTyped[Container](service, opts)
+
+// Find dependents
+dependents, err := service.GetDependents("host-123", "hostedOn")
+
+// Find dependencies
+dependencies, err := service.GetDependencies("container-456",
+    []string{"hostedOn", "dependsOn", "network"})
+
+// Build relationship graph
+graph, err := service.GetRelationshipGraph("container-456", "hostedOn", 3)
+fmt.Printf("Graph has %d nodes and %d edges\n",
+    len(graph.Nodes), len(graph.Edges))
+```
+
+### Bulk Operations
+
+Efficient batch processing:
+
+```go
+// Bulk save
+containers := []interface{}{
+    Container{ID: "c1", Name: "nginx", Status: "running"},
+    Container{ID: "c2", Name: "redis", Status: "running"},
+    Container{ID: "c3", Name: "postgres", Status: "stopped"},
+}
+
+results, err := service.BulkSaveDocuments(containers)
+for _, result := range results {
+    if result.OK {
+        fmt.Printf("Saved %s with rev %s\n", result.ID, result.Rev)
+    }
+}
+
+// Bulk delete
+deleteOps := []db.BulkDeleteDoc{
+    {ID: "c1", Rev: "1-abc", Deleted: true},
+    {ID: "c2", Rev: "2-def", Deleted: true},
+}
+results, err = service.BulkDeleteDocuments(deleteOps)
+
+// Bulk get with type safety
+ids := []string{"c1", "c2", "c3"}
+docs, errors, err := db.BulkGet[Container](service, ids)
+
+// Bulk update with function
+selector := map[string]interface{}{"status": "running"}
+count, err := db.BulkUpdate[Container](service, selector,
+    func(c *Container) error {
+        c.Status = "stopped"
+        return nil
+    })
+```
+
+### Real-Time Changes
+
+Monitor database changes in real-time:
+
+```go
+// Listen to changes (blocking)
+opts := db.ChangesFeedOptions{
+    Since:       "now",
+    Feed:        "continuous",
+    IncludeDocs: true,
+    Selector: map[string]interface{}{
+        "@type": "SoftwareApplication",
+    },
+}
+
+err := service.ListenChanges(opts, func(change db.Change) {
+    if change.Deleted {
+        fmt.Printf("Container %s deleted\n", change.ID)
+    } else {
+        fmt.Printf("Container %s changed\n", change.ID)
+        var container Container
+        json.Unmarshal(change.Doc, &container)
+        fmt.Printf("  Status: %s\n", container.Status)
+    }
+})
+
+// Channel-based watching (non-blocking)
+changeChan, errChan, stop := service.WatchChanges(opts)
+defer stop()
+
+for {
+    select {
+    case change := <-changeChan:
+        // Process change
+    case err := <-errChan:
+        log.Printf("Error: %v", err)
+        return
+    }
+}
+
+// Polling-based sync
+lastSeq := "0"
+for {
+    opts := db.ChangesFeedOptions{
+        Since: lastSeq,
+        Feed:  "normal",
+        Limit: 100,
+    }
+    changes, newSeq, err := service.GetChanges(opts)
+    // Process changes
+    lastSeq = newSeq
+    time.Sleep(5 * time.Second)
+}
+```
+
+### JSON-LD Support
+
+Validate and manipulate JSON-LD documents:
+
+```go
+// Validate JSON-LD
+doc := map[string]interface{}{
+    "@context": "https://schema.org",
+    "@type":    "SoftwareApplication",
+    "@id":      "urn:container:nginx-1",
+    "name":     "nginx",
+}
+
+err := db.ValidateJSONLD(doc, "https://schema.org")
+
+// Expand JSON-LD
+expanded, err := db.ExpandJSONLD(doc)
+
+// Compact JSON-LD
+compacted, err := db.CompactJSONLD(expanded, "https://schema.org")
+
+// Normalize for hashing/comparison
+normalized, err := db.NormalizeJSONLD(doc)
+hash := sha256.Sum256([]byte(normalized))
+
+// Helper functions
+docType, err := db.ExtractJSONLDType(doc)
+doc = db.SetJSONLDContext(doc, "https://schema.org")
+```
+
+### Database Management
+
+Manage databases and get statistics:
+
+```go
+// Create database
+err := db.CreateDatabaseFromURL("http://admin:pass@localhost:5984", "newdb")
+
+// Check existence
+exists, err := db.DatabaseExistsFromURL("http://admin:pass@localhost:5984", "mydb")
+
+// Get database info
+info, err := service.GetDatabaseInfo()
+fmt.Printf("Database: %s\n", info.DBName)
+fmt.Printf("Documents: %d active, %d deleted\n",
+    info.DocCount, info.DocDelCount)
+fmt.Printf("Disk: %.2f MB, Data: %.2f MB\n",
+    float64(info.DiskSize)/1024/1024,
+    float64(info.DataSize)/1024/1024)
+
+// Compact database
+err = service.CompactDatabase()
+
+// Monitor compaction
+for {
+    info, _ := service.GetDatabaseInfo()
+    if !info.CompactRunning {
+        break
+    }
+    time.Sleep(10 * time.Second)
+}
+
+// Delete database
+err = db.DeleteDatabaseFromURL("http://admin:pass@localhost:5984", "olddb")
+```
+
+### Error Handling
+
+Comprehensive error types:
+
+```go
+err := service.GetDocument("missing-doc")
+if err != nil {
+    if couchErr, ok := err.(*db.CouchDBError); ok {
+        switch {
+        case couchErr.IsNotFound():
+            fmt.Println("Document not found")
+        case couchErr.IsConflict():
+            fmt.Println("Revision conflict - retry needed")
+        case couchErr.IsUnauthorized():
+            fmt.Println("Authentication failed")
+        default:
+            fmt.Printf("CouchDB error %d: %s\n",
+                couchErr.StatusCode, couchErr.Reason)
+        }
+    }
+}
+```
+
+### Configuration Options
+
+Advanced configuration:
+
+```go
+config := db.CouchDBConfig{
+    URL:             "https://couchdb.example.com:6984",
+    Database:        "production",
+    Username:        "admin",
+    Password:        os.Getenv("COUCHDB_PASSWORD"),
+    MaxConnections:  100,
+    Timeout:         30000, // milliseconds
+    CreateIfMissing: false,
+    TLS: &db.TLSConfig{
+        Enabled:  true,
+        CAFile:   "/etc/ssl/certs/ca.crt",
+        CertFile: "/etc/ssl/certs/client.crt",
+        KeyFile:  "/etc/ssl/private/client.key",
+    },
+}
+
+service, err := db.NewCouchDBServiceFromConfig(config)
+```
+
+### Feature Summary
+
+| Category | Functions | Description |
+|----------|-----------|-------------|
+| **Generic Documents** | 8 functions | Type-safe CRUD with Go generics |
+| **View Management** | 5 functions | MapReduce view creation and querying |
+| **Mango Queries** | 3 functions + Builder | MongoDB-style declarative queries |
+| **Index Management** | 4 functions | Performance optimization indexes |
+| **Graph Traversal** | 5 functions | Navigate document relationships |
+| **Bulk Operations** | 5 functions | Batch save/delete/update/upsert |
+| **Change Feeds** | 4 functions | Real-time change notifications |
+| **JSON-LD** | 6 functions | Semantic data validation |
+| **Database Utils** | 5 functions | Management and statistics |
+| **Error Handling** | 3 helpers | Structured error types |
+
 ## Available Tasks
 
 ```bash
