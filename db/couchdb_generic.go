@@ -61,7 +61,7 @@ import (
 func SaveDocument[T any](c *CouchDBService, doc T) (*CouchDBResponse, error) {
 	ctx := context.Background()
 
-	// Convert to map to extract _id
+	// Convert to map to extract/map ID fields
 	jsonData, err := json.Marshal(doc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal document: %w", err)
@@ -72,20 +72,28 @@ func SaveDocument[T any](c *CouchDBService, doc T) (*CouchDBResponse, error) {
 		return nil, fmt.Errorf("failed to unmarshal document: %w", err)
 	}
 
-	// Get document ID if present
+	// Get document ID - check both @id (JSON-LD) and _id (CouchDB) fields
 	var docID string
-	if id, ok := docMap["_id"]; ok && id != nil {
+	if id, ok := docMap["@id"]; ok && id != nil && id != "" {
+		// JSON-LD format uses @id
+		docID = fmt.Sprintf("%v", id)
+		// Map @id to _id for CouchDB
+		docMap["_id"] = docID
+		// Keep @id for JSON-LD compatibility
+	} else if id, ok := docMap["_id"]; ok && id != nil && id != "" {
+		// Standard CouchDB format
 		docID = fmt.Sprintf("%v", id)
 	}
 
+	// Save the modified docMap (with _id field) instead of original doc
 	var rev string
 	if docID != "" {
 		// Document has ID, use Put
-		rev, err = c.database.Put(ctx, docID, doc)
+		rev, err = c.database.Put(ctx, docID, docMap)
 	} else {
 		// No ID, use CreateDoc to let CouchDB generate UUID
 		var revID string
-		docID, revID, err = c.database.CreateDoc(ctx, doc)
+		docID, revID, err = c.database.CreateDoc(ctx, docMap)
 		rev = revID
 	}
 
@@ -371,7 +379,7 @@ func GetDocumentsByType[T any](c *CouchDBService, docType string) ([]T, error) {
 func (c *CouchDBService) SaveGenericDocument(doc interface{}) (*CouchDBResponse, error) {
 	ctx := context.Background()
 
-	// Convert to map to extract _id
+	// Convert to map to extract/map ID fields
 	jsonData, err := json.Marshal(doc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal document: %w", err)
@@ -382,20 +390,28 @@ func (c *CouchDBService) SaveGenericDocument(doc interface{}) (*CouchDBResponse,
 		return nil, fmt.Errorf("failed to unmarshal document: %w", err)
 	}
 
-	// Get document ID if present
+	// Get document ID - check both @id (JSON-LD) and _id (CouchDB) fields
 	var docID string
-	if id, ok := docMap["_id"]; ok && id != nil {
+	if id, ok := docMap["@id"]; ok && id != nil && id != "" {
+		// JSON-LD format uses @id
+		docID = fmt.Sprintf("%v", id)
+		// Map @id to _id for CouchDB
+		docMap["_id"] = docID
+		// Keep @id for JSON-LD compatibility
+	} else if id, ok := docMap["_id"]; ok && id != nil && id != "" {
+		// Standard CouchDB format
 		docID = fmt.Sprintf("%v", id)
 	}
 
+	// Save the modified docMap (with _id field) instead of original doc
 	var rev string
 	if docID != "" {
 		// Document has ID, use Put
-		rev, err = c.database.Put(ctx, docID, doc)
+		rev, err = c.database.Put(ctx, docID, docMap)
 	} else {
-		// No ID, use CreateDoc
+		// No ID, use CreateDoc to generate UUID
 		var revID string
-		docID, revID, err = c.database.CreateDoc(ctx, doc)
+		docID, revID, err = c.database.CreateDoc(ctx, docMap)
 		rev = revID
 	}
 
