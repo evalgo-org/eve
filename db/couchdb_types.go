@@ -271,10 +271,10 @@ type ViewResult struct {
 //	    }
 //	}
 type ViewRow struct {
-	ID    string          `json:"id"`             // Document ID
-	Key   interface{}     `json:"key"`            // Emitted key
-	Value interface{}     `json:"value"`          // Emitted value
-	Doc   json.RawMessage `json:"doc,omitempty"`  // Full document (if IncludeDocs=true)
+	ID    string          `json:"id"`            // Document ID
+	Key   interface{}     `json:"key"`           // Emitted key
+	Value interface{}     `json:"value"`         // Emitted value
+	Doc   json.RawMessage `json:"doc,omitempty"` // Full document (if IncludeDocs=true)
 }
 
 // View represents a CouchDB MapReduce view definition.
@@ -319,8 +319,8 @@ type ViewRow struct {
 //	    Reduce: "_count",
 //	}
 type View struct {
-	Name   string `json:"-"`              // View name (not in JSON)
-	Map    string `json:"map"`            // JavaScript map function
+	Name   string `json:"-"`                // View name (not in JSON)
+	Map    string `json:"map"`              // JavaScript map function
 	Reduce string `json:"reduce,omitempty"` // JavaScript reduce function (optional)
 }
 
@@ -364,10 +364,10 @@ type View struct {
 //	}
 //	service.CreateDesignDoc(designDoc)
 type DesignDoc struct {
-	ID       string          `json:"_id"`       // Design document ID (must start with "_design/")
+	ID       string          `json:"_id"`            // Design document ID (must start with "_design/")
 	Rev      string          `json:"_rev,omitempty"` // Document revision (for updates)
-	Language string          `json:"language"`  // Programming language (typically "javascript")
-	Views    map[string]View `json:"views"`     // Map of view names to definitions
+	Language string          `json:"language"`       // Programming language (typically "javascript")
+	Views    map[string]View `json:"views"`          // Map of view names to definitions
 }
 
 // MangoQuery represents a CouchDB Mango query (MongoDB-style queries).
@@ -412,11 +412,11 @@ type DesignDoc struct {
 //	}
 //	results, _ := service.Find(query)
 type MangoQuery struct {
-	Selector map[string]interface{} `json:"selector"`           // MongoDB-style selector
-	Fields   []string               `json:"fields,omitempty"`   // Fields to return
-	Sort     []map[string]string    `json:"sort,omitempty"`     // Sort specifications
-	Limit    int                    `json:"limit,omitempty"`    // Maximum results
-	Skip     int                    `json:"skip,omitempty"`     // Pagination offset
+	Selector map[string]interface{} `json:"selector"`            // MongoDB-style selector
+	Fields   []string               `json:"fields,omitempty"`    // Fields to return
+	Sort     []map[string]string    `json:"sort,omitempty"`      // Sort specifications
+	Limit    int                    `json:"limit,omitempty"`     // Maximum results
+	Skip     int                    `json:"skip,omitempty"`      // Pagination offset
 	UseIndex string                 `json:"use_index,omitempty"` // Index hint
 }
 
@@ -555,15 +555,15 @@ type BulkDeleteDoc struct {
 //	    fmt.Printf("Document %s changed\n", change.ID)
 //	})
 type ChangesFeedOptions struct {
-	Since       string                 `json:"since,omitempty"`       // Starting sequence
-	Feed        string                 `json:"feed,omitempty"`        // Feed type
-	Filter      string                 `json:"filter,omitempty"`      // Filter function
+	Since       string                 `json:"since,omitempty"`        // Starting sequence
+	Feed        string                 `json:"feed,omitempty"`         // Feed type
+	Filter      string                 `json:"filter,omitempty"`       // Filter function
 	IncludeDocs bool                   `json:"include_docs,omitempty"` // Include documents
-	Heartbeat   int                    `json:"heartbeat,omitempty"`   // Heartbeat interval (ms)
-	Timeout     int                    `json:"timeout,omitempty"`     // Request timeout (ms)
-	Limit       int                    `json:"limit,omitempty"`       // Maximum changes
-	Descending  bool                   `json:"descending,omitempty"`  // Reverse order
-	Selector    map[string]interface{} `json:"selector,omitempty"`    // Mango selector filter
+	Heartbeat   int                    `json:"heartbeat,omitempty"`    // Heartbeat interval (ms)
+	Timeout     int                    `json:"timeout,omitempty"`      // Request timeout (ms)
+	Limit       int                    `json:"limit,omitempty"`        // Maximum changes
+	Descending  bool                   `json:"descending,omitempty"`   // Reverse order
+	Selector    map[string]interface{} `json:"selector,omitempty"`     // Mango selector filter
 }
 
 // Change represents a single change notification from the changes feed.
@@ -600,11 +600,11 @@ type ChangesFeedOptions struct {
 //	    }
 //	})
 type Change struct {
-	Seq     string          `json:"seq"`             // Sequence ID
-	ID      string          `json:"id"`              // Document ID
-	Changes []ChangeRev     `json:"changes"`         // Revision changes
+	Seq     string          `json:"seq"`               // Sequence ID
+	ID      string          `json:"id"`                // Document ID
+	Changes []ChangeRev     `json:"changes"`           // Revision changes
 	Deleted bool            `json:"deleted,omitempty"` // Deletion flag
-	Doc     json.RawMessage `json:"doc,omitempty"`   // Document content
+	Doc     json.RawMessage `json:"doc,omitempty"`     // Document content
 }
 
 // ChangeRev represents a document revision in a change notification.
@@ -660,10 +660,10 @@ type ChangeRev struct {
 //	}
 //	results, _ := service.Traverse(opts)
 type TraversalOptions struct {
-	StartID       string                 `json:"start_id"`       // Starting document ID
-	Depth         int                    `json:"depth"`          // Traversal depth
-	RelationField string                 `json:"relation_field"` // Relationship field name
-	Direction     string                 `json:"direction"`      // "forward" or "reverse"
+	StartID       string                 `json:"start_id"`         // Starting document ID
+	Depth         int                    `json:"depth"`            // Traversal depth
+	RelationField string                 `json:"relation_field"`   // Relationship field name
+	Direction     string                 `json:"direction"`        // "forward" or "reverse"
 	Filter        map[string]interface{} `json:"filter,omitempty"` // Optional filters
 }
 

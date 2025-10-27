@@ -235,10 +235,10 @@ func (c *CouchDBService) DeleteIndex(designDoc, indexName string) error {
 //	    fmt.Printf("  Design Doc: %s\n", idx.DesignDoc)
 //	}
 type IndexInfo struct {
-	Name       string   // Index name
-	Type       string   // Index type
-	Fields     []string // Indexed fields
-	DesignDoc  string   // Design document ID
+	Name      string   // Index name
+	Type      string   // Index type
+	Fields    []string // Indexed fields
+	DesignDoc string   // Design document ID
 }
 
 // EnsureIndex creates an index if it doesn't already exist.

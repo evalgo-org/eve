@@ -477,9 +477,9 @@ func (c *CouchDBService) GetRelationshipGraph(startID string, relationField stri
 				// Create edges for reverse relationships
 				if targetID, ok := docMap[relationField].(string); ok {
 					edge := RelationshipEdge{
-						From:  id,
-						To:    targetID,
-						Type:  relationField,
+						From: id,
+						To:   targetID,
+						Type: relationField,
 					}
 					graph.Edges = append(graph.Edges, edge)
 				}
@@ -494,7 +494,7 @@ func (c *CouchDBService) GetRelationshipGraph(startID string, relationField stri
 // Contains nodes (documents) and edges (relationships) for visualization and analysis.
 type RelationshipGraph struct {
 	Nodes map[string]json.RawMessage // Map of document ID to document
-	Edges []RelationshipEdge          // Relationships between documents
+	Edges []RelationshipEdge         // Relationships between documents
 }
 
 // RelationshipEdge represents a relationship between two documents.

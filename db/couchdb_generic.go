@@ -227,7 +227,7 @@ func DeleteGenericDocument(c *CouchDBService, id, rev string) error {
 //
 // Parameters:
 //   - docType: Optional document type filter (e.g., "@type" field value)
-//              Pass empty string to retrieve all documents
+//     Pass empty string to retrieve all documents
 //
 // Returns:
 //   - []T: Slice of documents of type T

@@ -486,7 +486,7 @@ func (qb *QueryBuilder) Build() MangoQuery {
 		qb.conditions = append(qb.conditions, qb.currentCondSet...)
 	}
 
-	selector := make(map[string]interface{})
+	var selector map[string]interface{}
 
 	if len(qb.conditions) == 0 {
 		// No conditions, match all documents

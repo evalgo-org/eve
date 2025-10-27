@@ -1,14 +1,9 @@
 package db
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"strings"
 
 	kivik "github.com/go-kivik/kivik/v4"
 )
@@ -412,78 +407,4 @@ func (c *CouchDBService) GetLastSequence() (string, error) {
 		return "", err
 	}
 	return info.UpdateSeq, nil
-}
-
-// filterChanges applies server-side filtering to changes feed.
-// This is an internal helper for building filter parameters.
-func buildChangesURL(baseURL, dbName string, opts ChangesFeedOptions) string {
-	u := fmt.Sprintf("%s/%s/_changes", strings.TrimSuffix(baseURL, "/"), dbName)
-	params := url.Values{}
-
-	if opts.Since != "" {
-		params.Add("since", opts.Since)
-	}
-	if opts.Feed != "" {
-		params.Add("feed", opts.Feed)
-	}
-	if opts.IncludeDocs {
-		params.Add("include_docs", "true")
-	}
-	if opts.Heartbeat > 0 {
-		params.Add("heartbeat", fmt.Sprintf("%d", opts.Heartbeat))
-	}
-	if opts.Timeout > 0 {
-		params.Add("timeout", fmt.Sprintf("%d", opts.Timeout))
-	}
-	if opts.Limit > 0 {
-		params.Add("limit", fmt.Sprintf("%d", opts.Limit))
-	}
-
-	if len(params) > 0 {
-		return u + "?" + params.Encode()
-	}
-	return u
-}
-
-// streamChanges provides low-level streaming for continuous changes.
-// This is an alternative implementation for special cases requiring direct HTTP access.
-func streamChanges(changesURL string, handler func(Change)) error {
-	client := &http.Client{
-		Timeout: 0, // No timeout for continuous feeds
-	}
-
-	resp, err := client.Get(changesURL)
-	if err != nil {
-		return fmt.Errorf("failed to connect to changes feed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("changes feed returned status %d", resp.StatusCode)
-	}
-
-	// Read changes line by line
-	scanner := bufio.NewScanner(resp.Body)
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// Skip empty lines (heartbeats)
-		if line == "" {
-			continue
-		}
-
-		// Parse change
-		var change Change
-		if err := json.Unmarshal([]byte(line), &change); err != nil {
-			continue
-		}
-
-		handler(change)
-	}
-
-	if err := scanner.Err(); err != nil && err != io.EOF {
-		return fmt.Errorf("error reading changes feed: %w", err)
-	}
-
-	return nil
 }

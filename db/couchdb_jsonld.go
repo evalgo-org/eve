@@ -456,7 +456,12 @@ func ExtractJSONLDType(doc interface{}) (string, error) {
 func SetJSONLDContext(doc interface{}, context string) map[string]interface{} {
 	jsonData, _ := json.Marshal(doc)
 	var docMap map[string]interface{}
-	json.Unmarshal(jsonData, &docMap)
+	if err := json.Unmarshal(jsonData, &docMap); err != nil {
+		// If unmarshal fails, return empty map with just context
+		return map[string]interface{}{
+			"@context": context,
+		}
+	}
 
 	docMap["@context"] = context
 	return docMap
