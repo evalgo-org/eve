@@ -150,7 +150,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
-	github.com/michaelquigley/pfxlog v0.6.10 // indirect
+	github.com/michaelquigley/pfxlog v0.6.10 // indirect - DO NOT UPDATE: OpenZiti SDK requires v0.6.10, v1.0.0+ has breaking changes
 	github.com/microsoft/kiota-abstractions-go v1.9.2 // indirect
 	github.com/microsoft/kiota-authentication-azure-go v1.3.0 // indirect
 	github.com/microsoft/kiota-http-go v1.5.2 // indirect
