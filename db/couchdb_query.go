@@ -194,8 +194,13 @@ func (q *MangoQuery) toParams() map[string]interface{} {
 	if len(q.Sort) > 0 {
 		params["sort"] = q.Sort
 	}
+	// Set limit - use provided value or default to 10000 to avoid CouchDB's default limit
+	// CouchDB's default limit is typically 25-50 documents, which can cause incomplete results
+	// Users can override by explicitly calling Limit(n) on the query builder
 	if q.Limit > 0 {
 		params["limit"] = q.Limit
+	} else {
+		params["limit"] = 10000
 	}
 	if q.Skip > 0 {
 		params["skip"] = q.Skip

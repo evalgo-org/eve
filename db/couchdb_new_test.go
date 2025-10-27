@@ -70,17 +70,21 @@ func TestMangoQuery_toParams(t *testing.T) {
 		assert.Equal(t, "status-index", params["use_index"])
 	})
 
-	t.Run("minimal parameters", func(t *testing.T) {
+	t.Run("minimal parameters - default limit applied", func(t *testing.T) {
 		query := MangoQuery{
 			Selector: map[string]interface{}{"@type": "Test"},
 		}
 
 		params := query.toParams()
 
-		assert.Empty(t, params)
+		// Default limit of 10000 should be applied when no limit is specified
+		assert.Equal(t, 10000, params["limit"])
+		assert.NotContains(t, params, "fields")
+		assert.NotContains(t, params, "sort")
+		assert.NotContains(t, params, "skip")
 	})
 
-	t.Run("only fields", func(t *testing.T) {
+	t.Run("only fields - default limit still applied", func(t *testing.T) {
 		query := MangoQuery{
 			Fields: []string{"name", "value"},
 		}
@@ -89,8 +93,33 @@ func TestMangoQuery_toParams(t *testing.T) {
 
 		assert.Contains(t, params, "fields")
 		assert.Equal(t, []string{"name", "value"}, params["fields"])
-		assert.NotContains(t, params, "limit")
+		// Default limit should still be applied
+		assert.Equal(t, 10000, params["limit"])
 		assert.NotContains(t, params, "skip")
+	})
+
+	t.Run("explicit limit overrides default", func(t *testing.T) {
+		query := MangoQuery{
+			Selector: map[string]interface{}{"status": "active"},
+			Limit:    25,
+		}
+
+		params := query.toParams()
+
+		// Explicit limit should override default
+		assert.Equal(t, 25, params["limit"])
+	})
+
+	t.Run("zero limit uses default", func(t *testing.T) {
+		query := MangoQuery{
+			Selector: map[string]interface{}{"status": "active"},
+			Limit:    0, // Explicitly set to 0
+		}
+
+		params := query.toParams()
+
+		// Zero limit should trigger default behavior
+		assert.Equal(t, 10000, params["limit"])
 	})
 }
 
