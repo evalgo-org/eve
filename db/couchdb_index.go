@@ -73,21 +73,18 @@ func (c *CouchDBService) CreateIndex(index Index) error {
 		index.Type = "json"
 	}
 
-	// Build index definition
+	// Build index definition for Kivik v4
+	// Kivik expects only the fields definition, not wrapped in "index"
 	indexDef := map[string]interface{}{
-		"index": map[string]interface{}{
-			"fields": index.Fields,
-		},
-		"type": index.Type,
+		"fields": index.Fields,
 	}
 
-	// Add name if provided
-	if index.Name != "" {
-		indexDef["name"] = index.Name
-	}
+	// Kivik v4 CreateIndex signature: CreateIndex(ctx, ddoc, name, index, options)
+	// ddoc and name can be empty strings for auto-generation
+	// Additional parameters like "type" should be passed as options
+	options := kivik.Param("type", index.Type)
 
-	// Create the index using Kivik
-	err := c.database.CreateIndex(ctx, "", "", indexDef)
+	err := c.database.CreateIndex(ctx, "", index.Name, indexDef, options)
 	if err != nil {
 		if kivik.HTTPStatus(err) != 0 {
 			return &CouchDBError{

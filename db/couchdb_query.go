@@ -67,7 +67,18 @@ import (
 func (c *CouchDBService) Find(query MangoQuery) ([]json.RawMessage, error) {
 	ctx := context.Background()
 
-	rows := c.database.Find(ctx, query.Selector, kivik.Params(query.toParams()))
+	// Build full query with selector key for Kivik v4
+	fullQuery := map[string]interface{}{
+		"selector": query.Selector,
+	}
+
+	// Merge other query parameters
+	params := query.toParams()
+	for k, v := range params {
+		fullQuery[k] = v
+	}
+
+	rows := c.database.Find(ctx, fullQuery)
 	defer rows.Close()
 
 	var results []json.RawMessage
@@ -135,7 +146,18 @@ func (c *CouchDBService) Find(query MangoQuery) ([]json.RawMessage, error) {
 func FindTyped[T any](c *CouchDBService, query MangoQuery) ([]T, error) {
 	ctx := context.Background()
 
-	rows := c.database.Find(ctx, query.Selector, kivik.Params(query.toParams()))
+	// Build full query with selector key for Kivik v4
+	fullQuery := map[string]interface{}{
+		"selector": query.Selector,
+	}
+
+	// Merge other query parameters
+	params := query.toParams()
+	for k, v := range params {
+		fullQuery[k] = v
+	}
+
+	rows := c.database.Find(ctx, fullQuery)
 	defer rows.Close()
 
 	var results []T
@@ -519,7 +541,12 @@ func (qb *QueryBuilder) Build() MangoQuery {
 func (c *CouchDBService) Count(selector map[string]interface{}) (int, error) {
 	ctx := context.Background()
 
-	rows := c.database.Find(ctx, selector)
+	// Build full query with selector key for Kivik v4
+	fullQuery := map[string]interface{}{
+		"selector": selector,
+	}
+
+	rows := c.database.Find(ctx, fullQuery)
 	defer rows.Close()
 
 	count := 0
