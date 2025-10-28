@@ -299,7 +299,7 @@ func ZitiSetup(identityFile, serviceName string) (*http.Transport, error) {
 	zitiTransport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			// Route all connections through Ziti service
-			eve.Logger.Info(fmt.Sprintf("Dialing Ziti service: %s (requested addr: %s)", serviceName, addr))
+			// Note: This is called for every HTTP request, so we don't log here to avoid noise
 			conn, err := zitiContext.Dial(serviceName)
 			if err != nil {
 				eve.Logger.Error(fmt.Sprintf("Failed to dial Ziti service '%s': %v", serviceName, err))
