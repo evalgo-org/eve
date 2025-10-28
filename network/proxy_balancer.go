@@ -28,7 +28,7 @@ type Backend struct {
 // GetClient initializes and returns the HTTP client with Ziti transport (lazy initialization)
 func (b *Backend) GetClient() (*http.Client, error) {
 	b.initOnce.Do(func() {
-		// Create Ziti transport for this backend
+		// Create Ziti transport for this backend (includes auth wait and service discovery)
 		transport, err := ZitiSetup(b.Config.IdentityFile, b.Config.ZitiService)
 		if err != nil {
 			b.initErr = err
@@ -62,12 +62,26 @@ func NewLoadBalancer(route *RouteConfig) (*LoadBalancer, error) {
 		strategy: route.LoadBalancing,
 	}
 
-	// Initialize backends (without creating Ziti connections yet - lazy initialization)
+	// Initialize backends with Ziti connections (eager initialization matching standalone test)
 	for i := range route.Backends {
 		backendConfig := &route.Backends[i]
 
+		// Create Ziti transport for this backend
+		transport, err := ZitiSetup(backendConfig.IdentityFile, backendConfig.ZitiService)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create HTTP client with Ziti transport
+		client := &http.Client{
+			Transport: transport,
+			Timeout:   backendConfig.Timeout.Duration,
+		}
+
 		backend := &Backend{
-			Config: backendConfig,
+			Config:    backendConfig,
+			Client:    client,
+			Transport: transport,
 		}
 		backend.Healthy.Store(true) // Assume healthy initially
 		backend.Connections.Store(0)
@@ -295,13 +309,6 @@ func (hc *HealthChecker) checkBackend(backend *Backend) {
 	ctx, cancel := context.WithTimeout(context.Background(), hc.config.Timeout.Duration)
 	defer cancel()
 
-	// Get client (lazy initialization on first use)
-	client, err := backend.GetClient()
-	if err != nil {
-		hc.markUnhealthy(backend)
-		return
-	}
-
 	// Create health check request
 	url := "http://" + backend.Config.ZitiService + hc.config.Path
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -311,7 +318,7 @@ func (hc *HealthChecker) checkBackend(backend *Backend) {
 	}
 
 	// Perform health check
-	resp, err := client.Do(req)
+	resp, err := backend.Client.Do(req)
 	if err != nil {
 		hc.markUnhealthy(backend)
 		return

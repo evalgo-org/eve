@@ -221,16 +221,8 @@ func (zp *ZitiProxy) proxyRequest(w http.ResponseWriter, r *http.Request, match 
 		proxyReq.Header.Set("X-Forwarded-Proto", "http")
 		proxyReq.Header.Set("X-Forwarded-Host", r.Host)
 
-		// Get client (lazy initialization on first use)
-		client, err := backend.GetClient()
-		if err != nil {
-			lastErr = err
-			lb.RecordFailure(backend)
-			continue
-		}
-
 		// Execute request
-		resp, err := client.Do(proxyReq)
+		resp, err := backend.Client.Do(proxyReq)
 		if err != nil {
 			lastErr = err
 			lb.RecordFailure(backend)

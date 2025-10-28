@@ -13,6 +13,33 @@ A comprehensive Go library for flow service management with integrated testing a
 - Git
 - Docker (for integration tests)
 - Task (optional, install from https://taskfile.dev)
+- OpenZiti Controller v1.6.5+ (for Ziti network features)
+
+## OpenZiti Compatibility
+
+This project uses OpenZiti for zero-trust networking. **Version compatibility between the OpenZiti Controller and SDK is critical.**
+
+**Current Configuration:**
+- **SDK Version:** `github.com/openziti/sdk-golang v1.2.2`
+- **Minimum Controller Version:** v1.6.0
+- **Recommended Controller Version:** v1.6.5 - v1.6.7
+- **Status:** ✅ Production Ready
+
+⚠️ **Important:** SDK versions v1.2.3 and later require OpenZiti Controller v1.6.8+ due to HA/OIDC authentication changes. See [OPENZITI_COMPATIBILITY.md](./OPENZITI_COMPATIBILITY.md) for detailed compatibility information and upgrade paths.
+
+### Version Checking
+
+The `network` package includes automatic version checking:
+
+```go
+import "eve.evalgo.org/network"
+
+// Check compatibility (logs warnings/recommendations)
+network.LogCompatibilityCheck("path/to/identity.json")
+
+// Enforce compatibility (panics if incompatible)
+network.MustBeCompatible("path/to/identity.json")
+```
 
 ### Installation
 

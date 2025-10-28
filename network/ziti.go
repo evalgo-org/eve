@@ -26,11 +26,18 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	eve "eve.evalgo.org/common"
 	sdk_golang "github.com/openziti/sdk-golang"
 	"github.com/openziti/sdk-golang/ziti"
+)
+
+// Global cache for Ziti contexts to prevent multiple contexts from same identity
+var (
+	zitiContextCache = make(map[string]ziti.Context)
+	zitiCacheMutex   sync.RWMutex
 )
 
 // ZitiServiceConfig represents a Ziti service configuration.
@@ -199,17 +206,74 @@ func ZitiClient(id string) *http.Client {
 //	- Connection failures: Verify Ziti controller connectivity
 //	- Permission denied: Review identity access policies and service permissions
 func ZitiSetup(identityFile, serviceName string) (*http.Transport, error) {
-	// Load and parse Ziti identity configuration
-	cfg, err := ziti.NewConfigFromFile(identityFile)
-	if err != nil {
-		return nil, err
+	// Check if we already have a context for this identity file
+	zitiCacheMutex.RLock()
+	zitiContext, exists := zitiContextCache[identityFile]
+	zitiCacheMutex.RUnlock()
+
+	if !exists {
+		// Need to create a new context - acquire write lock
+		zitiCacheMutex.Lock()
+
+		// Double-check in case another goroutine created it while we waited for the lock
+		zitiContext, exists = zitiContextCache[identityFile]
+		if !exists {
+			eve.Logger.Info(fmt.Sprintf("Creating new Ziti context for identity: %s", identityFile))
+
+			// Load and parse Ziti identity configuration
+			cfg, err := ziti.NewConfigFromFile(identityFile)
+			if err != nil {
+				zitiCacheMutex.Unlock()
+				return nil, err
+			}
+
+			// Create Ziti network context for operations
+			zitiContext, err = ziti.NewContext(cfg)
+			if err != nil {
+				zitiCacheMutex.Unlock()
+				return nil, err
+			}
+
+			// Wait for Ziti context to authenticate and sync services
+			eve.Logger.Info("Waiting 5 seconds for Ziti authentication...")
+			time.Sleep(5 * time.Second)
+
+			// Verify service availability (this triggers service sync like in working test)
+			eve.Logger.Info("Verifying service availability...")
+			services, err := zitiContext.GetServices()
+			if err != nil {
+				zitiCacheMutex.Unlock()
+				return nil, fmt.Errorf("failed to get services: %w", err)
+			}
+
+			eve.Logger.Info(fmt.Sprintf("✓ Context created and authenticated (found %d total services)", len(services)))
+
+			// Cache the context for reuse
+			zitiContextCache[identityFile] = zitiContext
+		}
+
+		zitiCacheMutex.Unlock()
+	} else {
+		eve.Logger.Info(fmt.Sprintf("Reusing existing Ziti context for identity: %s", identityFile))
 	}
 
-	// Create Ziti network context for operations
-	zitiContext, err := ziti.NewContext(cfg)
+	// Check if the requested service exists
+	services, err := zitiContext.GetServices()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get services: %w", err)
 	}
+
+	found := false
+	for _, svc := range services {
+		if *svc.Name == serviceName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("service '%s' not found in available services (found %d total services)", serviceName, len(services))
+	}
+	eve.Logger.Info(fmt.Sprintf("✓ Service '%s' verified in context", serviceName))
 
 	// Configure HTTP transport with Ziti network dialer
 	zitiTransport := &http.Transport{
