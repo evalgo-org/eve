@@ -309,6 +309,49 @@ func TestProxyValidURLConstruction(t *testing.T) {
 	}
 }
 
+// TestProxyURLWithPort tests that URLs are constructed with port when specified
+func TestProxyURLWithPort(t *testing.T) {
+	tests := []struct {
+		name        string
+		service     string
+		port        int
+		path        string
+		expectedURL string
+	}{
+		{"default port 80", "service1", 80, "/health", "http://service1/health"},
+		{"port 8080", "service2", 8080, "/api", "http://service2:8080/api"},
+		{"port 8880", "dev.caches.rest.px", 8880, "/v1/caches", "http://dev.caches.rest.px:8880/v1/caches"},
+		{"no port specified", "service3", 0, "/health", "http://service3/health"},
+		{"port 443", "service4", 443, "/api", "http://service4:443/api"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate what proxy.go does
+			host := tt.service
+			if tt.port > 0 && tt.port != 80 {
+				host = fmt.Sprintf("%s:%d", tt.service, tt.port)
+			}
+
+			targetURL := fmt.Sprintf("http://%s%s", host, tt.path)
+
+			if targetURL != tt.expectedURL {
+				t.Errorf("Constructed URL = %s, want %s", targetURL, tt.expectedURL)
+			}
+
+			// Verify it's a valid HTTP URL
+			req, err := http.NewRequest("GET", targetURL, nil)
+			if err != nil {
+				t.Errorf("NewRequest() error = %v for URL %s", err, targetURL)
+			}
+
+			if req.URL.Scheme != "http" {
+				t.Errorf("Request scheme = %s, want http", req.URL.Scheme)
+			}
+		})
+	}
+}
+
 // TestProxyRequestPreservesQuery tests that query parameters are preserved
 func TestProxyRequestPreservesQuery(t *testing.T) {
 	tests := []struct {

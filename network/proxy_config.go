@@ -66,6 +66,7 @@ const (
 // BackendConfig represents a single backend service in the Ziti network
 type BackendConfig struct {
 	ZitiService  string   `json:"ziti_service"`   // Ziti service name
+	Port         int      `json:"port"`           // Backend service port (optional, default: 80 for http)
 	IdentityFile string   `json:"identity_file"`  // Path to Ziti identity file
 	Weight       int      `json:"weight"`         // Weight for weighted load balancing (default: 1)
 	Priority     int      `json:"priority"`       // Priority for failover (higher = preferred)

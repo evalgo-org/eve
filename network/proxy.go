@@ -186,7 +186,13 @@ func (zp *ZitiProxy) proxyRequest(w http.ResponseWriter, r *http.Request, match 
 		}
 
 		// Create proxied request with proper URL
-		targetURL := fmt.Sprintf("http://%s%s", backend.Config.ZitiService, r.URL.Path)
+		// Include port if specified and not default (80)
+		host := backend.Config.ZitiService
+		if backend.Config.Port > 0 && backend.Config.Port != 80 {
+			host = fmt.Sprintf("%s:%d", backend.Config.ZitiService, backend.Config.Port)
+		}
+
+		targetURL := fmt.Sprintf("http://%s%s", host, r.URL.Path)
 		if r.URL.RawQuery != "" {
 			targetURL += "?" + r.URL.RawQuery
 		}
