@@ -185,8 +185,13 @@ func (zp *ZitiProxy) proxyRequest(w http.ResponseWriter, r *http.Request, match 
 			eve.Logger.Info(fmt.Sprintf("Retrying request (attempt %d/%d)", attempt, maxRetries))
 		}
 
-		// Create proxied request
-		proxyReq, err := http.NewRequestWithContext(r.Context(), r.Method, r.URL.String(), r.Body)
+		// Create proxied request with proper URL
+		targetURL := fmt.Sprintf("http://%s%s", backend.Config.ZitiService, r.URL.Path)
+		if r.URL.RawQuery != "" {
+			targetURL += "?" + r.URL.RawQuery
+		}
+
+		proxyReq, err := http.NewRequestWithContext(r.Context(), r.Method, targetURL, r.Body)
 		if err != nil {
 			lastErr = err
 			continue
