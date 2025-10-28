@@ -103,6 +103,11 @@ type CircuitBreakerConfig struct {
 	HalfOpenRequests  int      `json:"half_open_requests"`  // Test requests in half-open state
 }
 
+// ZitiConfig defines global Ziti identity configuration
+type ZitiConfig struct {
+	IdentityFile string `json:"identity_file"` // Path to Ziti identity file
+}
+
 // AuthConfig defines authentication requirements
 type AuthConfig struct {
 	Type   string            `json:"type"`   // "api-key", "jwt", "basic", "none"
@@ -110,6 +115,7 @@ type AuthConfig struct {
 	Keys   []string          `json:"keys"`   // Valid API keys or secrets
 	Bypass []string          `json:"bypass"` // Paths that bypass authentication
 	JWT    *JWTAuthConfig    `json:"jwt"`    // JWT-specific configuration
+	Ziti   *ZitiConfig       `json:"ziti"`   // Global Ziti identity configuration
 }
 
 // JWTAuthConfig defines JWT authentication parameters
@@ -252,6 +258,11 @@ func LoadProxyConfig(configPath string) (*ProxyConfig, error) {
 
 			if backend.Weight == 0 {
 				backend.Weight = 1
+			}
+
+			// Apply global Ziti identity file if backend doesn't have one
+			if backend.IdentityFile == "" && config.Auth != nil && config.Auth.Ziti != nil {
+				backend.IdentityFile = config.Auth.Ziti.IdentityFile
 			}
 		}
 	}
