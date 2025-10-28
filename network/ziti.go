@@ -10,6 +10,22 @@
 //   - Configuration type querying
 //   - Identity management
 //   - HTTP client creation with Ziti context
+//   - Context caching for efficient resource usage
+//
+// Context Caching:
+//
+// The package implements automatic context caching to optimize resource usage when
+// multiple routes/backends use the same Ziti identity. When ZitiSetup() is called
+// with an identity file that has already been initialized, it returns the cached
+// context instead of creating a new one.
+//
+// This means you may see "closing duplicate connection" messages from the Ziti SDK
+// during startup - this is EXPECTED and CORRECT behavior. The SDK detects when
+// multiple components try to establish connections using the same identity and
+// automatically closes the duplicates, keeping only one active connection.
+//
+// Example: If you have 3 routes all using the same identity and service, they will
+// all share a single Ziti context and connection, which is efficient and correct.
 //
 // All functions use the Ziti REST API and require appropriate authentication tokens.
 // The package handles JSON serialization/deserialization for Ziti API interactions.
@@ -250,6 +266,10 @@ func ZitiSetup(identityFile, serviceName string) (*http.Transport, error) {
 
 			// Cache the context for reuse
 			zitiContextCache[identityFile] = zitiContext
+
+			// Inform about context caching
+			eve.Logger.Info("ℹ Context cached - multiple routes using same identity will share this connection")
+			eve.Logger.Info("ℹ You may see 'closing duplicate connection' messages from Ziti SDK - this is expected behavior")
 		}
 
 		zitiCacheMutex.Unlock()

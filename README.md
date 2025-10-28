@@ -41,6 +41,18 @@ network.LogCompatibilityCheck("path/to/identity.json")
 network.MustBeCompatible("path/to/identity.json")
 ```
 
+### Context Caching & Duplicate Connection Messages
+
+The `network` package implements automatic Ziti context caching for efficiency. When multiple routes/backends use the same Ziti identity, they automatically share a single connection.
+
+**Expected Behavior:** You may see INFO messages like `"connection to tls:controller:port already established, closing duplicate connection"` during startup. **This is normal and correct behavior** - the Ziti SDK is detecting and cleaning up duplicate connection attempts, keeping only one active connection per identity.
+
+This optimization means:
+- ✅ Multiple routes share one Ziti context
+- ✅ Reduced memory and network overhead
+- ✅ Automatic duplicate detection by Ziti SDK
+- ℹ️ Informational messages are expected, not errors
+
 ### Installation
 
 ```bash
