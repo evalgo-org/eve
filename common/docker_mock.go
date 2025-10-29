@@ -19,10 +19,14 @@ type MockDockerClient struct {
 	Containers []containertypes.Summary
 	// Images to return from ImageList
 	Images []image.Summary
-	// Volumes to return from VolumeCreate
+	// Volumes to return from VolumeCreate/VolumeList
 	Volumes map[string]*volume.Volume
-	// Networks to return from NetworkCreate
+	// VolumeListResponse to return from VolumeList
+	VolumeListResponse *volume.ListResponse
+	// Networks to return from NetworkCreate/NetworkList
 	Networks map[string]string
+	// NetworkListResponse to return from NetworkList
+	NetworkListResponse []networktypes.Summary
 	// Error to return from operations
 	Err error
 	// Track function calls
@@ -30,13 +34,17 @@ type MockDockerClient struct {
 	ContainerCreateCalled bool
 	ContainerStartCalled  bool
 	ContainerStopCalled   bool
+	ContainerRemoveCalled bool
 	ImageListCalled       bool
 	ImagePullCalled       bool
 	ImageBuildCalled      bool
 	ImagePushCalled       bool
 	VolumeCreateCalled    bool
+	VolumeListCalled      bool
+	VolumeRemoveCalled    bool
 	NetworkCreateCalled   bool
 	NetworkConnectCalled  bool
+	NetworkListCalled     bool
 	CopyToContainerCalled bool
 	ContainerWaitCalled   bool
 	ContainerLogsCalled   bool
@@ -216,4 +224,48 @@ func (m *MockDockerClient) CopyToContainer(ctx context.Context, containerID, dst
 // Close mocks closing the client
 func (m *MockDockerClient) Close() error {
 	return nil
+}
+
+// VolumeList mocks listing volumes
+func (m *MockDockerClient) VolumeList(ctx context.Context, options volume.ListOptions) (volume.ListResponse, error) {
+	m.VolumeListCalled = true
+	if m.Err != nil {
+		return volume.ListResponse{}, m.Err
+	}
+	if m.VolumeListResponse != nil {
+		return *m.VolumeListResponse, nil
+	}
+	// Return volumes from map if VolumeListResponse is not set
+	vols := make([]*volume.Volume, 0, len(m.Volumes))
+	for _, v := range m.Volumes {
+		vols = append(vols, v)
+	}
+	return volume.ListResponse{Volumes: vols}, nil
+}
+
+// VolumeRemove mocks removing a volume
+func (m *MockDockerClient) VolumeRemove(ctx context.Context, volumeID string, force bool) error {
+	m.VolumeRemoveCalled = true
+	m.LastVolumeName = volumeID
+	if m.Err != nil {
+		return m.Err
+	}
+	delete(m.Volumes, volumeID)
+	return nil
+}
+
+// NetworkList mocks listing networks
+func (m *MockDockerClient) NetworkList(ctx context.Context, options networktypes.ListOptions) ([]networktypes.Summary, error) {
+	m.NetworkListCalled = true
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	return m.NetworkListResponse, nil
+}
+
+// ContainerRemove mocks removing a container
+func (m *MockDockerClient) ContainerRemove(ctx context.Context, containerID string, options containertypes.RemoveOptions) error {
+	m.ContainerRemoveCalled = true
+	m.LastContainerID = containerID
+	return m.Err
 }

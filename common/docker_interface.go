@@ -40,10 +40,16 @@ type DockerClient interface {
 
 	// Volume operations
 	VolumeCreate(ctx context.Context, options volume.CreateOptions) (volume.Volume, error)
+	VolumeList(ctx context.Context, options volume.ListOptions) (volume.ListResponse, error)
+	VolumeRemove(ctx context.Context, volumeID string, force bool) error
 
 	// Network operations
 	NetworkCreate(ctx context.Context, name string, options networktypes.CreateOptions) (networktypes.CreateResponse, error)
 	NetworkConnect(ctx context.Context, networkID, containerID string, config *networktypes.EndpointSettings) error
+	NetworkList(ctx context.Context, options networktypes.ListOptions) ([]networktypes.Summary, error)
+
+	// Container lifecycle
+	ContainerRemove(ctx context.Context, containerID string, options containertypes.RemoveOptions) error
 
 	// Client lifecycle
 	Close() error

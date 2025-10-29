@@ -6,7 +6,6 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 
 	"eve.evalgo.org/common"
@@ -112,9 +111,9 @@ func DefaultBaseXProductionConfig() BaseXProductionConfig {
 //	- Container with same name already exists
 //	- Network or volume creation fails
 //	- Docker API errors occur
-func DeployBaseX(ctx context.Context, cli *client.Client, config BaseXProductionConfig) (string, error) {
+func DeployBaseX(ctx context.Context, cli common.DockerClient, config BaseXProductionConfig) (string, error) {
 	// Check if container already exists
-	exists, err := common.ContainerExists(ctx, cli, config.ContainerName)
+	exists, err := common.ContainerExistsWithClient(ctx, cli, config.ContainerName)
 	if err != nil {
 		return "", fmt.Errorf("failed to check container existence: %w", err)
 	}
@@ -128,7 +127,7 @@ func DeployBaseX(ctx context.Context, cli *client.Client, config BaseXProduction
 	}
 
 	// Pull BaseX image
-	if err := common.ImagePull(ctx, cli, config.Image, &common.ImagePullOptions{Silent: true}); err != nil {
+	if err := common.ImagePullWithClient(ctx, cli, config.Image, &common.ImagePullOptions{Silent: true}); err != nil {
 		return "", fmt.Errorf("failed to pull image: %w", err)
 	}
 
@@ -177,7 +176,7 @@ func DeployBaseX(ctx context.Context, cli *client.Client, config BaseXProduction
 	}
 
 	// Deploy container
-	err = common.CreateAndStartContainer(ctx, cli, containerConfig, hostConfig, config.ContainerName, config.Production.NetworkName)
+	err = common.CreateAndStartContainerWithClient(ctx, cli, containerConfig, hostConfig, config.ContainerName, config.Production.NetworkName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create and start container: %w", err)
 	}
@@ -215,7 +214,7 @@ func DeployBaseX(ctx context.Context, cli *client.Client, config BaseXProduction
 //	if err != nil {
 //	    log.Printf("Failed to stop BaseX: %v", err)
 //	}
-func StopBaseX(ctx context.Context, cli *client.Client, containerName string) error {
+func StopBaseX(ctx context.Context, cli common.DockerClient, containerName string) error {
 	timeout := 30 // 30 seconds graceful shutdown
 	return cli.ContainerStop(ctx, containerName, container.StopOptions{Timeout: &timeout})
 }
@@ -239,7 +238,7 @@ func StopBaseX(ctx context.Context, cli *client.Client, containerName string) er
 //
 //	// Remove container and data
 //	err := RemoveBaseX(ctx, cli, "basex", true, "basex-data")
-func RemoveBaseX(ctx context.Context, cli *client.Client, containerName string, removeVolume bool, volumeName string) error {
+func RemoveBaseX(ctx context.Context, cli common.DockerClient, containerName string, removeVolume bool, volumeName string) error {
 	// Remove container
 	if err := cli.ContainerRemove(ctx, containerName, container.RemoveOptions{Force: true}); err != nil {
 		return fmt.Errorf("failed to remove container: %w", err)

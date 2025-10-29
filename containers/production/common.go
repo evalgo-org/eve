@@ -36,7 +36,6 @@ import (
 
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
-	"github.com/docker/docker/client"
 
 	"eve.evalgo.org/common"
 )
@@ -82,7 +81,7 @@ func DefaultProductionConfig() ProductionConfig {
 //	if err != nil {
 //	    return fmt.Errorf("failed to ensure network: %w", err)
 //	}
-func EnsureNetwork(ctx context.Context, cli *client.Client, networkName string) error {
+func EnsureNetwork(ctx context.Context, cli common.DockerClient, networkName string) error {
 	// Check if network already exists
 	networks, err := cli.NetworkList(ctx, network.ListOptions{})
 	if err != nil {
@@ -96,7 +95,7 @@ func EnsureNetwork(ctx context.Context, cli *client.Client, networkName string) 
 	}
 
 	// Create network
-	err = common.CreateNetwork(ctx, cli, networkName)
+	err = common.CreateNetworkWithClient(ctx, cli, networkName)
 	if err != nil {
 		return fmt.Errorf("failed to create network: %w", err)
 	}
@@ -123,7 +122,7 @@ func EnsureNetwork(ctx context.Context, cli *client.Client, networkName string) 
 //	if err != nil {
 //	    return fmt.Errorf("failed to ensure volume: %w", err)
 //	}
-func EnsureVolume(ctx context.Context, cli *client.Client, volumeName string) error {
+func EnsureVolume(ctx context.Context, cli common.DockerClient, volumeName string) error {
 	// Check if volume already exists
 	volumes, err := cli.VolumeList(ctx, volume.ListOptions{})
 	if err != nil {
@@ -137,7 +136,7 @@ func EnsureVolume(ctx context.Context, cli *client.Client, volumeName string) er
 	}
 
 	// Create volume
-	err = common.CreateVolume(ctx, cli, volumeName)
+	err = common.CreateVolumeWithClient(ctx, cli, volumeName)
 	if err != nil {
 		return fmt.Errorf("failed to create volume: %w", err)
 	}
@@ -170,7 +169,7 @@ func EnsureVolume(ctx context.Context, cli *client.Client, volumeName string) er
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-func PrepareProductionEnvironment(ctx context.Context, cli *client.Client, config ProductionConfig) error {
+func PrepareProductionEnvironment(ctx context.Context, cli common.DockerClient, config ProductionConfig) error {
 	// Ensure network exists
 	if config.CreateNetwork && config.NetworkName != "" {
 		if err := EnsureNetwork(ctx, cli, config.NetworkName); err != nil {
