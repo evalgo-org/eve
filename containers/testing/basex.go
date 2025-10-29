@@ -3,12 +3,67 @@ package testing
 import (
 	"context"
 	"fmt"
+	"io"
+	"math"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
+
+// waitForBaseXReady waits for BaseX to be ready by checking HTTP availability.
+// Uses retry loop with exponential backoff instead of fixed timeouts for reliability.
+func waitForBaseXReady(ctx context.Context, container testcontainers.Container, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	attempt := 0
+
+	// Get container connection details
+	host, err := container.Host(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get container host: %w", err)
+	}
+
+	port, err := container.MappedPort(ctx, "8080")
+	if err != nil {
+		return fmt.Errorf("failed to get mapped port: %w", err)
+	}
+
+	baseURL := fmt.Sprintf("http://%s:%s", host, port.Port())
+	client := &http.Client{Timeout: 2 * time.Second}
+
+	for time.Now().Before(deadline) {
+		attempt++
+
+		// Check if BaseX HTTP API is responding
+		resp, err := client.Get(baseURL + "/")
+		if err == nil {
+			// Read and close body to reuse connection
+			io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+
+			// BaseX is ready
+			return nil
+		}
+
+		// Calculate exponential backoff (capped at 5 seconds)
+		backoff := time.Duration(math.Min(
+			float64(100*time.Millisecond*time.Duration(1<<uint(attempt))),
+			float64(5*time.Second),
+		))
+
+		// Wait with context cancellation support
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled while waiting for BaseX: %w", ctx.Err())
+		case <-time.After(backoff):
+			continue
+		}
+	}
+
+	return fmt.Errorf("timeout after %v waiting for BaseX to become ready (attempted %d times)", timeout, attempt)
+}
 
 // BaseXConfig holds configuration for BaseX testcontainer setup.
 type BaseXConfig struct {
@@ -95,12 +150,13 @@ func SetupBaseX(ctx context.Context, t *testing.T, config *BaseXConfig) (string,
 	// Create container request
 	req := testcontainers.ContainerRequest{
 		Image:        config.Image,
-		ExposedPorts: []string{"8984/tcp"},
+		ExposedPorts: []string{"8080/tcp", "8081/tcp"},
 		Env: map[string]string{
 			"BASEX_ADMIN_PW": config.AdminPassword,
 		},
+		// Wait for HTTP server on port 8080 (BaseX REST API)
 		WaitingFor: wait.ForHTTP("/").
-			WithPort("8984/tcp").
+			WithPort("8080/tcp").
 			WithStartupTimeout(config.StartupTimeout),
 	}
 
@@ -113,6 +169,36 @@ func SetupBaseX(ctx context.Context, t *testing.T, config *BaseXConfig) (string,
 		return "", func() {}, fmt.Errorf("failed to start BaseX container: %w", err)
 	}
 
+	// Wait for BaseX to be ready before setting password
+	if err := waitForBaseXReady(ctx, container, config.StartupTimeout); err != nil {
+		container.Terminate(ctx)
+		return "", func() {}, fmt.Errorf("BaseX failed to become ready: %w", err)
+	}
+
+	// Execute password setup command
+	_, _, err = container.Exec(ctx, []string{"/bin/sh", "-c", fmt.Sprintf("echo '%s' | basex -cPASSWORD", config.AdminPassword)})
+	if err != nil {
+		container.Terminate(ctx)
+		return "", func() {}, fmt.Errorf("failed to set BaseX password: %w", err)
+	}
+
+	// Restart container for password to take effect
+	if err := container.Stop(ctx, nil); err != nil {
+		container.Terminate(ctx)
+		return "", func() {}, fmt.Errorf("failed to stop container for restart: %w", err)
+	}
+
+	if err := container.Start(ctx); err != nil {
+		container.Terminate(ctx)
+		return "", func() {}, fmt.Errorf("failed to restart container: %w", err)
+	}
+
+	// Wait for BaseX to be ready after restart
+	if err := waitForBaseXReady(ctx, container, config.StartupTimeout); err != nil {
+		container.Terminate(ctx)
+		return "", func() {}, fmt.Errorf("BaseX failed to become ready after restart: %w", err)
+	}
+
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
@@ -120,7 +206,7 @@ func SetupBaseX(ctx context.Context, t *testing.T, config *BaseXConfig) (string,
 		return "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
-	port, err := container.MappedPort(ctx, "8984")
+	port, err := container.MappedPort(ctx, "8080")
 	if err != nil {
 		container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get mapped port: %w", err)
