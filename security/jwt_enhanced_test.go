@@ -1,6 +1,7 @@
 package security
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -74,7 +75,7 @@ func TestGenerateTokenWithClaims(t *testing.T) {
 	assert.Equal(t, issuer, token.Issuer())
 
 	// Check custom claims
-	claimsMap, err := token.AsMap(nil)
+	claimsMap, err := token.AsMap(context.Background())
 	require.NoError(t, err)
 
 	assert.Equal(t, "admin", claimsMap["role"])
@@ -281,7 +282,7 @@ func TestGenerateTokenWithComplexClaims(t *testing.T) {
 	token, err := service.ValidateToken(tokenString)
 	require.NoError(t, err)
 
-	claimsMap, err := token.AsMap(nil)
+	claimsMap, err := token.AsMap(context.Background())
 	require.NoError(t, err)
 
 	assert.Equal(t, "value", claimsMap["string_claim"])

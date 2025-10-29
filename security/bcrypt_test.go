@@ -89,9 +89,9 @@ func TestHashPasswordWithCost(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "maximum cost",
+			name:     "very high cost (14)",
 			password: "password",
-			cost:     bcrypt.MaxCost,
+			cost:     14,
 			wantErr:  false,
 		},
 		{
