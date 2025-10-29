@@ -1,0 +1,128 @@
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "Infisical Stack",
+  "description": "Infisical secrets management platform with PostgreSQL database and DragonflyDB cache",
+  "network": {
+    "name": "infisical-network",
+    "driver": "bridge",
+    "createIfNotExists": true
+  },
+  "itemListElement": [
+    {
+      "@type": "SoftwareApplication",
+      "position": 1,
+      "name": "postgres",
+      "applicationCategory": "DatabaseApplication",
+      "image": "postgres:17",
+      "environment": {
+        "POSTGRES_USER": "infisical",
+        "POSTGRES_PASSWORD": "infisical",
+        "POSTGRES_DB": "infisical"
+      },
+      "ports": [
+        {
+          "containerPort": 5432,
+          "hostPort": 5432,
+          "protocol": "tcp"
+        }
+      ],
+      "volumeMounts": [
+        {
+          "source": "infisical-postgres-data",
+          "target": "/var/lib/postgresql/data",
+          "type": "volume",
+          "readOnly": false
+        }
+      ],
+      "healthCheck": {
+        "type": "command",
+        "command": ["pg_isready", "-U", "infisical"],
+        "interval": 10,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 10
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "position": 2,
+      "name": "dragonflydb",
+      "applicationCategory": "CacheApplication",
+      "image": "docker.dragonflydb.io/dragonflydb/dragonfly:v1.26.1",
+      "ports": [
+        {
+          "containerPort": 6379,
+          "protocol": "tcp"
+        }
+      ],
+      "healthCheck": {
+        "type": "command",
+        "command": ["redis-cli", "ping"],
+        "interval": 5,
+        "timeout": 3,
+        "retries": 3,
+        "startPeriod": 5
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "position": 3,
+      "name": "infisical",
+      "applicationCategory": "SecretsManagementApplication",
+      "image": "infisical/infisical:v0.153.0",
+      "softwareRequirements": [
+        {
+          "@type": "SoftwareApplication",
+          "name": "postgres",
+          "waitForHealthy": true
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "dragonflydb",
+          "waitForHealthy": true
+        }
+      ],
+      "environment": {
+        "DB_CONNECTION_URI": "postgres://infisical:infisical@postgres:5432/infisical",
+        "REDIS_URL": "redis://dragonflydb:6379",
+        "ENCRYPTION_KEY": "changeme-32-character-encryption-key-here",
+        "JWT_AUTH_SECRET": "changeme-auth-secret-must-be-at-least-32-chars",
+        "SITE_URL": "http://localhost:8080",
+        "TELEMETRY_ENABLED": "false"
+      },
+      "ports": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "potentialAction": [
+        {
+          "@type": "Action",
+          "name": "Run database migrations",
+          "actionType": "migration",
+          "command": ["npm", "run", "migration:latest"],
+          "timeout": 120
+        }
+      ],
+      "healthCheck": {
+        "type": "http",
+        "path": "/api/status",
+        "port": 8080,
+        "interval": 15,
+        "timeout": 10,
+        "retries": 5,
+        "startPeriod": 30
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "infisical-postgres-data",
+      "driver": "local",
+      "createIfNotExists": true
+    }
+  ]
+}
