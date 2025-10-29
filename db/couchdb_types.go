@@ -46,6 +46,12 @@ type CouchDBConfig struct {
 	Timeout         int        // Request timeout in milliseconds
 	CreateIfMissing bool       // Create database if it doesn't exist
 	TLS             *TLSConfig // Optional TLS configuration
+
+	// Ziti zero-trust networking support
+	// If ZitiIdentityFile is provided, connection will use Ziti overlay network
+	ZitiIdentityFile string       // Path to Ziti identity file for zero-trust networking
+	ZitiServiceName  string       // Ziti service name for the CouchDB instance
+	HTTPClient       *http.Client // Custom HTTP client (e.g., with Ziti transport)
 }
 
 // TLSConfig provides TLS/SSL configuration for secure CouchDB connections.
