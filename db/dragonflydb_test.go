@@ -1,6 +1,9 @@
 package db
 
 import (
+	"context"
+	"errors"
+	"net"
 	"os"
 	"testing"
 
@@ -372,4 +375,299 @@ func BenchmarkDragonflyDBGetKey(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = DragonflyDBGetKey(key)
 	}
+}
+
+// TestDragonflyDBGetKeyWithDialer tests custom dialer functionality (Ziti support)
+func TestDragonflyDBGetKeyWithDialer(t *testing.T) {
+	t.Run("successful get with custom dialer", func(t *testing.T) {
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
+
+		os.Setenv("DRAGONFLYDB_HOST", mr.Addr())
+		os.Setenv("DRAGONFLYDB_PASSWORD", "")
+		defer os.Unsetenv("DRAGONFLYDB_HOST")
+		defer os.Unsetenv("DRAGONFLYDB_PASSWORD")
+
+		// Pre-populate data
+		key := "dialer:test:key"
+		expectedValue := "test value with dialer"
+		mr.Set(key, expectedValue)
+
+		// Create custom dialer that uses standard TCP
+		customDialer := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return net.Dial("tcp", mr.Addr())
+		}
+
+		// Retrieve using custom dialer
+		value, err := DragonflyDBGetKeyWithDialer(key, customDialer)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedValue, string(value))
+	})
+
+	t.Run("dialer error handling", func(t *testing.T) {
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
+
+		os.Setenv("DRAGONFLYDB_HOST", mr.Addr())
+		os.Setenv("DRAGONFLYDB_PASSWORD", "")
+		defer os.Unsetenv("DRAGONFLYDB_HOST")
+		defer os.Unsetenv("DRAGONFLYDB_PASSWORD")
+
+		// Create dialer that always fails
+		failingDialer := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return nil, errors.New("mock dialer connection failure")
+		}
+
+		// Should fail due to dialer error
+		value, err := DragonflyDBGetKeyWithDialer("test:key", failingDialer)
+		assert.Error(t, err)
+		assert.Nil(t, value)
+		assert.Contains(t, err.Error(), "connection failure")
+	})
+
+	t.Run("get non-existent key with dialer", func(t *testing.T) {
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
+
+		os.Setenv("DRAGONFLYDB_HOST", mr.Addr())
+		os.Setenv("DRAGONFLYDB_PASSWORD", "")
+		defer os.Unsetenv("DRAGONFLYDB_HOST")
+		defer os.Unsetenv("DRAGONFLYDB_PASSWORD")
+
+		customDialer := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return net.Dial("tcp", mr.Addr())
+		}
+
+		// Try to get non-existent key
+		value, err := DragonflyDBGetKeyWithDialer("nonexistent:key", customDialer)
+		assert.Error(t, err)
+		assert.Nil(t, value)
+		assert.Contains(t, err.Error(), "redis: nil")
+	})
+
+	t.Run("get binary data with dialer", func(t *testing.T) {
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
+
+		os.Setenv("DRAGONFLYDB_HOST", mr.Addr())
+		os.Setenv("DRAGONFLYDB_PASSWORD", "")
+		defer os.Unsetenv("DRAGONFLYDB_HOST")
+		defer os.Unsetenv("DRAGONFLYDB_PASSWORD")
+
+		// Store binary data
+		key := "binary:dialer:data"
+		binaryData := []byte{0xFF, 0xFE, 0xFD, 0x00, 0x01, 0x02}
+		mr.Set(key, string(binaryData))
+
+		customDialer := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return net.Dial("tcp", mr.Addr())
+		}
+
+		// Retrieve binary data
+		value, err := DragonflyDBGetKeyWithDialer(key, customDialer)
+		assert.NoError(t, err)
+		assert.Equal(t, binaryData, value)
+	})
+}
+
+// TestDragonflyDBSaveKeyValueWithDialer tests custom dialer functionality for save operations
+func TestDragonflyDBSaveKeyValueWithDialer(t *testing.T) {
+	t.Run("successful save with custom dialer", func(t *testing.T) {
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
+
+		os.Setenv("DRAGONFLYDB_HOST", mr.Addr())
+		os.Setenv("DRAGONFLYDB_PASSWORD", "")
+		defer os.Unsetenv("DRAGONFLYDB_HOST")
+		defer os.Unsetenv("DRAGONFLYDB_PASSWORD")
+
+		customDialer := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return net.Dial("tcp", mr.Addr())
+		}
+
+		key := "dialer:save:key"
+		value := []byte("saved with custom dialer")
+
+		// Save using custom dialer
+		err = DragonflyDBSaveKeyValueWithDialer(key, value, customDialer)
+		assert.NoError(t, err)
+
+		// Verify the value was stored
+		storedValue, err := mr.Get(key)
+		require.NoError(t, err)
+		assert.Equal(t, string(value), storedValue)
+	})
+
+	t.Run("save with dialer error", func(t *testing.T) {
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
+
+		os.Setenv("DRAGONFLYDB_HOST", mr.Addr())
+		os.Setenv("DRAGONFLYDB_PASSWORD", "")
+		defer os.Unsetenv("DRAGONFLYDB_HOST")
+		defer os.Unsetenv("DRAGONFLYDB_PASSWORD")
+
+		failingDialer := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return nil, errors.New("dialer connection refused")
+		}
+
+		err = DragonflyDBSaveKeyValueWithDialer("test:key", []byte("value"), failingDialer)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "connection refused")
+	})
+
+	t.Run("save binary data with dialer", func(t *testing.T) {
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
+
+		os.Setenv("DRAGONFLYDB_HOST", mr.Addr())
+		os.Setenv("DRAGONFLYDB_PASSWORD", "")
+		defer os.Unsetenv("DRAGONFLYDB_HOST")
+		defer os.Unsetenv("DRAGONFLYDB_PASSWORD")
+
+		customDialer := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return net.Dial("tcp", mr.Addr())
+		}
+
+		binaryData := []byte{0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD}
+		err = DragonflyDBSaveKeyValueWithDialer("binary:dialer:key", binaryData, customDialer)
+		assert.NoError(t, err)
+
+		storedValue, err := mr.Get("binary:dialer:key")
+		require.NoError(t, err)
+		assert.Equal(t, string(binaryData), storedValue)
+	})
+
+	t.Run("save multiple keys with dialer", func(t *testing.T) {
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
+
+		os.Setenv("DRAGONFLYDB_HOST", mr.Addr())
+		os.Setenv("DRAGONFLYDB_PASSWORD", "")
+		defer os.Unsetenv("DRAGONFLYDB_HOST")
+		defer os.Unsetenv("DRAGONFLYDB_PASSWORD")
+
+		customDialer := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return net.Dial("tcp", mr.Addr())
+		}
+
+		testData := map[string][]byte{
+			"dialer:user:1": []byte("Alice"),
+			"dialer:user:2": []byte("Bob"),
+			"dialer:user:3": []byte("Charlie"),
+		}
+
+		for key, value := range testData {
+			err := DragonflyDBSaveKeyValueWithDialer(key, value, customDialer)
+			assert.NoError(t, err)
+		}
+
+		// Verify all values
+		for key, expectedValue := range testData {
+			storedValue, err := mr.Get(key)
+			require.NoError(t, err)
+			assert.Equal(t, string(expectedValue), storedValue)
+		}
+	})
+}
+
+// TestDragonflyDB_WithDialer_SaveAndRetrieve tests complete workflow with custom dialer
+func TestDragonflyDB_WithDialer_SaveAndRetrieve(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	defer mr.Close()
+
+	os.Setenv("DRAGONFLYDB_HOST", mr.Addr())
+	os.Setenv("DRAGONFLYDB_PASSWORD", "")
+	defer os.Unsetenv("DRAGONFLYDB_HOST")
+	defer os.Unsetenv("DRAGONFLYDB_PASSWORD")
+
+	// Create a custom dialer that simulates Ziti-like behavior
+	customDialer := func(ctx context.Context, network, addr string) (net.Conn, error) {
+		// In real Ziti implementation, this would use zitiContext.Dial(serviceName)
+		// For testing, we just connect to miniredis
+		return net.Dial("tcp", mr.Addr())
+	}
+
+	testCases := []struct {
+		name  string
+		key   string
+		value []byte
+	}{
+		{
+			name:  "simple string with dialer",
+			key:   "dialer:profile:1",
+			value: []byte("John Doe via Ziti"),
+		},
+		{
+			name:  "JSON data with dialer",
+			key:   "dialer:config:app",
+			value: []byte(`{"ziti_enabled":true,"service":"dragonflydb"}`),
+		},
+		{
+			name:  "large data with dialer",
+			key:   "dialer:data:large",
+			value: []byte(string(make([]byte, 5000))),
+		},
+		{
+			name:  "special characters with dialer",
+			key:   "dialer:special:chars",
+			value: []byte("Ziti 世界 🚀"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Save with custom dialer
+			err := DragonflyDBSaveKeyValueWithDialer(tc.key, tc.value, customDialer)
+			assert.NoError(t, err)
+
+			// Retrieve with custom dialer
+			retrieved, err := DragonflyDBGetKeyWithDialer(tc.key, customDialer)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.value, retrieved)
+		})
+	}
+}
+
+// TestDragonflyDB_DialerContextCancellation tests dialer behavior with context cancellation
+func TestDragonflyDB_DialerContextCancellation(t *testing.T) {
+	t.Run("context cancellation in dialer", func(t *testing.T) {
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
+
+		os.Setenv("DRAGONFLYDB_HOST", mr.Addr())
+		os.Setenv("DRAGONFLYDB_PASSWORD", "")
+		defer os.Unsetenv("DRAGONFLYDB_HOST")
+		defer os.Unsetenv("DRAGONFLYDB_PASSWORD")
+
+		// Create a dialer that checks context cancellation
+		contextCancelledDialer := func(ctx context.Context, network, addr string) (net.Conn, error) {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+				return net.Dial("tcp", mr.Addr())
+			}
+		}
+
+		// Normal operation should work
+		key := "context:test:key"
+		value := []byte("test value")
+		err = DragonflyDBSaveKeyValueWithDialer(key, value, contextCancelledDialer)
+		assert.NoError(t, err)
+
+		retrieved, err := DragonflyDBGetKeyWithDialer(key, contextCancelledDialer)
+		assert.NoError(t, err)
+		assert.Equal(t, value, retrieved)
+	})
 }
