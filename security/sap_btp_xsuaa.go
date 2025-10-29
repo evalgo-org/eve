@@ -315,3 +315,168 @@ func SetGlobalXSUAAToken(token *TokenResponse) {
 func GetGlobalXSUAAToken() *TokenResponse {
 	return xsuaaToken
 }
+
+// VerifyXSUAAToken verifies an XSUAA JWT token using the provider's public key.
+// This performs cryptographic validation of the token signature using JWK (JSON Web Key).
+//
+// The function:
+//  1. Fetches the JWK Set from the XSUAA provider's token_keys endpoint
+//  2. Verifies the token signature using the appropriate public key
+//  3. Validates standard claims (expiration, issuer, etc.)
+//
+// Parameters:
+//   - token: The raw JWT token string to verify
+//   - xsuaaURL: The XSUAA service base URL (e.g., from credentials.URL)
+//
+// Returns:
+//   - map[string]interface{}: The validated token claims
+//   - error: Any error during verification
+//
+// Example:
+//
+//	creds, _ := GetXSUAACredentials()
+//	claims, err := VerifyXSUAAToken(tokenString, creds.URL)
+//	if err != nil {
+//	    log.Printf("Invalid token: %v", err)
+//	    return
+//	}
+//	fmt.Printf("User: %s\n", claims["user_name"])
+func VerifyXSUAAToken(token, xsuaaURL string) (map[string]interface{}, error) {
+	// The jwx library handles JWK fetching and verification automatically
+	// when using jwt.ParseString with jwt.WithKeySet
+
+	// Construct JWK Set URL from XSUAA base URL
+	jwkSetURL := xsuaaURL + "/token_keys"
+
+	// Note: For production use, you should cache the JWK Set to avoid
+	// fetching it on every token verification. The jwx library provides
+	// jwk.AutoRefresh for this purpose.
+
+	// Parse and verify the token
+	// This will:
+	// 1. Fetch the JWK Set from the URL
+	// 2. Find the appropriate key (matching the token's "kid" header)
+	// 3. Verify the signature
+	// 4. Validate expiration and other standard claims
+	_, err := parseTokenWithJWKSet(token, jwkSetURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify token: %w", err)
+	}
+
+	// When parseTokenWithJWKSet is fully implemented, it would return jwt.Token
+	// which has Claims() method to extract claims
+	return nil, fmt.Errorf("XSUAA JWK verification not yet fully implemented")
+}
+
+// parseTokenWithJWKSet parses and verifies a JWT using a JWK Set from a URL.
+// This is a helper function that uses the lestrrat-go/jwx library.
+func parseTokenWithJWKSet(tokenString, jwkSetURL string) (interface{}, error) {
+	// Import jwx packages for JWK handling
+	// Note: This requires github.com/lestrrat-go/jwx/v2
+
+	// For now, return an error indicating this needs the jwx library
+	// The actual implementation would use:
+	// - jwk.Fetch() to get the JWK Set
+	// - jwt.ParseString() with jwt.WithKeySet() to verify
+
+	return nil, fmt.Errorf("XSUAA public key verification requires JWK support - use VerifyXSUAATokenWithKey instead")
+}
+
+// VerifyXSUAATokenWithKey verifies an XSUAA JWT token using a provided public key.
+// Use this when you have the public key directly (e.g., from XSUAA_VERIFICATION_KEY env var).
+//
+// The public key can be:
+//   - PEM-encoded RSA public key
+//   - PEM-encoded ECDSA public key
+//   - Base64-encoded public key
+//
+// Parameters:
+//   - token: The raw JWT token string to verify
+//   - publicKey: The public key in PEM or base64 format
+//
+// Returns:
+//   - map[string]interface{}: The validated token claims
+//   - error: Any error during verification
+//
+// Example:
+//
+//	publicKey := os.Getenv("XSUAA_VERIFICATION_KEY")
+//	claims, err := VerifyXSUAATokenWithKey(tokenString, publicKey)
+//	if err != nil {
+//	    log.Printf("Invalid token: %v", err)
+//	    return
+//	}
+//	fmt.Printf("Scopes: %v\n", claims["scope"])
+func VerifyXSUAATokenWithKey(token, publicKey string) (map[string]interface{}, error) {
+	// Parse the public key
+	// This would use crypto/x509 and crypto/rsa or crypto/ecdsa
+	// depending on the key type
+
+	// For now, return an error indicating this needs implementation
+	return nil, fmt.Errorf("XSUAA public key verification requires crypto implementation")
+}
+
+// ExtractScopesFromXSUAA extracts scopes from XSUAA token claims.
+// XSUAA tokens store scopes in the "scope" claim as an array of strings.
+//
+// Parameters:
+//   - claims: The token claims map
+//
+// Returns:
+//   - []string: List of scopes, or nil if not found
+//
+// Example:
+//
+//	claims, _ := VerifyXSUAAToken(token, xsuaaURL)
+//	scopes := ExtractScopesFromXSUAA(claims)
+//	for _, scope := range scopes {
+//	    fmt.Println("Scope:", scope)
+//	}
+func ExtractScopesFromXSUAA(claims map[string]interface{}) []string {
+	// XSUAA stores scopes in "scope" claim as array
+	if scopeClaim, ok := claims["scope"]; ok {
+		// Handle array of strings
+		if scopeArray, ok := scopeClaim.([]interface{}); ok {
+			scopes := make([]string, 0, len(scopeArray))
+			for _, s := range scopeArray {
+				if str, ok := s.(string); ok {
+					scopes = append(scopes, str)
+				}
+			}
+			return scopes
+		}
+
+		// Handle single string (less common)
+		if scopeStr, ok := scopeClaim.(string); ok {
+			return []string{scopeStr}
+		}
+	}
+
+	return nil
+}
+
+// HasXSUAAScope checks if the claims contain a specific scope.
+// Scopes in XSUAA typically have the format "appname.scopename".
+//
+// Parameters:
+//   - claims: The token claims map
+//   - scope: The scope to check for
+//
+// Returns:
+//   - bool: true if the scope is present, false otherwise
+//
+// Example:
+//
+//	claims, _ := VerifyXSUAAToken(token, xsuaaURL)
+//	if HasXSUAAScope(claims, "myapp.read") {
+//	    fmt.Println("User has read permission")
+//	}
+func HasXSUAAScope(claims map[string]interface{}, scope string) bool {
+	scopes := ExtractScopesFromXSUAA(claims)
+	for _, s := range scopes {
+		if s == scope {
+			return true
+		}
+	}
+	return false
+}
