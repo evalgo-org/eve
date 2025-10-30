@@ -269,3 +269,42 @@ func (m *MockDockerClient) ContainerRemove(ctx context.Context, containerID stri
 	m.LastContainerID = containerID
 	return m.Err
 }
+
+// ContainerInspect mocks inspecting a container
+func (m *MockDockerClient) ContainerInspect(ctx context.Context, containerID string) (containertypes.InspectResponse, error) {
+	m.LastContainerID = containerID
+	if m.Err != nil {
+		return containertypes.InspectResponse{}, m.Err
+	}
+	return containertypes.InspectResponse{
+		ContainerJSONBase: &containertypes.ContainerJSONBase{
+			ID:    containerID,
+			Name:  "/mock-container",
+			State: &containertypes.State{Status: "running"},
+		},
+	}, nil
+}
+
+// NetworkInspect mocks inspecting a network
+func (m *MockDockerClient) NetworkInspect(ctx context.Context, networkID string, options networktypes.InspectOptions) (networktypes.Inspect, error) {
+	m.LastNetworkName = networkID
+	if m.Err != nil {
+		return networktypes.Inspect{}, m.Err
+	}
+	return networktypes.Inspect{
+		ID:     networkID,
+		Name:   "mock-network",
+		Driver: "bridge",
+		Scope:  "local",
+	}, nil
+}
+
+// NetworkRemove mocks removing a network
+func (m *MockDockerClient) NetworkRemove(ctx context.Context, networkID string) error {
+	m.LastNetworkName = networkID
+	if m.Err != nil {
+		return m.Err
+	}
+	delete(m.Networks, networkID)
+	return nil
+}

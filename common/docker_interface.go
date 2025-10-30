@@ -50,6 +50,11 @@ type DockerClient interface {
 
 	// Container lifecycle
 	ContainerRemove(ctx context.Context, containerID string, options containertypes.RemoveOptions) error
+	ContainerInspect(ctx context.Context, containerID string) (containertypes.InspectResponse, error)
+
+	// Network lifecycle
+	NetworkInspect(ctx context.Context, networkID string, options networktypes.InspectOptions) (networktypes.Inspect, error)
+	NetworkRemove(ctx context.Context, networkID string) error
 
 	// Client lifecycle
 	Close() error
