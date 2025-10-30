@@ -1944,3 +1944,77 @@ func CreateAndStartContainerWithClient(ctx context.Context, cli DockerClient, co
 	}
 	return nil
 }
+
+// ContainerStop stops a running container with a timeout.
+//
+// Parameters:
+//   - ctx: Context for the Docker operation
+//   - cli: Docker client
+//   - containerID: ID or name of the container to stop
+//   - timeout: Timeout in seconds before forcing kill (0 for immediate kill)
+//
+// Returns:
+//   - error: Stop operation errors (nil if successful or already stopped)
+//
+// Example:
+//
+//	ctx, cli := CtxCli("unix:///var/run/docker.sock")
+//	defer cli.Close()
+//	err := ContainerStop(ctx, cli, "my-container", 10)
+func ContainerStop(ctx context.Context, cli *client.Client, containerID string, timeout int) error {
+	stopOptions := containertypes.StopOptions{
+		Timeout: &timeout,
+	}
+	return cli.ContainerStop(ctx, containerID, stopOptions)
+}
+
+// ContainerRemove removes a container with options.
+//
+// Parameters:
+//   - ctx: Context for the Docker operation
+//   - cli: Docker client
+//   - containerID: ID or name of the container to remove
+//   - force: Force removal even if container is running
+//   - removeVolumes: Remove anonymous volumes associated with container
+//
+// Returns:
+//   - error: Remove operation errors (nil if successful)
+//
+// Example:
+//
+//	ctx, cli := CtxCli("unix:///var/run/docker.sock")
+//	defer cli.Close()
+//	err := ContainerRemove(ctx, cli, "my-container", true, false)
+func ContainerRemove(ctx context.Context, cli *client.Client, containerID string, force bool, removeVolumes bool) error {
+	removeOptions := containertypes.RemoveOptions{
+		Force:         force,
+		RemoveVolumes: removeVolumes,
+	}
+	return cli.ContainerRemove(ctx, containerID, removeOptions)
+}
+
+// ContainerStopAndRemove stops and removes a container in one operation.
+// This is a convenience function that combines stop and remove.
+//
+// Parameters:
+//   - ctx: Context for the Docker operation
+//   - cli: Docker client
+//   - containerID: ID or name of the container to stop and remove
+//   - stopTimeout: Timeout in seconds before forcing kill (0 for immediate)
+//   - removeVolumes: Remove anonymous volumes associated with container
+//
+// Returns:
+//   - error: First error encountered (nil if both operations successful)
+//
+// Example:
+//
+//	ctx, cli := CtxCli("unix:///var/run/docker.sock")
+//	defer cli.Close()
+//	err := ContainerStopAndRemove(ctx, cli, "my-container", 10, false)
+func ContainerStopAndRemove(ctx context.Context, cli *client.Client, containerID string, stopTimeout int, removeVolumes bool) error {
+	// Try to stop first (ignore error if already stopped)
+	_ = ContainerStop(ctx, cli, containerID, stopTimeout)
+
+	// Remove container (force=true to handle running containers)
+	return ContainerRemove(ctx, cli, containerID, true, removeVolumes)
+}
