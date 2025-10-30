@@ -77,8 +77,38 @@ func (c *CouchDBService) BulkSaveDocuments(docs []interface{}) ([]BulkResult, er
 		return []BulkResult{}, nil
 	}
 
+	// Process each document to map @id to _id (JSON-LD compatibility)
+	// This ensures documents with @id use that as their CouchDB _id,
+	// preventing duplicate documents with different _id but same @id
+	processedDocs := make([]interface{}, len(docs))
+	for i, doc := range docs {
+		// Convert to map to handle @id → _id mapping
+		jsonData, err := json.Marshal(doc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal document %d: %w", i, err)
+		}
+
+		var docMap map[string]interface{}
+		if err := json.Unmarshal(jsonData, &docMap); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal document %d: %w", i, err)
+		}
+
+		// Map @id to _id for CouchDB (same logic as SaveGenericDocument)
+		if id, ok := docMap["@id"]; ok && id != nil && id != "" {
+			// JSON-LD format uses @id
+			docID := fmt.Sprintf("%v", id)
+			// Set _id from @id if not already set
+			if _, hasID := docMap["_id"]; !hasID || docMap["_id"] == "" {
+				docMap["_id"] = docID
+			}
+			// Keep @id for JSON-LD compatibility
+		}
+
+		processedDocs[i] = docMap
+	}
+
 	// Use BulkDocs to save all documents
-	results, err := c.database.BulkDocs(ctx, docs)
+	results, err := c.database.BulkDocs(ctx, processedDocs)
 	if err != nil {
 		if kivik.HTTPStatus(err) != 0 {
 			return nil, &CouchDBError{
