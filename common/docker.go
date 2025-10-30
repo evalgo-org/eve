@@ -200,7 +200,10 @@ func RegistryAuth(username string, password string) string {
 //
 // Example Usage:
 //
-//	ctx, cli := CtxCli("unix:///var/run/docker.sock")
+//	ctx, cli, err := CtxCli("unix:///var/run/docker.sock")
+//	if err != nil {
+//	    return fmt.Errorf("failed to create Docker client: %w", err)
+//	}
 //	defer cli.Close()
 //
 // Connection Patterns:
@@ -208,7 +211,7 @@ func RegistryAuth(username string, password string) string {
 //   - Remote Docker: Use TCP with TLS configuration
 //   - Docker Desktop: Use platform-specific defaults
 //   - CI/CD environments: Use environment-provided socket
-func CtxCli(socket string) (context.Context, *client.Client) {
+func CtxCli(socket string) (context.Context, *client.Client, error) {
 	ctx := context.Background()
 	defaultHeaders := map[string]string{"Content-Type": "application/tar"}
 	cli, err := client.NewClientWithOpts(
@@ -217,9 +220,9 @@ func CtxCli(socket string) (context.Context, *client.Client) {
 		client.WithAPIVersionNegotiation(),
 	)
 	if err != nil {
-		panic(err)
+		return nil, nil, fmt.Errorf("failed to create Docker client: %w", err)
 	}
-	return ctx, cli
+	return ctx, cli, nil
 }
 
 // Containers retrieves a list of all running containers from Docker Engine.
