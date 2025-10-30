@@ -2018,3 +2018,29 @@ func ContainerStopAndRemove(ctx context.Context, cli *client.Client, containerID
 	// Remove container (force=true to handle running containers)
 	return ContainerRemove(ctx, cli, containerID, true, removeVolumes)
 }
+
+// ContainerRename renames a running or stopped container.
+//
+// This function renames a Docker container without requiring a restart.
+// The rename operation is atomic and can be performed on running containers.
+//
+// Parameters:
+//   - ctx: Context for the Docker operation
+//   - cli: Docker client
+//   - containerID: ID or current name of the container to rename
+//   - newName: New name for the container (must be unique)
+//
+// Returns:
+//   - error: Rename operation errors (nil if successful)
+//
+// Example:
+//
+//	ctx, cli := CtxCli("unix:///var/run/docker.sock")
+//	defer cli.Close()
+//	err := ContainerRename(ctx, cli, "old-container-name", "new-container-name")
+//	if err != nil {
+//	    log.Fatalf("Failed to rename container: %v", err)
+//	}
+func ContainerRename(ctx context.Context, cli *client.Client, containerID string, newName string) error {
+	return cli.ContainerRename(ctx, containerID, newName)
+}
