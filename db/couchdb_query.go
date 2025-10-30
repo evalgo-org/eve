@@ -547,8 +547,11 @@ func (c *CouchDBService) Count(selector map[string]interface{}) (int, error) {
 	ctx := context.Background()
 
 	// Build full query with selector key for Kivik v4
+	// IMPORTANT: CouchDB _find has a default limit of 25 documents
+	// We need to set a very high limit to count all documents
 	fullQuery := map[string]interface{}{
 		"selector": selector,
+		"limit":    999999, // Set high limit to get all documents for counting
 	}
 
 	rows := c.database.Find(ctx, fullQuery)
