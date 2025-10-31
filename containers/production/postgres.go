@@ -75,7 +75,10 @@ func DefaultPostgresProductionConfig() PostgresProductionConfig {
 //
 // Example Usage:
 //
-//	ctx, cli := common.CtxCli("unix:///var/run/docker.sock")
+//	ctx, cli, err := common.CtxCli("unix:///var/run/docker.sock")
+//	if err != nil {
+//	    return fmt.Errorf("failed to create Docker client: %w", err)
+//	}
 //	defer cli.Close()
 //
 //	config := DefaultPostgresProductionConfig()
