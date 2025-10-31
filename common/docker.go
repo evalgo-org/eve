@@ -44,6 +44,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,7 +55,7 @@ import (
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
+	dockernetwork "github.com/docker/docker/api/types/network"
 	networktypes "github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/api/types/volume"
@@ -61,6 +64,7 @@ import (
 	"github.com/google/uuid"
 	homedir "github.com/mitchellh/go-homedir"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"golang.org/x/crypto/ssh"
 )
 
 // ContainerView represents a simplified view of a Docker container for API responses.
@@ -223,6 +227,139 @@ func CtxCli(socket string) (context.Context, *client.Client, error) {
 		return nil, nil, fmt.Errorf("failed to create Docker client: %w", err)
 	}
 	return ctx, cli, nil
+}
+
+// NewDockerClient creates a Docker client with support for SSH tunnels.
+// This function handles both local (unix://, tcp://) and remote (ssh://) Docker connections.
+//
+// Socket Format:
+//   - unix:///var/run/docker.sock - Local Unix socket
+//   - tcp://host:2375 - TCP connection
+//   - ssh://user@host[:port] - SSH tunnel (requires sshKeyPath)
+//
+// For SSH connections, the client uses an SSH tunnel to forward Docker API
+// requests to the remote host's Docker socket.
+//
+// Parameters:
+//   - socket: Docker socket URL (unix://, tcp://, or ssh://)
+//   - sshKeyPath: Path to SSH private key (required for ssh:// URLs, ignored otherwise)
+//
+// Returns:
+//   - *client.Client: Configured Docker client
+//   - error: If client creation fails
+//
+// Example:
+//
+//	// Local connection
+//	cli, err := NewDockerClient("unix:///var/run/docker.sock", "")
+//	if err != nil {
+//	    return fmt.Errorf("failed to create Docker client: %w", err)
+//	}
+//	defer cli.Close()
+//
+//	// SSH connection
+//	cli, err := NewDockerClient("ssh://user@192.168.1.100", "/home/user/.ssh/id_rsa")
+//	if err != nil {
+//	    return fmt.Errorf("failed to create Docker client: %w", err)
+//	}
+//	defer cli.Close()
+func NewDockerClient(socket string, sshKeyPath string) (*client.Client, error) {
+	// Check if using SSH connection
+	if strings.HasPrefix(socket, "ssh://") {
+		// Parse SSH URL: ssh://user@host:port
+		u, err := url.Parse(socket)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse SSH URL: %w", err)
+		}
+
+		// Extract username from URL
+		username := u.User.Username()
+		if username == "" {
+			return nil, fmt.Errorf("SSH URL must include username (e.g., ssh://user@host)")
+		}
+
+		// Extract host and port
+		host := u.Hostname()
+		port := u.Port()
+		if port == "" {
+			port = "22" // Default SSH port
+		}
+		sshAddress := net.JoinHostPort(host, port)
+
+		// Require SSH key path for SSH connections
+		if sshKeyPath == "" {
+			return nil, fmt.Errorf("SSH key path is required for SSH connections")
+		}
+
+		// Read SSH private key
+		keyData, err := os.ReadFile(sshKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read SSH key: %w", err)
+		}
+
+		// Parse private key
+		signer, err := ssh.ParsePrivateKey(keyData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse SSH key: %w", err)
+		}
+
+		// Configure SSH client
+		sshConfig := &ssh.ClientConfig{
+			User: username,
+			Auth: []ssh.AuthMethod{
+				ssh.PublicKeys(signer),
+			},
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		}
+
+		// Connect to SSH server
+		sshClient, err := ssh.Dial("tcp", sshAddress, sshConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to dial SSH: %w", err)
+		}
+
+		// Create custom HTTP client with SSH tunnel
+		customHTTPClient := &http.Client{
+			Transport: &http.Transport{
+				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+					// For Docker over SSH, we connect to the remote Docker socket
+					return sshClient.Dial("unix", "/var/run/docker.sock")
+				},
+			},
+		}
+
+		// Create Docker client with custom HTTP client
+		cli, err := client.NewClientWithOpts(
+			client.WithHost("http://docker"),
+			client.WithHTTPClient(customHTTPClient),
+			client.WithAPIVersionNegotiation(),
+		)
+		if err != nil {
+			sshClient.Close()
+			return nil, fmt.Errorf("failed to create Docker client: %w", err)
+		}
+
+		return cli, nil
+	}
+
+	// Non-SSH connection (unix://, tcp://, or plain path)
+	dockerHost := socket
+	if !strings.Contains(socket, "://") {
+		dockerHost = "unix://" + socket
+	}
+
+	// Create standard Docker client
+	defaultHeaders := map[string]string{"Content-Type": "application/tar"}
+	cli, err := client.NewClientWithOpts(
+		client.WithHost(dockerHost),
+		client.WithHTTPHeaders(defaultHeaders),
+		client.WithAPIVersionNegotiation(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Docker client: %w", err)
+	}
+
+	return cli, nil
 }
 
 // Containers retrieves a list of all running containers from Docker Engine.
@@ -1528,7 +1665,7 @@ func CopyToVolume(copyInfo CopyToVolumeOptions) error {
 			{Type: mount.TypeBind, Source: copyInfo.LocalPath, Target: "/src"},
 			{Type: mount.TypeVolume, Source: copyInfo.Volume, Target: "/tgt"},
 		},
-	}, &network.NetworkingConfig{}, nil, "tmp--"+uuid.New().String())
+	}, &dockernetwork.NetworkingConfig{}, nil, "tmp--"+uuid.New().String())
 	if err != nil {
 		return err
 	}
@@ -1759,7 +1896,7 @@ func CreateVolume(ctx context.Context, cli *client.Client, name string) error {
 //   - Log network-related errors and connectivity issues
 //   - Consider network performance monitoring for optimization
 func CreateNetwork(ctx context.Context, cli *client.Client, name string) error {
-	_, err := cli.NetworkCreate(ctx, name, network.CreateOptions{
+	_, err := cli.NetworkCreate(ctx, name, dockernetwork.CreateOptions{
 		Driver: "bridge",
 	})
 	return err
@@ -1832,7 +1969,7 @@ func CreateVolumeWithClient(ctx context.Context, cli DockerClient, name string) 
 
 // CreateNetworkWithClient is a testable version of CreateNetwork
 func CreateNetworkWithClient(ctx context.Context, cli DockerClient, name string) error {
-	_, err := cli.NetworkCreate(ctx, name, network.CreateOptions{
+	_, err := cli.NetworkCreate(ctx, name, dockernetwork.CreateOptions{
 		Driver: "bridge",
 	})
 	return err
@@ -1961,9 +2098,12 @@ func CreateAndStartContainerWithClient(ctx context.Context, cli DockerClient, co
 //
 // Example:
 //
-//	ctx, cli := CtxCli("unix:///var/run/docker.sock")
+//	ctx, cli, err := CtxCli("unix:///var/run/docker.sock")
+//	if err != nil {
+//	    return fmt.Errorf("failed to create Docker client: %w", err)
+//	}
 //	defer cli.Close()
-//	err := ContainerStop(ctx, cli, "my-container", 10)
+//	err = ContainerStop(ctx, cli, "my-container", 10)
 func ContainerStop(ctx context.Context, cli *client.Client, containerID string, timeout int) error {
 	stopOptions := containertypes.StopOptions{
 		Timeout: &timeout,
@@ -1985,9 +2125,12 @@ func ContainerStop(ctx context.Context, cli *client.Client, containerID string, 
 //
 // Example:
 //
-//	ctx, cli := CtxCli("unix:///var/run/docker.sock")
+//	ctx, cli, err := CtxCli("unix:///var/run/docker.sock")
+//	if err != nil {
+//	    return fmt.Errorf("failed to create Docker client: %w", err)
+//	}
 //	defer cli.Close()
-//	err := ContainerRemove(ctx, cli, "my-container", true, false)
+//	err = ContainerRemove(ctx, cli, "my-container", true, false)
 func ContainerRemove(ctx context.Context, cli *client.Client, containerID string, force bool, removeVolumes bool) error {
 	removeOptions := containertypes.RemoveOptions{
 		Force:         force,
@@ -2011,9 +2154,12 @@ func ContainerRemove(ctx context.Context, cli *client.Client, containerID string
 //
 // Example:
 //
-//	ctx, cli := CtxCli("unix:///var/run/docker.sock")
+//	ctx, cli, err := CtxCli("unix:///var/run/docker.sock")
+//	if err != nil {
+//	    return fmt.Errorf("failed to create Docker client: %w", err)
+//	}
 //	defer cli.Close()
-//	err := ContainerStopAndRemove(ctx, cli, "my-container", 10, false)
+//	err = ContainerStopAndRemove(ctx, cli, "my-container", 10, false)
 func ContainerStopAndRemove(ctx context.Context, cli *client.Client, containerID string, stopTimeout int, removeVolumes bool) error {
 	// Try to stop first (ignore error if already stopped)
 	_ = ContainerStop(ctx, cli, containerID, stopTimeout)
@@ -2038,9 +2184,12 @@ func ContainerStopAndRemove(ctx context.Context, cli *client.Client, containerID
 //
 // Example:
 //
-//	ctx, cli := CtxCli("unix:///var/run/docker.sock")
+//	ctx, cli, err := CtxCli("unix:///var/run/docker.sock")
+//	if err != nil {
+//	    return fmt.Errorf("failed to create Docker client: %w", err)
+//	}
 //	defer cli.Close()
-//	err := ContainerRename(ctx, cli, "old-container-name", "new-container-name")
+//	err = ContainerRename(ctx, cli, "old-container-name", "new-container-name")
 //	if err != nil {
 //	    log.Fatalf("Failed to rename container: %v", err)
 //	}
