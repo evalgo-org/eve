@@ -1,4 +1,4 @@
-version: 2
+version: "2"
 
 run:
   timeout: 5m
@@ -22,69 +22,55 @@ linters:
     - staticcheck
     - govet
 
+  settings:
+    errcheck:
+      check-blank: false
+      check-type-assertions: false
+    govet:
+      disable:
+        - buildtag
+    staticcheck:
+      checks: ["all", "-ST1005", "-ST1019", "-ST1023", "-QF1011", "-SA9003"]
+
+  exclusions:
+    paths:
+      - ".*\\.pb\\.go$"
+      - "vendor/.*"
+      - "kvm/.*"
+    rules:
+      # Govet buildtag check on integration test files (old +build tags removed)
+      - path: "(db/postgres_integration_test|queue/rabbit_integration_test|storage/s3aws_integration_test)\\.go"
+        linters:
+          - govet
+        text: "buildtag"
+      # Exclude errcheck from test files (common pattern in Go testing)
+      - path: _test\.go
+        linters:
+          - errcheck
+      # Exclude errcheck for deferred Close() calls (cleanup operations)
+      - linters:
+          - errcheck
+        text: "Error return value of.*Close.* is not checked"
+      # Exclude errcheck for deferred cleanup operations
+      - linters:
+          - errcheck
+        text: "Error return value of.*(RemoveAll|Remove|Unsetenv|Setenv|Write).* is not checked"
+        path: _test\.go
+      # Allow embedding without using all methods
+      - linters:
+          - unused
+        text: "is unused"
+        source: "embed"
+      # Exclude all vendor/module dependency errors
+      - path: "go/pkg/mod"
+        linters:
+          - errcheck
+          - unused
+          - ineffassign
+          - staticcheck
+          - govet
+
 formatters:
   enable:
     - gofmt
     - goimports
-
-linters-settings:
-  errcheck:
-    check-blank: false
-    check-type-assertions: false
-    # Disable checking for these functions (common cleanup operations)
-    disable-functions:
-      - Close
-      - Write
-      - RemoveAll
-      - Remove
-      - Setenv
-      - Unsetenv
-      - MkdirAll
-      - WriteFile
-  govet:
-    disable:
-      - buildtag  # Old +build tags removed, but blank lines remain
-  staticcheck:
-    checks: ["all", "-ST1005", "-ST1019", "-ST1023", "-QF1011", "-SA9003"]
-
-issues:
-  exclude-files:
-    - ".*\\.pb\\.go$"
-  exclude-dirs:
-    - vendor
-    - kvm
-  exclude-rules:
-    # Govet buildtag check on integration test files (old +build tags removed)
-    - path: "(db/postgres_integration_test|queue/rabbit_integration_test|storage/s3aws_integration_test)\\.go"
-      linters:
-        - govet
-      text: "buildtag"
-    # Exclude errcheck from test files (common pattern in Go testing)
-    - path: _test\.go
-      linters:
-        - errcheck
-    # Exclude errcheck for deferred Close() calls (cleanup operations)
-    - linters:
-        - errcheck
-      text: "Error return value of.*Close.* is not checked"
-    # Exclude errcheck for deferred cleanup operations
-    - linters:
-        - errcheck
-      text: "Error return value of.*(RemoveAll|Remove|Unsetenv|Setenv|Write).* is not checked"
-      path: _test\.go
-    # Allow embedding without using all methods
-    - linters:
-        - unused
-      text: "is unused"
-      source: "embed"
-    # Exclude all vendor/module dependency errors
-    - path: "go/pkg/mod"
-      linters:
-        - errcheck
-        - unused
-        - ineffassign
-        - staticcheck
-        - govet
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  uniq-by-line: false
