@@ -21,11 +21,11 @@ import (
 
 var (
 	kubeconfig string = os.Getenv("KUBECONFIG")
-	namespace string = os.Getenv("NAMESPACE")
-	appName string = os.Getenv("APP_NAME")
-	domain string = os.Getenv("KYMA_DOMAIN")
-	replicas int32 = 1
-	action string = os.Getenv("ACTION")
+	namespace  string = os.Getenv("NAMESPACE")
+	appName    string = os.Getenv("APP_NAME")
+	domain     string = os.Getenv("KYMA_DOMAIN")
+	replicas   int32  = 1
+	action     string = os.Getenv("ACTION")
 )
 
 func main() {
