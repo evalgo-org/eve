@@ -6,11 +6,11 @@ import (
 
 func TestParseVersion(t *testing.T) {
 	tests := []struct {
-		name          string
-		version       string
-		expectMajor   int
-		expectMinor   int
-		expectPatch   int
+		name        string
+		version     string
+		expectMajor int
+		expectMinor int
+		expectPatch int
 	}{
 		{"Standard format", "v1.6.5", 1, 6, 5},
 		{"Without v prefix", "1.6.8", 1, 6, 8},

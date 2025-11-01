@@ -123,9 +123,9 @@ func TestBaseXProductionConfig_EnvironmentVariables(t *testing.T) {
 
 func TestBaseXProductionConfig_PortBinding(t *testing.T) {
 	tests := []struct {
-		name         string
-		port         string
-		expectValid  bool
+		name        string
+		port        string
+		expectValid bool
 	}{
 		{
 			name:        "default port",

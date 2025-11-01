@@ -65,13 +65,13 @@ const (
 
 // BackendConfig represents a single backend service in the Ziti network
 type BackendConfig struct {
-	ZitiService  string   `json:"ziti_service"`   // Ziti service name
-	Port         int      `json:"port"`           // Backend service port (optional, default: 80 for http)
-	IdentityFile string   `json:"identity_file"`  // Path to Ziti identity file
-	Weight       int      `json:"weight"`         // Weight for weighted load balancing (default: 1)
-	Priority     int      `json:"priority"`       // Priority for failover (higher = preferred)
-	Timeout      Duration `json:"timeout"`        // Request timeout
-	MaxRetries   int      `json:"max_retries"`    // Maximum retry attempts
+	ZitiService  string   `json:"ziti_service"`  // Ziti service name
+	Port         int      `json:"port"`          // Backend service port (optional, default: 80 for http)
+	IdentityFile string   `json:"identity_file"` // Path to Ziti identity file
+	Weight       int      `json:"weight"`        // Weight for weighted load balancing (default: 1)
+	Priority     int      `json:"priority"`      // Priority for failover (higher = preferred)
+	Timeout      Duration `json:"timeout"`       // Request timeout
+	MaxRetries   int      `json:"max_retries"`   // Maximum retry attempts
 }
 
 // HealthCheckConfig defines health check parameters for backends
@@ -87,20 +87,20 @@ type HealthCheckConfig struct {
 
 // RetryConfig defines retry behavior for failed requests
 type RetryConfig struct {
-	MaxAttempts     int      `json:"max_attempts"`      // Maximum retry attempts
-	InitialInterval Duration `json:"initial_interval"`  // Initial backoff interval
-	MaxInterval     Duration `json:"max_interval"`      // Maximum backoff interval
-	Multiplier      float64  `json:"multiplier"`        // Backoff multiplier
-	RetryableStatus []int    `json:"retryable_status"`  // HTTP status codes to retry
+	MaxAttempts     int      `json:"max_attempts"`     // Maximum retry attempts
+	InitialInterval Duration `json:"initial_interval"` // Initial backoff interval
+	MaxInterval     Duration `json:"max_interval"`     // Maximum backoff interval
+	Multiplier      float64  `json:"multiplier"`       // Backoff multiplier
+	RetryableStatus []int    `json:"retryable_status"` // HTTP status codes to retry
 }
 
 // CircuitBreakerConfig defines circuit breaker parameters
 type CircuitBreakerConfig struct {
-	Enabled           bool     `json:"enabled"`             // Enable circuit breaker
-	FailureThreshold  int      `json:"failure_threshold"`   // Failures before opening
-	SuccessThreshold  int      `json:"success_threshold"`   // Successes to close circuit
-	Timeout           Duration `json:"timeout"`             // Timeout before half-open
-	HalfOpenRequests  int      `json:"half_open_requests"`  // Test requests in half-open state
+	Enabled          bool     `json:"enabled"`            // Enable circuit breaker
+	FailureThreshold int      `json:"failure_threshold"`  // Failures before opening
+	SuccessThreshold int      `json:"success_threshold"`  // Successes to close circuit
+	Timeout          Duration `json:"timeout"`            // Timeout before half-open
+	HalfOpenRequests int      `json:"half_open_requests"` // Test requests in half-open state
 }
 
 // ZitiConfig defines global Ziti identity configuration
@@ -110,12 +110,12 @@ type ZitiConfig struct {
 
 // AuthConfig defines authentication requirements
 type AuthConfig struct {
-	Type   string            `json:"type"`   // "api-key", "jwt", "basic", "none"
-	Header string            `json:"header"` // Header name for auth token
-	Keys   []string          `json:"keys"`   // Valid API keys or secrets
-	Bypass []string          `json:"bypass"` // Paths that bypass authentication
-	JWT    *JWTAuthConfig    `json:"jwt"`    // JWT-specific configuration
-	Ziti   *ZitiConfig       `json:"ziti"`   // Global Ziti identity configuration
+	Type   string         `json:"type"`   // "api-key", "jwt", "basic", "none"
+	Header string         `json:"header"` // Header name for auth token
+	Keys   []string       `json:"keys"`   // Valid API keys or secrets
+	Bypass []string       `json:"bypass"` // Paths that bypass authentication
+	JWT    *JWTAuthConfig `json:"jwt"`    // JWT-specific configuration
+	Ziti   *ZitiConfig    `json:"ziti"`   // Global Ziti identity configuration
 }
 
 // JWTAuthConfig defines JWT authentication parameters
@@ -141,27 +141,27 @@ type CORSConfig struct {
 
 // LoggingConfig defines logging behavior
 type LoggingConfig struct {
-	Enabled       bool     `json:"enabled"`        // Enable request logging
-	Level         string   `json:"level"`          // Log level (debug, info, warn, error)
-	Format        string   `json:"format"`         // Log format (json, text)
-	IncludeBody   bool     `json:"include_body"`   // Include request/response bodies
-	ExcludePaths  []string `json:"exclude_paths"`  // Paths to exclude from logging
+	Enabled      bool     `json:"enabled"`       // Enable request logging
+	Level        string   `json:"level"`         // Log level (debug, info, warn, error)
+	Format       string   `json:"format"`        // Log format (json, text)
+	IncludeBody  bool     `json:"include_body"`  // Include request/response bodies
+	ExcludePaths []string `json:"exclude_paths"` // Paths to exclude from logging
 }
 
 // RouteConfig defines a single proxy route
 type RouteConfig struct {
-	Path              string                `json:"path"`               // Route path pattern
-	Methods           []string              `json:"methods"`            // Allowed HTTP methods
-	Backends          []BackendConfig       `json:"backends"`           // Backend services
-	LoadBalancing     LoadBalancingStrategy `json:"load_balancing"`     // Load balancing strategy
-	HealthCheck       *HealthCheckConfig    `json:"health_check"`       // Health check configuration
-	Retry             *RetryConfig          `json:"retry"`              // Retry configuration
-	CircuitBreaker    *CircuitBreakerConfig `json:"circuit_breaker"`    // Circuit breaker config
-	StripPrefix       bool                  `json:"strip_prefix"`       // Strip path prefix before forwarding
-	AddPrefix         string                `json:"add_prefix"`         // Add prefix before forwarding
-	RewriteHost       bool                  `json:"rewrite_host"`       // Rewrite Host header
-	Timeout           Duration              `json:"timeout"`            // Route-specific timeout
-	Auth              *AuthConfig           `json:"auth"`               // Route-specific auth (overrides global)
+	Path           string                `json:"path"`            // Route path pattern
+	Methods        []string              `json:"methods"`         // Allowed HTTP methods
+	Backends       []BackendConfig       `json:"backends"`        // Backend services
+	LoadBalancing  LoadBalancingStrategy `json:"load_balancing"`  // Load balancing strategy
+	HealthCheck    *HealthCheckConfig    `json:"health_check"`    // Health check configuration
+	Retry          *RetryConfig          `json:"retry"`           // Retry configuration
+	CircuitBreaker *CircuitBreakerConfig `json:"circuit_breaker"` // Circuit breaker config
+	StripPrefix    bool                  `json:"strip_prefix"`    // Strip path prefix before forwarding
+	AddPrefix      string                `json:"add_prefix"`      // Add prefix before forwarding
+	RewriteHost    bool                  `json:"rewrite_host"`    // Rewrite Host header
+	Timeout        Duration              `json:"timeout"`         // Route-specific timeout
+	Auth           *AuthConfig           `json:"auth"`            // Route-specific auth (overrides global)
 }
 
 // ProxyConfig is the root configuration structure

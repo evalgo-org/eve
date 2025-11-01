@@ -51,7 +51,7 @@ func DefaultCouchDBConfig() CouchDBConfig {
 //
 // Returns:
 //   - string: CouchDB connection URL with embedded credentials
-//            (e.g., "http://admin:admin@localhost:32769")
+//     (e.g., "http://admin:admin@localhost:32769")
 //   - ContainerCleanup: Function to terminate the container
 //   - error: Container creation or startup errors
 //
@@ -133,13 +133,13 @@ func SetupCouchDB(ctx context.Context, t *testing.T, config *CouchDBConfig) (str
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "5984")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get mapped port: %w", err)
 	}
 

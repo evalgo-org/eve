@@ -45,7 +45,7 @@ func DefaultMimirConfig() MimirConfig {
 //
 // Returns:
 //   - string: Mimir HTTP endpoint URL
-//            (e.g., "http://localhost:32792")
+//     (e.g., "http://localhost:32792")
 //   - ContainerCleanup: Function to terminate the container
 //   - error: Container creation or startup errors
 //
@@ -183,13 +183,13 @@ func SetupMimir(ctx context.Context, t *testing.T, config *MimirConfig) (string,
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "9009")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get mapped port: %w", err)
 	}
 

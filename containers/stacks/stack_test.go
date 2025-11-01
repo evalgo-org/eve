@@ -278,10 +278,10 @@ func TestStack_GetDependencies(t *testing.T) {
 				Image:    "redis:7",
 			},
 			{
-				Type:     "SoftwareApplication",
-				Position: 3,
-				Name:     "app",
-				Image:    "app:latest",
+				Type:         "SoftwareApplication",
+				Position:     3,
+				Name:         "app",
+				Image:        "app:latest",
 				Requirements: []string{"postgres"},
 				SoftwareRequirements: []SoftwareRequirement{
 					{Name: "redis"},
@@ -555,9 +555,9 @@ func TestLoader_LoadStackFromJSON(t *testing.T) {
 	// Verify health check
 	assert.Equal(t, "command", container.HealthCheck.Type)
 	assert.Equal(t, []string{"pg_isready", "-U", "postgres"}, container.HealthCheck.Command)
-	assert.Equal(t, 10, container.HealthCheck.Interval)   // Default
-	assert.Equal(t, 5, container.HealthCheck.Timeout)     // Default
-	assert.Equal(t, 3, container.HealthCheck.Retries)     // Default
+	assert.Equal(t, 10, container.HealthCheck.Interval)    // Default
+	assert.Equal(t, 5, container.HealthCheck.Timeout)      // Default
+	assert.Equal(t, 3, container.HealthCheck.Retries)      // Default
 	assert.Equal(t, 10, container.HealthCheck.StartPeriod) // Default
 }
 
@@ -807,9 +807,9 @@ func TestAction_PostStartActions(t *testing.T) {
 
 func TestVolumeMount_Types(t *testing.T) {
 	tests := []struct {
-		name       string
-		mountType  string
-		valid      bool
+		name      string
+		mountType string
+		valid     bool
 	}{
 		{"volume type", "volume", true},
 		{"bind type", "bind", true},

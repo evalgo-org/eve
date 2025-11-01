@@ -91,10 +91,10 @@ func TestValidateTokenWithIssuerValidation(t *testing.T) {
 	audience := "https://api.example.com"
 
 	tests := []struct {
-		name              string
-		tokenIssuer       string
-		validationIssuer  string
-		expectError       bool
+		name             string
+		tokenIssuer      string
+		validationIssuer string
+		expectError      bool
 	}{
 		{
 			name:             "matching issuer",
@@ -137,10 +137,10 @@ func TestValidateTokenWithAudienceValidation(t *testing.T) {
 	wrongAudience := "https://different-api.example.com"
 
 	tests := []struct {
-		name                string
-		tokenAudience       string
-		validationAudience  string
-		expectError         bool
+		name               string
+		tokenAudience      string
+		validationAudience string
+		expectError        bool
 	}{
 		{
 			name:               "matching audience",
@@ -264,11 +264,11 @@ func TestGenerateTokenWithComplexClaims(t *testing.T) {
 	service := NewJWTService(secret)
 
 	customClaims := map[string]interface{}{
-		"string_claim":  "value",
-		"int_claim":     42,
-		"float_claim":   3.14,
-		"bool_claim":    true,
-		"array_claim":   []string{"a", "b", "c"},
+		"string_claim": "value",
+		"int_claim":    42,
+		"float_claim":  3.14,
+		"bool_claim":   true,
+		"array_claim":  []string{"a", "b", "c"},
 		"nested_claim": map[string]interface{}{
 			"key1": "value1",
 			"key2": "value2",

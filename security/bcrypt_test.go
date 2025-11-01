@@ -204,11 +204,11 @@ func TestNeedsRehash(t *testing.T) {
 	hashCost12, _ := HashPasswordWithCost(password, 12)
 
 	tests := []struct {
-		name         string
-		hash         string
-		desiredCost  int
-		wantRehash   bool
-		wantErr      bool
+		name        string
+		hash        string
+		desiredCost int
+		wantRehash  bool
+		wantErr     bool
 	}{
 		{
 			name:        "hash with lower cost needs rehash",

@@ -169,22 +169,22 @@ func DefaultMimirProductionConfig() MimirProductionConfig {
 //
 // Architecture Modes:
 //
-//	1. Monolithic Mode (Default):
-//	   - All components in a single process
-//	   - Simple deployment and operations
-//	   - Suitable for small to medium scale
-//	   - Limited horizontal scalability
-//	   - Good for development and testing
+//  1. Monolithic Mode (Default):
+//     - All components in a single process
+//     - Simple deployment and operations
+//     - Suitable for small to medium scale
+//     - Limited horizontal scalability
+//     - Good for development and testing
 //
-//	2. Microservices Mode:
-//	   - Components run as separate services
-//	   - Independent scaling of components
-//	   - High availability and fault tolerance
-//	   - Complex deployment (requires orchestration)
-//	   - Suitable for large-scale production
-//	   - Components: distributor, ingester, querier, compactor, store-gateway, query-frontend
+//  2. Microservices Mode:
+//     - Components run as separate services
+//     - Independent scaling of components
+//     - High availability and fault tolerance
+//     - Complex deployment (requires orchestration)
+//     - Suitable for large-scale production
+//     - Components: distributor, ingester, querier, compactor, store-gateway, query-frontend
 //
-//	This deployment uses monolithic mode with the demo configuration.
+//     This deployment uses monolithic mode with the demo configuration.
 //
 // Storage:
 //
@@ -284,22 +284,22 @@ func DefaultMimirProductionConfig() MimirProductionConfig {
 //
 // Ingestion Flow:
 //
-//	1. Prometheus scrapes targets and buffers samples
-//	2. Prometheus sends samples via remote_write to Mimir distributor
-//	3. Distributor validates, rate limits, and forwards to ingesters
-//	4. Ingesters store samples in memory and WAL
-//	5. Ingesters periodically flush blocks to long-term storage
-//	6. Compactor merges and deduplicates blocks
-//	7. Store-gateway loads blocks for querying
+//  1. Prometheus scrapes targets and buffers samples
+//  2. Prometheus sends samples via remote_write to Mimir distributor
+//  3. Distributor validates, rate limits, and forwards to ingesters
+//  4. Ingesters store samples in memory and WAL
+//  5. Ingesters periodically flush blocks to long-term storage
+//  6. Compactor merges and deduplicates blocks
+//  7. Store-gateway loads blocks for querying
 //
 // Query Flow:
 //
-//	1. Query sent to query-frontend (optional)
-//	2. Query-frontend splits and caches queries
-//	3. Querier executes PromQL query
-//	4. Querier fetches recent data from ingesters
-//	5. Querier fetches historical data from store-gateway
-//	6. Results merged, deduplicated, and returned
+//  1. Query sent to query-frontend (optional)
+//  2. Query-frontend splits and caches queries
+//  3. Querier executes PromQL query
+//  4. Querier fetches recent data from ingesters
+//  5. Querier fetches historical data from store-gateway
+//  6. Results merged, deduplicated, and returned
 //
 // Monitoring Mimir:
 //

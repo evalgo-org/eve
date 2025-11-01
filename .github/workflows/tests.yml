@@ -7,48 +7,9 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  # Unit tests - fast, no external dependencies
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ['1.24', '1.25']
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go-version }}
-
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-
-    - name: Download dependencies
-      run: go mod download
-
-    - name: Run unit tests
-      run: go test -v -race -coverprofile=coverage-unit.out -covermode=atomic ./...
-
-    - name: Upload unit test coverage
-      uses: codecov/codecov-action@v5
-      with:
-        files: ./coverage-unit.out
-        flags: unittests
-        name: unit-tests-go-${{ matrix.go-version }}
-        token: ${{ secrets.CODECOV_TOKEN }}
-
-  # Integration tests - use testcontainers with GitHub Actions' Docker
-  integration-tests:
-    name: Integration Tests
+  # Tests with coverage - runs all tests (unit + integration) once
+  tests-and-coverage:
+    name: Tests with Coverage
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -82,72 +43,28 @@ jobs:
         docker pull rabbitmq:3.13-management-alpine
         docker pull minio/minio:latest
 
-    - name: Run integration tests
-      run: go test -v -race -tags=integration -coverprofile=coverage-integration.out -covermode=atomic ./...
-      timeout-minutes: 10
-
-    - name: Upload integration test coverage
-      uses: codecov/codecov-action@v5
-      with:
-        files: ./coverage-integration.out
-        flags: integrationtests
-        name: integration-tests-go-${{ matrix.go-version }}
-
-  # Combined coverage report - runs on latest Go version only
-  combined-coverage:
-    name: Combined Coverage
-    runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests]
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.24'
-
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-
-    - name: Download dependencies
-      run: go mod download
-
-    # Pull images for integration tests
-    - name: Pull Docker images
-      run: |
-        docker pull couchdb:3.5
-        docker pull postgres:16-alpine
-        docker pull rabbitmq:3.13-management-alpine
-        docker pull minio/minio:latest
-
     - name: Run all tests with coverage
-      run: go test -v -race -tags=integration -coverprofile=coverage-combined.out -covermode=atomic ./...
+      run: go test -v -race -tags=integration -coverprofile=coverage.out -covermode=atomic ./...
       timeout-minutes: 10
 
     - name: Display coverage summary
       run: |
-        go tool cover -func=coverage-combined.out
         echo "---"
-        COVERAGE=$(go tool cover -func=coverage-combined.out | grep total | awk '{print $3}')
-        echo "Total Coverage: $COVERAGE"
+        go tool cover -func=coverage.out | grep total
+        echo "---"
 
-    - name: Upload combined coverage
+    - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
-        files: ./coverage-combined.out
-        flags: combined
-        name: combined-coverage
+        files: ./coverage.out
+        flags: all-tests
+        name: all-tests-go-${{ matrix.go-version }}
+        token: ${{ secrets.CODECOV_TOKEN }}
 
     - name: Check coverage threshold
+      if: matrix.go-version == '1.24'
       run: |
-        COVERAGE=$(go tool cover -func=coverage-combined.out | grep total | awk '{print $3}' | sed 's/%//')
+        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
         THRESHOLD=60
         echo "Current coverage: ${COVERAGE}%"
         echo "Required threshold: ${THRESHOLD}%"
@@ -192,12 +109,12 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.25'
 
     - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v6
+      uses: golangci/golangci-lint-action@v6.5.2
       with:
-        version: v1.64
+        version: v1.64.8
         args: --timeout=5m
 
   # Security scanning

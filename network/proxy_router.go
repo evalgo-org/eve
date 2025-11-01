@@ -14,14 +14,8 @@ type RouteMatch struct {
 
 // Router handles route matching for the proxy
 type Router struct {
-	routes        []routeEntry
 	staticRoutes  map[string]*RouteConfig // Exact path matches
 	patternRoutes []patternRoute          // Pattern-based routes
-}
-
-type routeEntry struct {
-	config  *RouteConfig
-	pattern string
 }
 
 type patternRoute struct {

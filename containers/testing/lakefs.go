@@ -46,7 +46,7 @@ func DefaultLakeFSConfig() LakeFSConfig {
 //
 // Returns:
 //   - string: LakeFS HTTP endpoint URL
-//            (e.g., "http://localhost:32793")
+//     (e.g., "http://localhost:32793")
 //   - ContainerCleanup: Function to terminate the container
 //   - error: Container creation or startup errors
 //
@@ -189,14 +189,14 @@ func SetupLakeFS(ctx context.Context, t *testing.T, config *LakeFSConfig) (strin
 
 	// Build environment variables for local mode
 	env := map[string]string{
-		"LAKEFS_DATABASE_TYPE":                "local",
-		"LAKEFS_BLOCKSTORE_TYPE":              "local",
-		"LAKEFS_BLOCKSTORE_LOCAL_PATH":        "/data",
-		"LAKEFS_AUTH_ENCRYPT_SECRET_KEY":      "some-secret-for-testing",
-		"LAKEFS_STATS_ENABLED":                "false",
-		"LAKEFS_LOGGING_LEVEL":                "INFO",
-		"LAKEFS_INSTALLATION_USER_NAME":       "admin",
-		"LAKEFS_INSTALLATION_ACCESS_KEY_ID":   "AKIAIOSFODNN7EXAMPLE",
+		"LAKEFS_DATABASE_TYPE":                  "local",
+		"LAKEFS_BLOCKSTORE_TYPE":                "local",
+		"LAKEFS_BLOCKSTORE_LOCAL_PATH":          "/data",
+		"LAKEFS_AUTH_ENCRYPT_SECRET_KEY":        "some-secret-for-testing",
+		"LAKEFS_STATS_ENABLED":                  "false",
+		"LAKEFS_LOGGING_LEVEL":                  "INFO",
+		"LAKEFS_INSTALLATION_USER_NAME":         "admin",
+		"LAKEFS_INSTALLATION_ACCESS_KEY_ID":     "AKIAIOSFODNN7EXAMPLE",
 		"LAKEFS_INSTALLATION_SECRET_ACCESS_KEY": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 	}
 
@@ -224,13 +224,13 @@ func SetupLakeFS(ctx context.Context, t *testing.T, config *LakeFSConfig) (strin
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "8000")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get mapped port: %w", err)
 	}
 

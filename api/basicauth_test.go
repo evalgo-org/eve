@@ -259,8 +259,8 @@ func TestBasicAuthMiddleware_CustomValidator(t *testing.T) {
 
 func TestBasicAuthMiddleware_Realm(t *testing.T) {
 	tests := []struct {
-		name         string
-		config       BasicAuthConfig
+		name          string
+		config        BasicAuthConfig
 		expectedRealm string
 	}{
 		{

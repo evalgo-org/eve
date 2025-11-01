@@ -40,7 +40,7 @@ func waitForBaseXReady(ctx context.Context, container testcontainers.Container, 
 		resp, err := client.Get(baseURL + "/")
 		if err == nil {
 			// Read and close body to reuse connection
-			io.Copy(io.Discard, resp.Body)
+			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 
 			// BaseX is ready
@@ -171,44 +171,44 @@ func SetupBaseX(ctx context.Context, t *testing.T, config *BaseXConfig) (string,
 
 	// Wait for BaseX to be ready before setting password
 	if err := waitForBaseXReady(ctx, container, config.StartupTimeout); err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("BaseX failed to become ready: %w", err)
 	}
 
 	// Execute password setup command
 	_, _, err = container.Exec(ctx, []string{"/bin/sh", "-c", fmt.Sprintf("echo '%s' | basex -cPASSWORD", config.AdminPassword)})
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to set BaseX password: %w", err)
 	}
 
 	// Restart container for password to take effect
 	if err := container.Stop(ctx, nil); err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to stop container for restart: %w", err)
 	}
 
 	if err := container.Start(ctx); err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to restart container: %w", err)
 	}
 
 	// Wait for BaseX to be ready after restart
 	if err := waitForBaseXReady(ctx, container, config.StartupTimeout); err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("BaseX failed to become ready after restart: %w", err)
 	}
 
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "8080")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get mapped port: %w", err)
 	}
 

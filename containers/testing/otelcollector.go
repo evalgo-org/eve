@@ -46,9 +46,9 @@ func DefaultOTelCollectorConfig() OTelCollectorConfig {
 //
 // Returns:
 //   - string: OTel Collector HTTP endpoint URL (OTLP HTTP receiver)
-//            (e.g., "http://localhost:32793")
+//     (e.g., "http://localhost:32793")
 //   - string: OTel Collector gRPC endpoint URL (OTLP gRPC receiver)
-//            (e.g., "localhost:32794")
+//     (e.g., "localhost:32794")
 //   - ContainerCleanup: Function to terminate the container
 //   - error: Container creation or startup errors
 //
@@ -239,21 +239,21 @@ func SetupOTelCollector(ctx context.Context, t *testing.T, config *OTelCollector
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	// Get HTTP port
 	httpPort, err := container.MappedPort(ctx, "4318")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", "", func() {}, fmt.Errorf("failed to get HTTP port: %w", err)
 	}
 
 	// Get gRPC port
 	grpcPort, err := container.MappedPort(ctx, "4317")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", "", func() {}, fmt.Errorf("failed to get gRPC port: %w", err)
 	}
 
@@ -420,21 +420,21 @@ func SetupOTelCollectorWithConfig(ctx context.Context, t *testing.T, config *OTe
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	// Get HTTP port
 	httpPort, err := container.MappedPort(ctx, "4318")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", "", func() {}, fmt.Errorf("failed to get HTTP port: %w", err)
 	}
 
 	// Get gRPC port
 	grpcPort, err := container.MappedPort(ctx, "4317")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", "", func() {}, fmt.Errorf("failed to get gRPC port: %w", err)
 	}
 

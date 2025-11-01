@@ -51,7 +51,7 @@ func DefaultGrafanaConfig() GrafanaConfig {
 //
 // Returns:
 //   - string: Grafana HTTP endpoint URL
-//            (e.g., "http://localhost:32791")
+//     (e.g., "http://localhost:32791")
 //   - ContainerCleanup: Function to terminate the container
 //   - error: Container creation or startup errors
 //
@@ -197,13 +197,13 @@ func SetupGrafana(ctx context.Context, t *testing.T, config *GrafanaConfig) (str
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "3000")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get mapped port: %w", err)
 	}
 

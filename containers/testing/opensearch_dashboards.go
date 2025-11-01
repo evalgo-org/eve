@@ -52,7 +52,7 @@ func DefaultOpenSearchDashboardsConfig(opensearchURL string) OpenSearchDashboard
 //
 // Returns:
 //   - string: OpenSearch Dashboards HTTP endpoint URL
-//            (e.g., "http://localhost:32801")
+//     (e.g., "http://localhost:32801")
 //   - ContainerCleanup: Function to terminate the container
 //   - error: Container creation or startup errors
 //
@@ -199,13 +199,13 @@ func SetupOpenSearchDashboards(ctx context.Context, t *testing.T, config *OpenSe
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "5601")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get mapped port: %w", err)
 	}
 

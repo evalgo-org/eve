@@ -48,7 +48,7 @@ func DefaultGraphDBConfig() GraphDBConfig {
 //
 // Returns:
 //   - string: GraphDB HTTP endpoint URL
-//            (e.g., "http://localhost:32780")
+//     (e.g., "http://localhost:32780")
 //   - ContainerCleanup: Function to terminate the container
 //   - error: Container creation or startup errors
 //
@@ -196,13 +196,13 @@ func SetupGraphDB(ctx context.Context, t *testing.T, config *GraphDBConfig) (str
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "7200")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get mapped port: %w", err)
 	}
 

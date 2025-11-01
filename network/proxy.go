@@ -251,7 +251,7 @@ func (zp *ZitiProxy) proxyRequest(w http.ResponseWriter, r *http.Request, match 
 		w.WriteHeader(resp.StatusCode)
 
 		// Copy response body
-		io.Copy(w, resp.Body)
+		_, _ = io.Copy(w, resp.Body)
 		resp.Body.Close()
 
 		return
@@ -332,10 +332,10 @@ func (zp *ZitiProxy) GetStatus() map[string]interface{} {
 		}
 
 		routes = append(routes, map[string]interface{}{
-			"path":            route.Path,
-			"backends_total":  len(route.Backends),
+			"path":             route.Path,
+			"backends_total":   len(route.Backends),
 			"backends_healthy": healthyCount,
-			"load_balancing":  route.LoadBalancing,
+			"load_balancing":   route.LoadBalancing,
 		})
 	}
 

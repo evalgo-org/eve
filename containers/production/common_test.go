@@ -176,12 +176,12 @@ func TestPrepareProductionEnvironment_HandlesNetworkError(t *testing.T) {
 // mockDockerClientExtended extends common.MockDockerClient with additional methods
 type mockDockerClientExtended struct {
 	*common.MockDockerClient
-	Networks         []network.Summary
-	Volumes          *volume.ListResponse
-	NetworkListCalled bool
-	VolumeListCalled  bool
+	Networks              []network.Summary
+	Volumes               *volume.ListResponse
+	NetworkListCalled     bool
+	VolumeListCalled      bool
 	ContainerRemoveCalled bool
-	VolumeRemoveCalled bool
+	VolumeRemoveCalled    bool
 }
 
 func (m *mockDockerClientExtended) NetworkList(ctx context.Context, options network.ListOptions) ([]network.Summary, error) {

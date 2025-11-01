@@ -435,9 +435,8 @@ func StopStack(ctx context.Context, cli common.DockerClient, stackName string) e
 //	3. Having approval from appropriate stakeholders
 func RemoveStack(ctx context.Context, cli common.DockerClient, stackName string, removeVolumes bool) error {
 	// Stop stack first for clean shutdown
-	if err := StopStack(ctx, cli, stackName); err != nil {
-		// Continue even if stop fails (containers might already be stopped)
-	}
+	// Continue even if stop fails (containers might already be stopped)
+	_ = StopStack(ctx, cli, stackName)
 
 	// List all containers in the stack
 	containers, err := cli.ContainerList(ctx, container.ListOptions{All: true})
@@ -503,9 +502,8 @@ func ensureNetwork(ctx context.Context, cli common.DockerClient, networkName, dr
 	}
 
 	// Create network
-	if driver == "" {
-		driver = "bridge"
-	}
+	// Note: driver parameter is not currently used by CreateNetworkWithClient (defaults to "bridge")
+	_ = driver
 
 	if err := common.CreateNetworkWithClient(ctx, cli, networkName); err != nil {
 		return "", fmt.Errorf("failed to create network: %w", err)

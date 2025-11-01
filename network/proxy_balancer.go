@@ -21,8 +21,8 @@ type Backend struct {
 	mu           sync.RWMutex
 
 	// Lazy initialization fields
-	initOnce     sync.Once
-	initErr      error
+	initOnce sync.Once
+	initErr  error
 }
 
 // GetClient initializes and returns the HTTP client with Ziti transport (lazy initialization)
@@ -48,11 +48,11 @@ func (b *Backend) GetClient() (*http.Client, error) {
 
 // LoadBalancer manages backend selection and health
 type LoadBalancer struct {
-	backends       []*Backend
-	strategy       LoadBalancingStrategy
-	roundRobinIdx  atomic.Uint64
-	healthChecker  *HealthChecker
-	mu             sync.RWMutex
+	backends      []*Backend
+	strategy      LoadBalancingStrategy
+	roundRobinIdx atomic.Uint64
+	healthChecker *HealthChecker
+	mu            sync.RWMutex
 }
 
 // NewLoadBalancer creates a new load balancer for a route

@@ -320,8 +320,8 @@ func TestRouterPriority(t *testing.T) {
 	// Static routes should match before pattern routes
 	config := &ProxyConfig{
 		Routes: []RouteConfig{
-			{Path: "/api/*", Methods: []string{"GET"}},         // Pattern route
-			{Path: "/api/users", Methods: []string{"GET"}},     // Static route
+			{Path: "/api/*", Methods: []string{"GET"}},     // Pattern route
+			{Path: "/api/users", Methods: []string{"GET"}}, // Static route
 		},
 	}
 

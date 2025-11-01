@@ -480,18 +480,18 @@ func DefaultLakeFSProductionConfig() LakeFSProductionConfig {
 //
 // Best Practices:
 //
-//	1. Always use meaningful commit messages
-//	2. Create branches for all development and testing
-//	3. Never commit directly to main branch
-//	4. Use pull request workflow for merges
-//	5. Implement data quality hooks
-//	6. Tag releases for reproducibility
-//	7. Clean up old branches regularly
-//	8. Monitor repository size and growth
-//	9. Use external storage for production
-//	10. Document branching strategy for team
-//	11. Automate with hooks and CI/CD
-//	12. Regular backups of metadata
+//  1. Always use meaningful commit messages
+//  2. Create branches for all development and testing
+//  3. Never commit directly to main branch
+//  4. Use pull request workflow for merges
+//  5. Implement data quality hooks
+//  6. Tag releases for reproducibility
+//  7. Clean up old branches regularly
+//  8. Monitor repository size and growth
+//  9. Use external storage for production
+//  10. Document branching strategy for team
+//  11. Automate with hooks and CI/CD
+//  12. Regular backups of metadata
 //
 // Error Handling:
 //

@@ -52,9 +52,9 @@ func DefaultRabbitMQConfig() RabbitMQConfig {
 //
 // Returns:
 //   - string: RabbitMQ AMQP connection URL
-//            (e.g., "amqp://guest:guest@localhost:32772/")
+//     (e.g., "amqp://guest:guest@localhost:32772/")
 //   - string: RabbitMQ Management UI URL
-//            (e.g., "http://localhost:32773")
+//     (e.g., "http://localhost:32773")
 //   - ContainerCleanup: Function to terminate the container
 //   - error: Container creation or startup errors
 //
@@ -98,14 +98,14 @@ func DefaultRabbitMQConfig() RabbitMQConfig {
 //
 // RabbitMQ Features:
 //
-//	- Message queuing with AMQP protocol
-//	- Message persistence and durability
-//	- Flexible routing with exchanges
-//	- Dead letter queues
-//	- Message TTL and expiration
-//	- Priority queues
-//	- Publisher confirms
-//	- Consumer acknowledgments
+//   - Message queuing with AMQP protocol
+//   - Message persistence and durability
+//   - Flexible routing with exchanges
+//   - Dead letter queues
+//   - Message TTL and expiration
+//   - Priority queues
+//   - Publisher confirms
+//   - Consumer acknowledgments
 //
 // Performance:
 //
@@ -137,8 +137,8 @@ func DefaultRabbitMQConfig() RabbitMQConfig {
 func SetupRabbitMQ(ctx context.Context, t *testing.T, config *RabbitMQConfig) (string, string, ContainerCleanup, error) {
 	// Use default config if none provided
 	if config == nil {
-		defaultConfig := DefaultRabbitMQConfig()
-		config = &defaultConfig
+		cfg := DefaultRabbitMQConfig()
+		config = &cfg
 	}
 
 	// Create container request
@@ -169,21 +169,21 @@ func SetupRabbitMQ(ctx context.Context, t *testing.T, config *RabbitMQConfig) (s
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	// Get AMQP port (5672)
 	amqpPort, err := container.MappedPort(ctx, "5672")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", "", func() {}, fmt.Errorf("failed to get AMQP port: %w", err)
 	}
 
 	// Get management UI port (15672)
 	managementPort, err := container.MappedPort(ctx, "15672")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", "", func() {}, fmt.Errorf("failed to get management port: %w", err)
 	}
 
@@ -266,11 +266,6 @@ func SetupRabbitMQWithVHost(ctx context.Context, t *testing.T, config *RabbitMQC
 	// The calling test should create the vhost using the management API:
 	// client := rabbitmq.NewClient(managementURL, "guest", "guest")
 	// err := client.CreateVhost(vhost)
-
-	if config == nil {
-		defaultConfig := DefaultRabbitMQConfig()
-		config = &defaultConfig
-	}
 
 	// Extract host:port from default AMQP URL and build custom vhost URL
 	// For simplicity, we just return the pattern

@@ -53,7 +53,7 @@ func DefaultOpenSearchConfig() OpenSearchConfig {
 //
 // Returns:
 //   - string: OpenSearch HTTP endpoint URL
-//            (e.g., "http://localhost:32800")
+//     (e.g., "http://localhost:32800")
 //   - ContainerCleanup: Function to terminate the container
 //   - error: Container creation or startup errors
 //
@@ -191,13 +191,13 @@ func SetupOpenSearch(ctx context.Context, t *testing.T, config *OpenSearchConfig
 	// Get container connection details
 	host, err := container.Host(ctx)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "9200")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return "", func() {}, fmt.Errorf("failed to get mapped port: %w", err)
 	}
 

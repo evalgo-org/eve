@@ -222,7 +222,6 @@ func SetupStack(ctx context.Context, t *testing.T, stack *stacks.Stack) (*StackD
 	// Create network if specified
 	var networkName string
 	if stack.Network.Name != "" {
-		networkName = fmt.Sprintf("%s-%s", stack.Network.Name, time.Now().Format("20060102150405"))
 		dockerNetwork, err := network.New(ctx, network.WithDriver(stack.Network.Driver))
 		if err != nil {
 			return nil, func() {}, fmt.Errorf("failed to create network: %w", err)

@@ -22,14 +22,14 @@ func TestProxyURLConstruction(t *testing.T) {
 	defer mockBackend.Close()
 
 	tests := []struct {
-		name             string
-		requestPath      string
-		requestQuery     string
-		routePath        string
-		stripPrefix      bool
-		addPrefix        string
-		expectedPath     string
-		expectedQuery    string
+		name          string
+		requestPath   string
+		requestQuery  string
+		routePath     string
+		stripPrefix   bool
+		addPrefix     string
+		expectedPath  string
+		expectedQuery string
 	}{
 		{
 			name:          "simple path",
@@ -162,15 +162,15 @@ func TestProxyURLConstruction(t *testing.T) {
 // TestProxyRequestConstruction tests that HTTP requests are properly constructed
 func TestProxyRequestConstruction(t *testing.T) {
 	tests := []struct {
-		name          string
-		method        string
-		path          string
-		query         string
-		body          string
-		headers       map[string]string
-		serviceName   string
-		expectScheme  string
-		expectHost    string
+		name         string
+		method       string
+		path         string
+		query        string
+		body         string
+		headers      map[string]string
+		serviceName  string
+		expectScheme string
+		expectHost   string
 	}{
 		{
 			name:         "GET request",
@@ -246,10 +246,10 @@ func TestProxyRequestConstruction(t *testing.T) {
 // TestProxyURLSchemeRequired tests that URLs must have a scheme
 func TestProxyURLSchemeRequired(t *testing.T) {
 	invalidURLs := []string{
-		"/health",                    // No scheme, just path
-		"service-name/path",          // No scheme
-		"//service-name/path",        // Scheme-relative URL
-		"",                           // Empty
+		"/health",             // No scheme, just path
+		"service-name/path",   // No scheme
+		"//service-name/path", // Scheme-relative URL
+		"",                    // Empty
 	}
 
 	for _, url := range invalidURLs {
