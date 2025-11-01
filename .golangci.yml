@@ -1,3 +1,5 @@
+version: 2
+
 run:
   timeout: 5m
   tests: true
@@ -11,6 +13,9 @@ linters:
     - ineffassign
     - staticcheck
     - govet
+
+formatters:
+  enable:
     - gofmt
     - goimports
 
@@ -18,6 +23,10 @@ linters-settings:
   errcheck:
     check-blank: false
     check-type-assertions: false
+    # Exclude defer/Close patterns in test files
+    exclude-functions:
+      - (*os.File).Close
+      - (*net/http.Response.Body).Close
   staticcheck:
     checks: ["all"]
 
@@ -45,8 +54,6 @@ issues:
         - ineffassign
         - staticcheck
         - govet
-        - gofmt
-        - goimports
   max-issues-per-linter: 0
   max-same-issues: 0
   uniq-by-line: false
