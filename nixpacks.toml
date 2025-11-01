@@ -1,0 +1,59 @@
+# Nixpacks configuration for EVE - Go library and testing framework
+# This builds an OCI image suitable for development, testing, and CI/CD
+
+[variables]
+# Go build configuration
+GO111MODULE = 'on'
+CGO_ENABLED = '1'
+GOOS = 'linux'
+GOARCH = 'amd64'
+
+[phases.setup]
+# Install Go and required system dependencies
+nixPkgs = [
+  '...',  # Extend default packages
+  'go',  # Go 1.25 (matches go.mod requirement)
+  'git',
+  'gcc',
+  'docker',  # For testcontainers integration tests
+  'task',  # Task runner
+]
+
+# System libraries required by CGO and dependencies
+nixLibs = [
+  '...',
+  'stdenv.cc.cc.lib',
+  'zlib',
+]
+
+[phases.install]
+# Download Go module dependencies
+cmds = [
+  'go mod download',
+  'go mod verify'
+]
+
+[phases.build]
+# Build the library (for validation) and run tests
+dependsOn = ['install']
+cmds = [
+  # Ensure the library compiles
+  'go build -v ./...',
+
+  # Run tests (optional, can be commented out for faster builds)
+  # 'go test -v -short ./...',
+]
+
+[phases.test]
+# Optional test phase for CI/CD
+dependsOn = ['build']
+cmds = [
+  'echo "Run tests with: task test"',
+  'echo "Run with coverage: task coverage"',
+  'echo "Run all checks: task ci"',
+]
+
+# Since this is a library, we provide a shell environment by default
+# Users can override this with a custom start command
+[start]
+cmd = '/bin/sh -c "echo \"EVE library image ready. Available commands: go, task, docker\" && exec /bin/sh"'

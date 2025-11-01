@@ -9,7 +9,7 @@ A comprehensive Go library for flow service management with integrated testing a
 ## Quick Start
 
 ### Prerequisites
-- Go 1.24 or higher
+- Go 1.25 or higher
 - Git
 - Docker (for integration tests)
 - Task (optional, install from https://taskfile.dev)

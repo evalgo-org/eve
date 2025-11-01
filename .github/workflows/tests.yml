@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.24', '1.25']
+        go-version: ['1.25']
 
     steps:
     - name: Checkout code
@@ -62,7 +62,7 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
 
     - name: Check coverage threshold
-      if: matrix.go-version == '1.24'
+      if: matrix.go-version == '1.25'
       run: |
         COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
         THRESHOLD=60
@@ -87,7 +87,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.25'
         cache: true
 
     - name: Run benchmarks
@@ -132,7 +132,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24'
+        go-version: '1.25'
 
     - name: Run gosec security scanner
       uses: securego/gosec@master
