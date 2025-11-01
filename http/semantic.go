@@ -3,40 +3,15 @@ package http
 import (
 	"encoding/json"
 	"time"
+
+	"eve.evalgo.org/semantic"
 )
 
-// SemanticRequest represents an HTTP Request as a Schema.org DigitalDocument
-// This enables semantic understanding and interoperability
-type SemanticRequest struct {
-	Context     string                 `json:"@context"`
-	Type        string                 `json:"@type"`
-	Identifier  string                 `json:"identifier,omitempty"`
-	Name        string                 `json:"name,omitempty"`
-	URL         string                 `json:"url"`
-	Method      string                 `json:"httpMethod"`
-	Headers     map[string]string      `json:"httpHeaders,omitempty"`
-	Body        interface{}            `json:"text,omitempty"`
-	Timeout     int                    `json:"temporal,omitempty"`
-	CreatedTime string                 `json:"dateCreated,omitempty"`
-	Additional  map[string]interface{} `json:"additionalProperty,omitempty"`
-}
-
 // ToSemanticRequest converts a Request to Schema.org DigitalDocument representation
-func (r *Request) ToSemanticRequest() *SemanticRequest {
-	sr := &SemanticRequest{
-		Context: "https://schema.org",
-		Type:    "DigitalDocument",
-		URL:     r.URL,
-		Method:  r.Method,
-		Headers: r.Headers,
-		Timeout: r.Timeout,
-		Additional: map[string]interface{}{
-			"@type": "PropertyValue",
-		},
-	}
-
-	// Set created time
-	sr.CreatedTime = time.Now().Format(time.RFC3339)
+func (r *Request) ToSemanticRequest() *semantic.SemanticRequest {
+	sr := semantic.NewSemanticRequest(r.Method, r.URL)
+	sr.Headers = r.Headers
+	sr.Timeout = r.Timeout
 
 	// Handle body based on type
 	if r.JSONBody != "" {
@@ -73,53 +48,28 @@ func (r *Request) ToSemanticRequest() *SemanticRequest {
 // ToJSONLD exports the request as JSON-LD for interoperability
 func (r *Request) ToJSONLD() (string, error) {
 	sr := r.ToSemanticRequest()
-	data, err := json.MarshalIndent(sr, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
-// SemanticResponse represents an HTTP Response as a Schema.org DigitalDocument
-type SemanticResponse struct {
-	Context     string            `json:"@context"`
-	Type        string            `json:"@type"`
-	StatusCode  int               `json:"httpStatusCode"`
-	Status      string            `json:"httpStatus"`
-	Headers     map[string]string `json:"httpHeaders,omitempty"`
-	Body        string            `json:"text,omitempty"`
-	FromCache   bool              `json:"fromCache,omitempty"`
-	Duration    string            `json:"duration,omitempty"` // ISO 8601 duration
-	CreatedTime string            `json:"dateCreated"`
+	return sr.ToJSONLD()
 }
 
 // ToSemanticResponse converts a Response to Schema.org representation
-func (r *Response) ToSemanticResponse() *SemanticResponse {
-	return &SemanticResponse{
-		Context:     "https://schema.org",
-		Type:        "DigitalDocument",
-		StatusCode:  r.StatusCode,
-		Status:      r.Status,
-		Headers:     r.Headers,
-		Body:        r.BodyString,
-		FromCache:   r.FromCache,
-		Duration:    r.Duration.String(),
-		CreatedTime: time.Now().Format(time.RFC3339),
-	}
+func (r *Response) ToSemanticResponse() *semantic.SemanticResponse {
+	sr := semantic.NewSemanticResponse(r.StatusCode, r.Status)
+	sr.Headers = r.Headers
+	sr.Body = r.BodyString
+	sr.FromCache = r.FromCache
+	sr.Duration = r.Duration.String()
+	sr.CreatedTime = time.Now().Format(time.RFC3339)
+	return sr
 }
 
 // ToJSONLD exports the response as JSON-LD
 func (r *Response) ToJSONLD() (string, error) {
 	sr := r.ToSemanticResponse()
-	data, err := json.MarshalIndent(sr, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+	return sr.ToJSONLD()
 }
 
 // FromSemanticRequest creates a Request from Schema.org representation
-func FromSemanticRequest(sr *SemanticRequest) *Request {
+func FromSemanticRequest(sr *semantic.SemanticRequest) *Request {
 	req := NewRequest(sr.Method, sr.URL)
 	req.Headers = sr.Headers
 	req.Timeout = sr.Timeout
