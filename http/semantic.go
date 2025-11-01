@@ -82,15 +82,15 @@ func (r *Request) ToJSONLD() (string, error) {
 
 // SemanticResponse represents an HTTP Response as a Schema.org DigitalDocument
 type SemanticResponse struct {
-	Context     string                 `json:"@context"`
-	Type        string                 `json:"@type"`
-	StatusCode  int                    `json:"httpStatusCode"`
-	Status      string                 `json:"httpStatus"`
-	Headers     map[string]string      `json:"httpHeaders,omitempty"`
-	Body        string                 `json:"text,omitempty"`
-	FromCache   bool                   `json:"fromCache,omitempty"`
-	Duration    string                 `json:"duration,omitempty"` // ISO 8601 duration
-	CreatedTime string                 `json:"dateCreated"`
+	Context     string            `json:"@context"`
+	Type        string            `json:"@type"`
+	StatusCode  int               `json:"httpStatusCode"`
+	Status      string            `json:"httpStatus"`
+	Headers     map[string]string `json:"httpHeaders,omitempty"`
+	Body        string            `json:"text,omitempty"`
+	FromCache   bool              `json:"fromCache,omitempty"`
+	Duration    string            `json:"duration,omitempty"` // ISO 8601 duration
+	CreatedTime string            `json:"dateCreated"`
 }
 
 // ToSemanticResponse converts a Response to Schema.org representation
