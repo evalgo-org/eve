@@ -163,7 +163,7 @@ func ParseBaseXAction(data []byte) (interface{}, error) {
 	}
 
 	switch typeCheck.Type {
-	case "UpdateAction": // TransformAction
+	case "UpdateAction", "TransformAction": // TransformAction (UpdateAction is Schema.org standard, TransformAction is semantic extension)
 		var action TransformAction
 		if err := json.Unmarshal(data, &action); err != nil {
 			return nil, fmt.Errorf("failed to parse TransformAction: %w", err)

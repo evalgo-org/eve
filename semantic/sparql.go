@@ -82,15 +82,42 @@ func ExtractSPARQLCredentials(endpoint *SPARQLEndpoint) (string, string, string,
 	}
 
 	props := endpoint.Properties
-	if props == nil {
-		// No credentials means public endpoint
-		return endpoint.URL, "", "", endpoint.Identifier, nil
-	}
-
 	username, _ := props["username"].(string)
 	password, _ := props["password"].(string)
 
+	// Parse URL to extract base URL and project ID
+	// Expected format: https://host/PoolParty/sparql/PROJECT_ID
+	// Need to extract: baseURL=https://host, projectID=PROJECT_ID
+	url := endpoint.URL
+
+	// Check if URL contains /PoolParty/sparql/
+	// If so, extract base URL and project ID from it
+	// Otherwise, use the URL as base URL and Identifier as project ID
+	if idx := findIndex(url, "/PoolParty/sparql/"); idx != -1 {
+		baseURL := url[:idx]
+		projectID := url[idx+len("/PoolParty/sparql/"):]
+		// Remove any trailing slashes or query parameters
+		if slashIdx := findIndex(projectID, "/"); slashIdx != -1 {
+			projectID = projectID[:slashIdx]
+		}
+		if qIdx := findIndex(projectID, "?"); qIdx != -1 {
+			projectID = projectID[:qIdx]
+		}
+		return baseURL, username, password, projectID, nil
+	}
+
+	// Fallback: use URL as base and Identifier as project
 	return endpoint.URL, username, password, endpoint.Identifier, nil
+}
+
+// findIndex returns the index of substr in s, or -1 if not found
+func findIndex(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
 }
 
 // ExtractQueryTemplate extracts the query template path or inline query

@@ -31,9 +31,18 @@ type SemanticAction struct {
 type SemanticScheduledAction struct {
 	SemanticAction
 	Requires []string          `json:"requires,omitempty"` // Dependencies (Action @id references)
+	Target   interface{}       `json:"target,omitempty"`   // Can be EntryPoint, InfisicalProject, DataCatalog, etc.
 	Schedule *SemanticSchedule `json:"schedule,omitempty"`
 	Created  time.Time         `json:"dateCreated"`
 	Modified time.Time         `json:"dateModified"`
+}
+
+// EntryPoint represents a Schema.org EntryPoint (action target like HTTP endpoint)
+type EntryPoint struct {
+	Type       string            `json:"@type"` // Must be "EntryPoint"
+	URL        string            `json:"url"`
+	HTTPMethod string            `json:"httpMethod,omitempty"` // GET, POST, etc.
+	Headers    map[string]string `json:"headers,omitempty"`
 }
 
 // SemanticHTTPAction represents an HTTP request as an action
