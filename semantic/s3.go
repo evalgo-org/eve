@@ -1,0 +1,270 @@
+package semantic
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+// S3 Semantic Types for Object Storage Operations
+// These types map S3 operations to Schema.org vocabulary for semantic orchestration
+// Supports Hetzner S3, AWS S3, and S3-compatible storage
+
+// ============================================================================
+// S3 Storage Types (Schema.org: DataCatalog, MediaObject)
+// ============================================================================
+
+// S3Bucket represents an S3 bucket as Schema.org DataCatalog
+type S3Bucket struct {
+	Context    string                 `json:"@context,omitempty"`
+	Type       string                 `json:"@type"` // "DataCatalog"
+	Identifier string                 `json:"identifier"`
+	Name       string                 `json:"name,omitempty"`
+	URL        string                 `json:"url,omitempty"` // S3 endpoint URL
+	Properties map[string]interface{} `json:"additionalProperty,omitempty"`
+}
+
+// S3Object represents an S3 object as Schema.org MediaObject
+type S3Object struct {
+	Type           string                 `json:"@type"` // "MediaObject" or "DataDownload"
+	Identifier     string                 `json:"identifier"`
+	Name           string                 `json:"name,omitempty"`
+	EncodingFormat string                 `json:"encodingFormat,omitempty"` // MIME type
+	ContentUrl     string                 `json:"contentUrl,omitempty"`     // Local file path or S3 key
+	ContentSize    int64                  `json:"contentSize,omitempty"`    // File size in bytes
+	UploadDate     string                 `json:"uploadDate,omitempty"`     // ISO 8601 timestamp
+	Properties     map[string]interface{} `json:"additionalProperty,omitempty"`
+}
+
+// ============================================================================
+// S3 Action Types
+// ============================================================================
+
+// S3UploadAction represents uploading objects to S3
+// Maps to Schema.org CreateAction for creating new objects
+type S3UploadAction struct {
+	Context      string         `json:"@context,omitempty"`
+	Type         string         `json:"@type"` // "CreateAction"
+	Identifier   string         `json:"identifier"`
+	Name         string         `json:"name,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	Object       *S3Object      `json:"object"`              // Object to upload
+	Target       *S3Bucket      `json:"target"`              // Target S3 bucket
+	TargetUrl    string         `json:"targetUrl,omitempty"` // Specific S3 key/path
+	ActionStatus string         `json:"actionStatus,omitempty"`
+	StartTime    string         `json:"startTime,omitempty"`
+	EndTime      string         `json:"endTime,omitempty"`
+	Result       *S3Object      `json:"result,omitempty"` // Uploaded object metadata
+	Error        *PropertyValue `json:"error,omitempty"`
+}
+
+// S3DownloadAction represents downloading objects from S3
+// Maps to Schema.org DownloadAction for retrieving objects
+type S3DownloadAction struct {
+	Context      string         `json:"@context,omitempty"`
+	Type         string         `json:"@type"` // "DownloadAction"
+	Identifier   string         `json:"identifier"`
+	Name         string         `json:"name,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	Object       *S3Object      `json:"object"`           // Object to download (with S3 key)
+	Target       *S3Bucket      `json:"target"`           // Source S3 bucket
+	Result       *S3Object      `json:"result,omitempty"` // Downloaded object with local path
+	ActionStatus string         `json:"actionStatus,omitempty"`
+	StartTime    string         `json:"startTime,omitempty"`
+	EndTime      string         `json:"endTime,omitempty"`
+	Error        *PropertyValue `json:"error,omitempty"`
+}
+
+// S3DeleteAction represents deleting objects from S3
+// Maps to Schema.org DeleteAction for removing objects
+type S3DeleteAction struct {
+	Context      string         `json:"@context,omitempty"`
+	Type         string         `json:"@type"` // "DeleteAction"
+	Identifier   string         `json:"identifier"`
+	Name         string         `json:"name,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	Object       *S3Object      `json:"object"` // Object to delete (with S3 key)
+	Target       *S3Bucket      `json:"target"` // S3 bucket containing object
+	ActionStatus string         `json:"actionStatus,omitempty"`
+	StartTime    string         `json:"startTime,omitempty"`
+	EndTime      string         `json:"endTime,omitempty"`
+	Error        *PropertyValue `json:"error,omitempty"`
+}
+
+// S3ListAction represents listing objects in S3 bucket
+// Maps to Schema.org SearchAction for discovering objects
+type S3ListAction struct {
+	Context      string         `json:"@context,omitempty"`
+	Type         string         `json:"@type"` // "SearchAction"
+	Identifier   string         `json:"identifier"`
+	Name         string         `json:"name,omitempty"`
+	Description  string         `json:"description,omitempty"`
+	Query        string         `json:"query,omitempty"`  // Prefix filter
+	Target       *S3Bucket      `json:"target"`           // S3 bucket to list
+	Result       []*S3Object    `json:"result,omitempty"` // List of objects
+	ActionStatus string         `json:"actionStatus,omitempty"`
+	StartTime    string         `json:"startTime,omitempty"`
+	EndTime      string         `json:"endTime,omitempty"`
+	Error        *PropertyValue `json:"error,omitempty"`
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+// ParseS3Action parses a JSON-LD S3 action
+func ParseS3Action(data []byte) (interface{}, error) {
+	var typeCheck struct {
+		Type string `json:"@type"`
+	}
+
+	if err := json.Unmarshal(data, &typeCheck); err != nil {
+		return nil, fmt.Errorf("failed to parse @type: %w", err)
+	}
+
+	switch typeCheck.Type {
+	case "CreateAction":
+		var action S3UploadAction
+		if err := json.Unmarshal(data, &action); err != nil {
+			return nil, fmt.Errorf("failed to parse S3UploadAction: %w", err)
+		}
+		return &action, nil
+
+	case "DownloadAction":
+		var action S3DownloadAction
+		if err := json.Unmarshal(data, &action); err != nil {
+			return nil, fmt.Errorf("failed to parse S3DownloadAction: %w", err)
+		}
+		return &action, nil
+
+	case "DeleteAction":
+		var action S3DeleteAction
+		if err := json.Unmarshal(data, &action); err != nil {
+			return nil, fmt.Errorf("failed to parse S3DeleteAction: %w", err)
+		}
+		return &action, nil
+
+	case "SearchAction":
+		var action S3ListAction
+		if err := json.Unmarshal(data, &action); err != nil {
+			return nil, fmt.Errorf("failed to parse S3ListAction: %w", err)
+		}
+		return &action, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported S3 action type: %s", typeCheck.Type)
+	}
+}
+
+// NewS3Bucket creates a new semantic S3 bucket representation
+func NewS3Bucket(name, url, region, accessKey, secretKey string) *S3Bucket {
+	bucket := &S3Bucket{
+		Context:    "https://schema.org",
+		Type:       "DataCatalog",
+		Identifier: name,
+		Name:       name,
+		URL:        url,
+		Properties: make(map[string]interface{}),
+	}
+
+	if region != "" {
+		bucket.Properties["region"] = region
+	}
+	if accessKey != "" {
+		bucket.Properties["accessKey"] = accessKey
+	}
+	if secretKey != "" {
+		bucket.Properties["secretKey"] = secretKey
+	}
+
+	return bucket
+}
+
+// NewS3Object creates a new S3 object representation
+func NewS3Object(key, contentType string) *S3Object {
+	return &S3Object{
+		Type:           "MediaObject",
+		Identifier:     key,
+		Name:           key,
+		EncodingFormat: contentType,
+	}
+}
+
+// NewS3UploadAction creates a new S3 upload action
+func NewS3UploadAction(id, name string, object *S3Object, target *S3Bucket) *S3UploadAction {
+	return &S3UploadAction{
+		Context:      "https://schema.org",
+		Type:         "CreateAction",
+		Identifier:   id,
+		Name:         name,
+		Object:       object,
+		Target:       target,
+		ActionStatus: "PotentialActionStatus",
+	}
+}
+
+// NewS3DownloadAction creates a new S3 download action
+func NewS3DownloadAction(id, name string, object *S3Object, target *S3Bucket) *S3DownloadAction {
+	return &S3DownloadAction{
+		Context:      "https://schema.org",
+		Type:         "DownloadAction",
+		Identifier:   id,
+		Name:         name,
+		Object:       object,
+		Target:       target,
+		ActionStatus: "PotentialActionStatus",
+	}
+}
+
+// NewS3DeleteAction creates a new S3 delete action
+func NewS3DeleteAction(id, name string, object *S3Object, target *S3Bucket) *S3DeleteAction {
+	return &S3DeleteAction{
+		Context:      "https://schema.org",
+		Type:         "DeleteAction",
+		Identifier:   id,
+		Name:         name,
+		Object:       object,
+		Target:       target,
+		ActionStatus: "PotentialActionStatus",
+	}
+}
+
+// NewS3ListAction creates a new S3 list action
+func NewS3ListAction(id, name, prefix string, target *S3Bucket) *S3ListAction {
+	return &S3ListAction{
+		Context:      "https://schema.org",
+		Type:         "SearchAction",
+		Identifier:   id,
+		Name:         name,
+		Query:        prefix,
+		Target:       target,
+		ActionStatus: "PotentialActionStatus",
+	}
+}
+
+// ExtractS3Credentials extracts connection info from S3Bucket
+func ExtractS3Credentials(bucket *S3Bucket) (url, region, accessKey, secretKey, bucketName string, err error) {
+	if bucket == nil {
+		return "", "", "", "", "", fmt.Errorf("bucket is nil")
+	}
+
+	url = bucket.URL
+	bucketName = bucket.Identifier
+
+	if url == "" {
+		return "", "", "", "", "", fmt.Errorf("bucket URL is empty")
+	}
+
+	if bucket.Properties != nil {
+		if r, ok := bucket.Properties["region"].(string); ok {
+			region = r
+		}
+		if a, ok := bucket.Properties["accessKey"].(string); ok {
+			accessKey = a
+		}
+		if s, ok := bucket.Properties["secretKey"].(string); ok {
+			secretKey = s
+		}
+	}
+
+	return url, region, accessKey, secretKey, bucketName, nil
+}
