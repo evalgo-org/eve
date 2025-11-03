@@ -30,12 +30,13 @@ type SemanticAction struct {
 // SemanticScheduledAction represents a task that runs on a schedule
 type SemanticScheduledAction struct {
 	SemanticAction
-	Requires []string          `json:"requires,omitempty"` // Dependencies (Action @id references)
-	Target   interface{}       `json:"target,omitempty"`   // Can be EntryPoint, InfisicalProject, DataCatalog, etc.
-	Query    interface{}       `json:"query,omitempty"`    // For SearchAction (SPARQL query, search parameters)
-	Schedule *SemanticSchedule `json:"schedule,omitempty"`
-	Created  time.Time         `json:"dateCreated"`
-	Modified time.Time         `json:"dateModified"`
+	Requires  []string          `json:"requires,omitempty"`  // Dependencies (Action @id references)
+	Target    interface{}       `json:"target,omitempty"`    // Can be EntryPoint, InfisicalProject, DataCatalog, etc.
+	TargetUrl string            `json:"targetUrl,omitempty"` // Specific target path/key (e.g., S3 object key)
+	Query     interface{}       `json:"query,omitempty"`     // For SearchAction (SPARQL query, search parameters)
+	Schedule  *SemanticSchedule `json:"schedule,omitempty"`
+	Created   time.Time         `json:"dateCreated"`
+	Modified  time.Time         `json:"dateModified"`
 }
 
 // EntryPoint represents a Schema.org EntryPoint (action target like HTTP endpoint)
