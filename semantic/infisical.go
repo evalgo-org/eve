@@ -10,21 +10,23 @@ import (
 // InfisicalRetrieveAction represents a Schema.org RetrieveAction for fetching secrets from Infisical.
 // It retrieves secrets from a specific Infisical project and environment.
 type InfisicalRetrieveAction struct {
-	Context      string            `json:"@context,omitempty"`
-	Type         string            `json:"@type"` // "RetrieveAction"
-	Identifier   string            `json:"identifier"`
-	Name         string            `json:"name,omitempty"`
-	Description  string            `json:"description,omitempty"`
-	Target       *InfisicalProject `json:"target"` // Which project/environment to retrieve from
-	Result       []*PropertyValue  `json:"result,omitempty"`
-	ActionStatus string            `json:"actionStatus,omitempty"`
-	StartTime    string            `json:"startTime,omitempty"`
-	EndTime      string            `json:"endTime,omitempty"`
-	Error        *PropertyValue    `json:"error,omitempty"`
+	Context      string           `json:"@context,omitempty"`
+	Type         string           `json:"@type"` // "RetrieveAction"
+	Identifier   string           `json:"identifier"`
+	Name         string           `json:"name,omitempty"`
+	Description  string           `json:"description,omitempty"`
+	Object       *PropertyValue   `json:"object,omitempty"` // What secret(s) to retrieve (optional - path or name)
+	Target       interface{}      `json:"target"`           // EntryPoint for service (Schema.org compliant) or InfisicalProject (backward compat)
+	Result       []*PropertyValue `json:"result,omitempty"`
+	ActionStatus string           `json:"actionStatus,omitempty"`
+	StartTime    string           `json:"startTime,omitempty"`
+	EndTime      string           `json:"endTime,omitempty"`
+	Error        *PropertyValue   `json:"error,omitempty"`
 }
 
 // InfisicalProject represents an Infisical project with environment configuration.
-// Maps to Schema.org Project type.
+// DEPRECATED: Use EntryPoint with additionalProperty instead for Schema.org compliance.
+// This type is kept for reference only.
 type InfisicalProject struct {
 	Type               string                 `json:"@type"`      // "Project"
 	Identifier         string                 `json:"identifier"` // project_id
@@ -37,6 +39,7 @@ type InfisicalProject struct {
 }
 
 // NewInfisicalRetrieveAction creates a new Infisical secret retrieval action.
+// DEPRECATED: Use EntryPoint with additionalProperty for Schema.org compliance.
 func NewInfisicalRetrieveAction(identifier, name string, project *InfisicalProject) *InfisicalRetrieveAction {
 	return &InfisicalRetrieveAction{
 		Context:    "https://schema.org",
@@ -48,6 +51,7 @@ func NewInfisicalRetrieveAction(identifier, name string, project *InfisicalProje
 }
 
 // NewInfisicalProject creates a new Infisical project reference.
+// DEPRECATED: Use EntryPoint with additionalProperty for Schema.org compliance.
 func NewInfisicalProject(projectID, environment, url string) *InfisicalProject {
 	return &InfisicalProject{
 		Type:           "Project",
@@ -69,20 +73,54 @@ func NewInfisicalProject(projectID, environment, url string) *InfisicalProject {
 // Returns an error if authentication or retrieval fails.
 func (a *InfisicalRetrieveAction) RetrieveSecrets(clientID, clientSecret string) error {
 	if a.Target == nil {
-		return fmt.Errorf("target project is required")
+		return fmt.Errorf("target is required")
 	}
 
-	// Extract host from URL
-	host := a.Target.Url
-	if len(host) > 8 && host[:8] == "https://" {
-		host = host[8:]
-	} else if len(host) > 7 && host[:7] == "http://" {
-		host = host[7:]
+	// Extract configuration from target (EntryPoint with additionalProperty - Schema.org compliant)
+	var projectID, environment, url, secretPath string
+	var includeImports bool
+
+	if targetMap, ok := a.Target.(map[string]interface{}); ok {
+		// EntryPoint format (Schema.org compliant)
+		if urlStr, ok := targetMap["url"].(string); ok {
+			url = urlStr
+		}
+
+		// Extract configuration from additionalProperty
+		if additionalProp, ok := targetMap["additionalProperty"].(map[string]interface{}); ok {
+			if pid, ok := additionalProp["projectId"].(string); ok {
+				projectID = pid
+			}
+			if env, ok := additionalProp["environment"].(string); ok {
+				environment = env
+			}
+			if sp, ok := additionalProp["secretPath"].(string); ok {
+				secretPath = sp
+			}
+			if ii, ok := additionalProp["includeImports"].(bool); ok {
+				includeImports = ii
+			}
+		}
+	}
+
+	if projectID == "" {
+		return fmt.Errorf("projectId is required in target.additionalProperty")
+	}
+	if environment == "" {
+		return fmt.Errorf("environment is required in target.additionalProperty")
+	}
+	if url == "" {
+		return fmt.Errorf("service URL is required in target.url")
+	}
+
+	// Set secret path default
+	if secretPath == "" {
+		secretPath = "/"
 	}
 
 	// Create Infisical client
 	client := infisical.NewInfisicalClient(context.Background(), infisical.Config{
-		SiteUrl:          a.Target.Url,
+		SiteUrl:          url,
 		AutoTokenRefresh: false,
 	})
 
@@ -98,19 +136,13 @@ func (a *InfisicalRetrieveAction) RetrieveSecrets(clientID, clientSecret string)
 		return fmt.Errorf("Infisical authentication failed: %w", err)
 	}
 
-	// Set secret path default
-	secretPath := a.Target.SecretPath
-	if secretPath == "" {
-		secretPath = "/"
-	}
-
 	// Retrieve secrets
 	secrets, err := client.Secrets().List(infisical.ListSecretsOptions{
 		AttachToProcessEnv: false,
-		Environment:        a.Target.Environment,
-		ProjectID:          a.Target.Identifier,
+		Environment:        environment,
+		ProjectID:          projectID,
 		SecretPath:         secretPath,
-		IncludeImports:     a.Target.IncludeImports,
+		IncludeImports:     includeImports,
 	})
 	if err != nil {
 		a.ActionStatus = "FailedActionStatus"
