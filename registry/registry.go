@@ -276,6 +276,32 @@ func Get(serviceID string) (*Service, error) {
 
 // GetURL returns the URL for a service from the default registry
 func GetURL(serviceID string) (string, error) {
+	// If REGISTRYSERVICE_API_URL is set, query the HTTP API instead of using file-based registry
+	registryURL := os.Getenv("REGISTRYSERVICE_API_URL")
+	if registryURL != "" {
+		// Fetch services from HTTP API
+		servicesURL := fmt.Sprintf("%s/v1/api/services", registryURL)
+		resp, err := http.Get(servicesURL)
+		if err != nil {
+			return "", fmt.Errorf("failed to query registry API: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var services []*Service
+		if err := json.NewDecoder(resp.Body).Decode(&services); err != nil {
+			return "", fmt.Errorf("failed to parse registry response: %w", err)
+		}
+
+		// Find the service by ID
+		for _, svc := range services {
+			if svc.ID == serviceID {
+				return svc.URL, nil
+			}
+		}
+		return "", fmt.Errorf("service not found: %s", serviceID)
+	}
+
+	// Fall back to file-based registry
 	reg, err := DefaultRegistry()
 	if err != nil {
 		return "", err

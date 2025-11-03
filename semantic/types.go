@@ -32,6 +32,7 @@ type SemanticScheduledAction struct {
 	SemanticAction
 	Requires []string          `json:"requires,omitempty"` // Dependencies (Action @id references)
 	Target   interface{}       `json:"target,omitempty"`   // Can be EntryPoint, InfisicalProject, DataCatalog, etc.
+	Query    interface{}       `json:"query,omitempty"`    // For SearchAction (SPARQL query, search parameters)
 	Schedule *SemanticSchedule `json:"schedule,omitempty"`
 	Created  time.Time         `json:"dateCreated"`
 	Modified time.Time         `json:"dateModified"`
@@ -64,17 +65,25 @@ type SemanticAgent struct {
 
 // SemanticObject represents what an action operates on
 type SemanticObject struct {
-	Type                string `json:"@type"` // SoftwareSourceCode, DataFeed, CreativeWork, DigitalDocument
-	Name                string `json:"name,omitempty"`
-	ProgrammingLanguage string `json:"programmingLanguage,omitempty"`
-	CodeRepository      string `json:"codeRepository,omitempty"`
-	RuntimePlatform     string `json:"runtimePlatform,omitempty"`
+	Type                string                 `json:"@type"`                // SoftwareSourceCode, DataFeed, CreativeWork, DigitalDocument, MediaObject
+	Identifier          string                 `json:"identifier,omitempty"` // Unique identifier
+	Name                string                 `json:"name,omitempty"`
+	Text                string                 `json:"text,omitempty"`           // Text content or embedded JSON payload
+	ContentUrl          string                 `json:"contentUrl,omitempty"`     // URL or file path to content
+	EncodingFormat      string                 `json:"encodingFormat,omitempty"` // Format of the text content
+	ProgrammingLanguage string                 `json:"programmingLanguage,omitempty"`
+	CodeRepository      string                 `json:"codeRepository,omitempty"`
+	RuntimePlatform     string                 `json:"runtimePlatform,omitempty"`
+	Properties          map[string]interface{} `json:"additionalProperty,omitempty"` // Additional properties
 }
 
 // SemanticInstrument represents tools used for execution
 type SemanticInstrument struct {
-	Type string `json:"@type"` // SoftwareApplication
-	Name string `json:"name"`
+	Type           string `json:"@type"` // SoftwareApplication, MediaObject
+	Name           string `json:"name,omitempty"`
+	ContentUrl     string `json:"contentUrl,omitempty"`     // File path or URL to tool/script
+	CodeRepository string `json:"codeRepository,omitempty"` // Repository URL
+	EncodingFormat string `json:"encodingFormat,omitempty"` // Format of the content
 }
 
 // SemanticResult represents action execution result
