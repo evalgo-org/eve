@@ -766,11 +766,12 @@ func HetznerUploaderFile(ctx context.Context, uploader *manager.Uploader, bucket
 		return fmt.Errorf("failed to calculate MD5 for %s: %w", filePath, err)
 	}
 
-	// Upload file with MD5 metadata
+	// Upload file with MD5 metadata and checksum validation
 	_, err = uploader.Upload(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(objectKey),
-		Body:   file,
+		Bucket:            aws.String(bucket),
+		Key:               aws.String(objectKey),
+		Body:              file,
+		ChecksumAlgorithm: types.ChecksumAlgorithmCrc32c,
 		Metadata: map[string]string{
 			"md5": md5hash, // This becomes x-amz-meta-md5 in S3
 		},
