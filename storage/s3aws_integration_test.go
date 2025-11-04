@@ -128,7 +128,7 @@ func TestMinioGetObject_Integration(t *testing.T) {
 
 	// Download the object
 	downloadPath := filepath.Join(tmpDir, "download.txt")
-	err = MinioGetObject(ctx, url, testAccessKey, testSecretKey, testBucket, "test/upload.txt", downloadPath)
+	err = MinioGetObject(ctx, url, testAccessKey, testSecretKey, testRegion, testBucket, "test/upload.txt", downloadPath)
 	require.NoError(t, err)
 
 	// Verify downloaded content
@@ -146,7 +146,7 @@ func TestMinioGetObject_Integration_NonExistent(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	downloadPath := filepath.Join(tmpDir, "nonexistent.txt")
-	err := MinioGetObject(ctx, url, testAccessKey, testSecretKey, testBucket, "nonexistent/file.txt", downloadPath)
+	err := MinioGetObject(ctx, url, testAccessKey, testSecretKey, testRegion, testBucket, "nonexistent/file.txt", downloadPath)
 	assert.Error(t, err)
 	// MinioGetObject returns custom error message for missing objects
 	assert.Contains(t, err.Error(), "not found")
@@ -172,7 +172,7 @@ func TestMinioListObjects_Integration(t *testing.T) {
 	}
 
 	// List objects
-	objects, err := MinioListObjects(ctx, url, testAccessKey, testSecretKey, testBucket)
+	objects, err := MinioListObjects(ctx, url, testAccessKey, testSecretKey, testRegion, testBucket)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(objects), 3, "Should have at least 3 objects")
 
@@ -293,7 +293,7 @@ func TestHetznerUploadMultipleFiles_Integration_FullUpload(t *testing.T) {
 	assert.Equal(t, 0, summary.SkippedCount)
 
 	// Verify all files were uploaded
-	objects, err := MinioListObjects(ctx, url, testAccessKey, testSecretKey, testBucket)
+	objects, err := MinioListObjects(ctx, url, testAccessKey, testSecretKey, testRegion, testBucket)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(objects), 3)
 }
@@ -436,7 +436,7 @@ func TestConcurrentUploads_Integration(t *testing.T) {
 	assert.Equal(t, 0, summary.ErrorCount)
 
 	// Verify all files exist in storage
-	objects, err := MinioListObjects(ctx, url, testAccessKey, testSecretKey, testBucket)
+	objects, err := MinioListObjects(ctx, url, testAccessKey, testSecretKey, testRegion, testBucket)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(objects), numFiles)
 }

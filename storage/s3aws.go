@@ -333,6 +333,7 @@ func LakeFSListObjects(ctx context.Context, url, accessKey, secretKey, bucket, b
 //   - url: MinIO server endpoint URL for API communication
 //   - accessKey: Access key for MinIO authentication
 //   - secretKey: Secret key for MinIO authentication
+//   - region: S3 region for bucket location
 //   - bucket: MinIO bucket name containing the object
 //   - remoteObject: Object key (path) within the bucket
 //   - localObject: Local filesystem path for the downloaded object
@@ -372,8 +373,7 @@ func LakeFSListObjects(ctx context.Context, url, accessKey, secretKey, bucket, b
 //	- Object not found conditions with specific handling
 //	- Local filesystem and I/O errors
 //	- Network connectivity and timeout issues
-func MinioGetObject(ctx context.Context, url, accessKey, secretKey, bucket, remoteObject, localObject string) error {
-	region := "us-east-1"
+func MinioGetObject(ctx context.Context, url, accessKey, secretKey, region, bucket, remoteObject, localObject string) error {
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
@@ -455,6 +455,7 @@ func MinioGetObject(ctx context.Context, url, accessKey, secretKey, bucket, remo
 //   - url: MinIO server endpoint URL for API communication
 //   - accessKey: Access key for MinIO authentication
 //   - secretKey: Secret key for MinIO authentication
+//   - region: S3 region for bucket location
 //   - bucket: MinIO bucket name containing objects for download
 //   - remotePrefix: Remote object prefix for filtering downloads
 //   - localDir: Local directory path for downloaded objects
@@ -480,8 +481,7 @@ func MinioGetObject(ctx context.Context, url, accessKey, secretKey, bucket, remo
 //   - Network bandwidth and latency affect download speeds
 //   - Local storage I/O performance impacts overall throughput
 //   - Consider implementing concurrent downloads for improved performance
-func MinioGetObjectRecursive(ctx context.Context, url, accessKey, secretKey, bucket, remotePrefix, localDir string) error {
-	region := "us-east-1"
+func MinioGetObjectRecursive(ctx context.Context, url, accessKey, secretKey, region, bucket, remotePrefix, localDir string) error {
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
@@ -516,7 +516,7 @@ func MinioGetObjectRecursive(ctx context.Context, url, accessKey, secretKey, buc
 	// Download each object preserving directory structure
 	for _, item := range output.Contents {
 		localPath := filepath.Join(localDir, *item.Key)
-		if err := MinioGetObject(ctx, url, accessKey, secretKey, bucket, *item.Key, localPath); err != nil {
+		if err := MinioGetObject(ctx, url, accessKey, secretKey, region, bucket, *item.Key, localPath); err != nil {
 			return fmt.Errorf("failed to download %s: %w", *item.Key, err)
 		}
 	}
@@ -540,6 +540,7 @@ func MinioGetObjectRecursive(ctx context.Context, url, accessKey, secretKey, buc
 //   - url: MinIO server endpoint URL for API communication
 //   - accessKey: Access key for MinIO authentication
 //   - secretKey: Secret key for MinIO authentication
+//   - region: S3 region for bucket location
 //   - bucket: MinIO bucket name for object enumeration
 //
 // Returns:
@@ -552,8 +553,7 @@ func MinioGetObjectRecursive(ctx context.Context, url, accessKey, secretKey, buc
 //   - Compliance and audit trail generation
 //   - Data lifecycle management and cleanup planning
 //   - Storage cost analysis and optimization
-func MinioListObjects(ctx context.Context, url, accessKey, secretKey, bucket string) ([]types.Object, error) {
-	region := "us-east-1"
+func MinioListObjects(ctx context.Context, url, accessKey, secretKey, region, bucket string) ([]types.Object, error) {
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
