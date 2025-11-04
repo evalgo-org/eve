@@ -449,6 +449,7 @@ func MinioGetObject(ctx context.Context, url, accessKey, secretKey, region, buck
 //   - Downloads each object preserving directory structure
 //   - Supports large-scale data synchronization operations
 //   - Handles partial failures gracefully
+//   - Filters files based on exclude patterns (e.g., skip .pdf files)
 //
 // Parameters:
 //   - ctx: Context for operation cancellation and timeout control
@@ -459,6 +460,7 @@ func MinioGetObject(ctx context.Context, url, accessKey, secretKey, region, buck
 //   - bucket: MinIO bucket name containing objects for download
 //   - remotePrefix: Remote object prefix for filtering downloads
 //   - localDir: Local directory path for downloaded objects
+//   - excludePatterns: File patterns to exclude (e.g., ".pdf", ".tmp") - empty slice downloads all
 //
 // Returns:
 //   - error: Configuration, enumeration, or download failures
@@ -466,22 +468,24 @@ func MinioGetObject(ctx context.Context, url, accessKey, secretKey, region, buck
 // Download Process:
 //  1. Configure MinIO client with proper settings
 //  2. Enumerate all objects matching the prefix
-//  3. Download each object using MinioGetObject
-//  4. Preserve directory structure in local filesystem
-//  5. Handle errors comprehensively
+//  3. Filter out excluded file patterns
+//  4. Download each object using MinioGetObject
+//  5. Preserve directory structure in local filesystem
+//  6. Handle errors comprehensively
 //
 // Use Cases:
 //   - Complete bucket backup and disaster recovery
 //   - Data migration between MinIO instances
 //   - Local caching of remote object storage
 //   - Development environment data synchronization
+//   - Selective downloads excluding certain file types
 //
 // Performance Considerations:
 //   - Sequential downloads may be slow for large object counts
 //   - Network bandwidth and latency affect download speeds
 //   - Local storage I/O performance impacts overall throughput
 //   - Consider implementing concurrent downloads for improved performance
-func MinioGetObjectRecursive(ctx context.Context, url, accessKey, secretKey, region, bucket, remotePrefix, localDir string) error {
+func MinioGetObjectRecursive(ctx context.Context, url, accessKey, secretKey, region, bucket, remotePrefix, localDir string, excludePatterns []string) error {
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
@@ -515,7 +519,29 @@ func MinioGetObjectRecursive(ctx context.Context, url, accessKey, secretKey, reg
 
 	// Download each object preserving directory structure
 	for _, item := range output.Contents {
-		localPath := filepath.Join(localDir, *item.Key)
+		// Skip directory markers (keys ending with /)
+		if strings.HasSuffix(*item.Key, "/") {
+			continue
+		}
+
+		// Check if file matches any exclude pattern
+		shouldExclude := false
+		for _, pattern := range excludePatterns {
+			if pattern != "" && strings.HasSuffix(strings.ToLower(*item.Key), strings.ToLower(pattern)) {
+				shouldExclude = true
+				eve.Logger.Info("Skipping excluded file", *item.Key, pattern)
+				break
+			}
+		}
+		if shouldExclude {
+			continue
+		}
+
+		// Remove the remote prefix from the object key to avoid duplication
+		relPath := strings.TrimPrefix(*item.Key, remotePrefix)
+		relPath = strings.TrimPrefix(relPath, "/") // Remove leading slash if present
+
+		localPath := filepath.Join(localDir, relPath)
 		if err := MinioGetObject(ctx, url, accessKey, secretKey, region, bucket, *item.Key, localPath); err != nil {
 			return fmt.Errorf("failed to download %s: %w", *item.Key, err)
 		}
@@ -945,7 +971,13 @@ func HetznerUploadToRemote(ctx context.Context, client *s3.Client, uploader *man
 
 			// Convert path to S3 key format (Linux-style forward slashes)
 			key := strings.ReplaceAll(relPath, string(os.PathSeparator), "/")
-			result.ObjectKey = objectKey + "/" + key
+			// Normalize objectKey to avoid double slashes
+			normalizedObjectKey := strings.TrimSuffix(objectKey, "/")
+			if normalizedObjectKey != "" {
+				result.ObjectKey = normalizedObjectKey + "/" + key
+			} else {
+				result.ObjectKey = key
+			}
 
 			// Upload file with comprehensive error handling
 			if err := HetznerUploaderFile(ctx, uploader, bucket, filePath, result.ObjectKey); err != nil {
@@ -1083,7 +1115,13 @@ func HetznerSyncToRemote(ctx context.Context, client *s3.Client, uploader *manag
 			}
 
 			key := strings.ReplaceAll(relPath, string(os.PathSeparator), "/")
-			result.ObjectKey = objectKey + "/" + key
+			// Normalize objectKey to avoid double slashes
+			normalizedObjectKey := strings.TrimSuffix(objectKey, "/")
+			if normalizedObjectKey != "" {
+				result.ObjectKey = normalizedObjectKey + "/" + key
+			} else {
+				result.ObjectKey = key
+			}
 
 			// Calculate local file MD5 hash for comparison (using absolute path)
 			localMD5, err := CalculateMD5(path) // Fixed: Use absolute path

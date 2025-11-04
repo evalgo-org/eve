@@ -218,7 +218,7 @@ func TestMinioGetObjectRecursive_Integration(t *testing.T) {
 	}
 
 	// Download recursively
-	err := MinioGetObjectRecursive(ctx, url, testAccessKey, testSecretKey, testBucket, "prefix/", downloadDir)
+	err := MinioGetObjectRecursive(ctx, url, testAccessKey, testSecretKey, testRegion, testBucket, "prefix/", downloadDir, []string{})
 	require.NoError(t, err)
 
 	// Verify downloaded files
