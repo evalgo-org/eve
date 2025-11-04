@@ -37,14 +37,32 @@ func ParseMultipartSemanticRequest(r *http.Request) (*MultipartSemanticRequest, 
 	}
 
 	// Extract JSON-LD action from "action" field
-	actionFields, exists := form.Value["action"]
-	if !exists || len(actionFields) == 0 {
+	// It can be either a form value or a file upload
+	var actionJSON string
+
+	// Try form value first
+	if actionFields, exists := form.Value["action"]; exists && len(actionFields) > 0 {
+		actionJSON = actionFields[0]
+	} else if actionFiles, exists := form.File["action"]; exists && len(actionFiles) > 0 {
+		// Read from uploaded file
+		actionFile, err := actionFiles[0].Open()
+		if err != nil {
+			return nil, fmt.Errorf("failed to open action file: %w", err)
+		}
+		defer actionFile.Close()
+
+		actionBytes, err := io.ReadAll(actionFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read action file: %w", err)
+		}
+		actionJSON = string(actionBytes)
+	} else {
 		return nil, fmt.Errorf("missing 'action' field in multipart form")
 	}
 
 	// Parse the JSON-LD action
 	var actionData map[string]interface{}
-	if err := json.Unmarshal([]byte(actionFields[0]), &actionData); err != nil {
+	if err := json.Unmarshal([]byte(actionJSON), &actionData); err != nil {
 		return nil, fmt.Errorf("invalid JSON in action field: %w", err)
 	}
 
@@ -59,35 +77,35 @@ func ParseMultipartSemanticRequest(r *http.Request) (*MultipartSemanticRequest, 
 	switch actionType {
 	case "TransferAction":
 		var action TransferAction
-		if err := json.Unmarshal([]byte(actionFields[0]), &action); err != nil {
+		if err := json.Unmarshal([]byte(actionJSON), &action); err != nil {
 			return nil, fmt.Errorf("failed to parse TransferAction: %w", err)
 		}
 		parsedAction = &action
 
 	case "CreateAction":
 		var action CreateAction
-		if err := json.Unmarshal([]byte(actionFields[0]), &action); err != nil {
+		if err := json.Unmarshal([]byte(actionJSON), &action); err != nil {
 			return nil, fmt.Errorf("failed to parse CreateAction: %w", err)
 		}
 		parsedAction = &action
 
 	case "DeleteAction":
 		var action DeleteAction
-		if err := json.Unmarshal([]byte(actionFields[0]), &action); err != nil {
+		if err := json.Unmarshal([]byte(actionJSON), &action); err != nil {
 			return nil, fmt.Errorf("failed to parse DeleteAction: %w", err)
 		}
 		parsedAction = &action
 
 	case "UpdateAction":
 		var action UpdateAction
-		if err := json.Unmarshal([]byte(actionFields[0]), &action); err != nil {
+		if err := json.Unmarshal([]byte(actionJSON), &action); err != nil {
 			return nil, fmt.Errorf("failed to parse UpdateAction: %w", err)
 		}
 		parsedAction = &action
 
 	case "UploadAction":
 		var action UploadAction
-		if err := json.Unmarshal([]byte(actionFields[0]), &action); err != nil {
+		if err := json.Unmarshal([]byte(actionJSON), &action); err != nil {
 			return nil, fmt.Errorf("failed to parse UploadAction: %w", err)
 		}
 		parsedAction = &action

@@ -1,48 +1,69 @@
 package semantic
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/cayleygraph/cayley"
-	"github.com/cayleygraph/cayley/graph"
-	_ "github.com/cayleygraph/cayley/graph/kv/bolt" // BoltDB backend
-	"github.com/cayleygraph/quad"
+	"go.etcd.io/bbolt"
 )
 
-// WorkflowGraph wraps Cayley graph store for workflow metadata
+// WorkflowGraph wraps bbolt database for workflow metadata
 type WorkflowGraph struct {
-	store *cayley.Handle
+	db *bbolt.DB
 }
 
-// NewWorkflowGraph initializes a Cayley graph with BoltDB backend
+var (
+	workflowsBucket       = []byte("workflows")
+	workflowActionsBucket = []byte("workflow_actions")
+	actionWorkflowBucket  = []byte("action_workflow")
+)
+
+// NewWorkflowGraph initializes a bbolt database for workflow graph
 func NewWorkflowGraph(dbPath string) (*WorkflowGraph, error) {
-	// Use separate path for graph data (alongside BoltDB)
+	// Use separate path for graph data
 	graphPath := strings.TrimSuffix(dbPath, ".db") + "-graph.db"
 
-	// Initialize or open the graph store
-	err := graph.InitQuadStore("bolt", graphPath, nil)
-	if err != nil && err != graph.ErrDatabaseExists {
-		return nil, fmt.Errorf("failed to initialize graph store: %w", err)
-	}
-
-	// Open the store
-	store, err := cayley.NewGraph("bolt", graphPath, nil)
+	// Open bbolt database
+	db, err := bbolt.Open(graphPath, 0600, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open graph store: %w", err)
+		return nil, fmt.Errorf("failed to open graph database: %w", err)
 	}
 
-	return &WorkflowGraph{store: store}, nil
+	// Create buckets
+	err = db.Update(func(tx *bbolt.Tx) error {
+		if _, err := tx.CreateBucketIfNotExists(workflowsBucket); err != nil {
+			return err
+		}
+		if _, err := tx.CreateBucketIfNotExists(workflowActionsBucket); err != nil {
+			return err
+		}
+		if _, err := tx.CreateBucketIfNotExists(actionWorkflowBucket); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to create buckets: %w", err)
+	}
+
+	return &WorkflowGraph{db: db}, nil
 }
 
-// Close closes the graph store
+// Close closes the database
 func (g *WorkflowGraph) Close() error {
-	if g.store != nil {
-		return g.store.Close()
+	if g.db != nil {
+		return g.db.Close()
 	}
 	return nil
+}
+
+// WorkflowInfo contains workflow metadata
+type WorkflowInfo struct {
+	Identifier  string `json:"identifier"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
 }
 
 // ImportJSONLD imports a JSON-LD workflow document into the graph
@@ -68,153 +89,130 @@ func (g *WorkflowGraph) ImportJSONLD(workflowJSON []byte) error {
 		return fmt.Errorf("failed to parse workflow JSON: %w", err)
 	}
 
-	// Create triples for the workflow
-	workflowIRI := quad.IRI("workflow:" + workflow.Identifier)
-	schemaType := quad.IRI("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
-	schemaItemList := quad.IRI("https://schema.org/ItemList")
-	schemaIdentifier := quad.IRI("https://schema.org/identifier")
-	schemaName := quad.IRI("https://schema.org/name")
-	schemaItemListElement := quad.IRI("https://schema.org/itemListElement")
-	schemaItem := quad.IRI("https://schema.org/item")
-
-	quads := []quad.Quad{
-		quad.Make(workflowIRI, schemaType, schemaItemList, nil),
-		quad.Make(workflowIRI, schemaIdentifier, quad.String(workflow.Identifier), nil),
-		quad.Make(workflowIRI, schemaName, quad.String(workflow.Name), nil),
-	}
-
+	// Extract action IDs
+	var actionIDs []string
 	for _, element := range workflow.ItemListElement {
 		if element.Item.Identifier != "" {
-			itemIRI := quad.IRI("item:" + element.Item.Identifier)
-			quads = append(quads,
-				quad.Make(workflowIRI, schemaItemListElement, itemIRI, nil),
-				quad.Make(itemIRI, schemaItem, quad.String(element.Item.Identifier), nil),
-				quad.Make(itemIRI, schemaIdentifier, quad.String(element.Item.Identifier), nil),
-			)
+			actionIDs = append(actionIDs, element.Item.Identifier)
 		}
 	}
 
-	if err := g.store.AddQuadSet(quads); err != nil {
-		return fmt.Errorf("failed to add quads to graph: %w", err)
-	}
+	// Store in database
+	return g.db.Update(func(tx *bbolt.Tx) error {
+		workflowsBkt := tx.Bucket(workflowsBucket)
+		actionsBkt := tx.Bucket(workflowActionsBucket)
+		reverseIdxBkt := tx.Bucket(actionWorkflowBucket)
 
-	return nil
+		// Store workflow info
+		info := WorkflowInfo{
+			Identifier:  workflow.Identifier,
+			Name:        workflow.Name,
+			Description: workflow.Description,
+		}
+		infoJSON, err := json.Marshal(info)
+		if err != nil {
+			return fmt.Errorf("failed to marshal workflow info: %w", err)
+		}
+		if err := workflowsBkt.Put([]byte(workflow.Identifier), infoJSON); err != nil {
+			return err
+		}
+
+		// Store workflow actions
+		actionsJSON, err := json.Marshal(actionIDs)
+		if err != nil {
+			return fmt.Errorf("failed to marshal action IDs: %w", err)
+		}
+		if err := actionsBkt.Put([]byte(workflow.Identifier), actionsJSON); err != nil {
+			return err
+		}
+
+		// Store reverse index (action -> workflow)
+		for _, actionID := range actionIDs {
+			if err := reverseIdxBkt.Put([]byte(actionID), []byte(workflow.Identifier)); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // GetWorkflowActions returns all action identifiers for a given workflow
 func (g *WorkflowGraph) GetWorkflowActions(workflowID string) ([]string, error) {
-	ctx := context.Background()
-
-	workflowIRI := quad.IRI("workflow:" + workflowID)
-	p := cayley.StartPath(g.store, workflowIRI).
-		Out(quad.IRI("https://schema.org/itemListElement")).
-		Out(quad.IRI("https://schema.org/item"))
-
 	var actionIDs []string
-	err := p.Iterate(ctx).EachValue(nil, func(value quad.Value) {
-		if str, ok := value.(quad.String); ok {
-			actionIDs = append(actionIDs, string(str))
+
+	err := g.db.View(func(tx *bbolt.Tx) error {
+		bkt := tx.Bucket(workflowActionsBucket)
+		data := bkt.Get([]byte(workflowID))
+		if data == nil {
+			return nil // No actions for this workflow
 		}
+
+		return json.Unmarshal(data, &actionIDs)
 	})
 
-	if err != nil {
-		return nil, fmt.Errorf("query failed: %w", err)
-	}
-
-	return actionIDs, nil
-}
-
-// WorkflowInfo contains workflow metadata
-type WorkflowInfo struct {
-	Identifier  string `json:"identifier"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	return actionIDs, err
 }
 
 // GetAllWorkflows returns all workflow identifiers and names
 func (g *WorkflowGraph) GetAllWorkflows() ([]WorkflowInfo, error) {
-	ctx := context.Background()
-
-	p := cayley.StartPath(g.store).
-		Has(quad.IRI("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"), quad.IRI("https://schema.org/ItemList"))
-
 	var workflows []WorkflowInfo
-	seen := make(map[string]bool)
 
-	err := p.Iterate(ctx).EachValue(nil, func(value quad.Value) {
-		workflowIRI := value.String()
-		if seen[workflowIRI] {
-			return
-		}
-		seen[workflowIRI] = true
-
-		info := WorkflowInfo{}
-
-		idPath := cayley.StartPath(g.store, value).
-			Out(quad.IRI("https://schema.org/identifier"))
-		idPath.Iterate(ctx).EachValue(nil, func(v quad.Value) {
-			if str, ok := v.(quad.String); ok {
-				info.Identifier = string(str)
+	err := g.db.View(func(tx *bbolt.Tx) error {
+		bkt := tx.Bucket(workflowsBucket)
+		return bkt.ForEach(func(k, v []byte) error {
+			var info WorkflowInfo
+			if err := json.Unmarshal(v, &info); err != nil {
+				return err
 			}
-		})
-
-		namePath := cayley.StartPath(g.store, value).
-			Out(quad.IRI("https://schema.org/name"))
-		namePath.Iterate(ctx).EachValue(nil, func(v quad.Value) {
-			if str, ok := v.(quad.String); ok {
-				info.Name = string(str)
-			}
-		})
-
-		if info.Identifier != "" {
 			workflows = append(workflows, info)
-		}
+			return nil
+		})
 	})
 
-	if err != nil {
-		return nil, fmt.Errorf("query failed: %w", err)
-	}
-
-	return workflows, nil
+	return workflows, err
 }
 
 // GetActionWorkflow returns the workflow identifier for a given action
 func (g *WorkflowGraph) GetActionWorkflow(actionID string) (string, error) {
-	ctx := context.Background()
-
-	p := cayley.StartPath(g.store).
-		Has(quad.IRI("https://schema.org/identifier"), quad.String(actionID)).
-		In(quad.IRI("https://schema.org/item")).
-		In(quad.IRI("https://schema.org/itemListElement")).
-		Out(quad.IRI("https://schema.org/identifier"))
-
 	var workflowID string
-	err := p.Iterate(ctx).EachValue(nil, func(value quad.Value) {
-		if str, ok := value.(quad.String); ok {
-			workflowID = string(str)
+
+	err := g.db.View(func(tx *bbolt.Tx) error {
+		bkt := tx.Bucket(actionWorkflowBucket)
+		data := bkt.Get([]byte(actionID))
+		if data != nil {
+			workflowID = string(data)
 		}
+		return nil
 	})
 
-	if err != nil {
-		return "", fmt.Errorf("query failed: %w", err)
-	}
-
-	return workflowID, nil
+	return workflowID, err
 }
 
-// DumpGraph prints all quads for debugging
+// DumpGraph prints all data for debugging
 func (g *WorkflowGraph) DumpGraph() error {
-	ctx := context.Background()
-	it := g.store.QuadsAllIterator()
-	defer it.Close()
+	return g.db.View(func(tx *bbolt.Tx) error {
+		fmt.Println("=== Graph Contents ===")
 
-	fmt.Println("=== Graph Contents ===")
-	for it.Next(ctx) {
-		q := g.store.Quad(it.Result())
-		fmt.Printf("S: %v | P: %v | O: %v | L: %v\n",
-			q.Subject, q.Predicate, q.Object, q.Label)
-	}
-	fmt.Println("=== End Graph ===")
+		fmt.Println("\n--- Workflows ---")
+		tx.Bucket(workflowsBucket).ForEach(func(k, v []byte) error {
+			fmt.Printf("Workflow %s: %s\n", k, v)
+			return nil
+		})
 
-	return it.Err()
+		fmt.Println("\n--- Workflow Actions ---")
+		tx.Bucket(workflowActionsBucket).ForEach(func(k, v []byte) error {
+			fmt.Printf("Workflow %s -> Actions: %s\n", k, v)
+			return nil
+		})
+
+		fmt.Println("\n--- Action to Workflow Index ---")
+		tx.Bucket(actionWorkflowBucket).ForEach(func(k, v []byte) error {
+			fmt.Printf("Action %s -> Workflow: %s\n", k, v)
+			return nil
+		})
+
+		fmt.Println("=== End Graph ===")
+		return nil
+	})
 }
