@@ -65,7 +65,7 @@ type WorkflowDefinition struct {
 	ID          string
 	Name        string
 	Description string
-	Type        WorkflowType // ItemList, HowTo, ScheduledAction
+	Type        WorkflowType // ItemList, HowTo, ScheduledAction, MapAction
 	Actions     []WorkflowAction
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -78,6 +78,7 @@ const (
 	WorkflowTypeItemList        WorkflowType = "ItemList"
 	WorkflowTypeHowTo           WorkflowType = "HowTo"
 	WorkflowTypeScheduledAction WorkflowType = "ScheduledAction"
+	WorkflowTypeMapAction       WorkflowType = "MapAction"
 )
 
 // WorkflowAction is an internal representation of an action in a workflow
