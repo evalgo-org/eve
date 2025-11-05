@@ -252,3 +252,23 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 		}
 	}
 }
+
+// GetPortInt parses a port from environment variable with a default fallback
+func GetPortInt(envVar string, defaultPort int) int {
+	portStr := ""
+	if envVar != "" {
+		portStr = envVar
+	}
+
+	if portStr == "" {
+		return defaultPort
+	}
+
+	var port int
+	_, err := fmt.Sscanf(portStr, "%d", &port)
+	if err != nil || port <= 0 || port > 65535 {
+		return defaultPort
+	}
+
+	return port
+}
