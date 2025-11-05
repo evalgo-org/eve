@@ -9,24 +9,26 @@ import (
 )
 
 // AuthUser represents an authenticated user with associated claims and permissions.
+// Semantic Schema.org Person type for user identity and authentication
 type AuthUser struct {
-	// ID is the unique identifier for the user (typically from "sub" claim)
-	ID string `json:"id"`
+	// JSON-LD semantic fields
+	Context string `json:"@context,omitempty"` // https://schema.org
+	Type    string `json:"@type,omitempty"`    // Person
 
-	// Username is the user's login name
-	Username string `json:"username,omitempty"`
+	// Schema.org Person properties
+	Identifier string `json:"identifier"`           // Unique user identifier (from "sub" claim)
+	Name       string `json:"name,omitempty"`       // Display name
+	Email      string `json:"email,omitempty"`      // Email address
+	GivenName  string `json:"givenName,omitempty"`  // First name (optional)
+	FamilyName string `json:"familyName,omitempty"` // Last name (optional)
 
-	// Email is the user's email address
-	Email string `json:"email,omitempty"`
+	// Authentication & Authorization properties
+	Username string                 `json:"username,omitempty"` // Login name
+	Scopes   []string               `json:"scopes,omitempty"`   // Authorization scopes
+	Claims   map[string]interface{} `json:"claims,omitempty"`   // JWT/OIDC claims
 
-	// Name is the user's display name
-	Name string `json:"name,omitempty"`
-
-	// Scopes contains the authorization scopes granted to the user
-	Scopes []string `json:"scopes,omitempty"`
-
-	// Claims contains all JWT/OIDC claims for the user
-	Claims map[string]interface{} `json:"claims,omitempty"`
+	// Legacy fields (for backward compatibility - use Identifier instead)
+	ID string `json:"id,omitempty"` // Deprecated: use identifier
 }
 
 // Context keys for storing authentication data
