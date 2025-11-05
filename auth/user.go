@@ -3,16 +3,24 @@ package auth
 import "time"
 
 // User represents a user account in the system
+// Fully semantic with JSON-LD support (@context, @type)
+// CouchDB-compatible with _id and _rev fields
 type User struct {
+	// JSON-LD semantic fields
+	Context string `json:"@context,omitempty"` // JSON-LD context (https://schema.org)
+	Type    string `json:"@type,omitempty"`    // JSON-LD type (Person)
+
 	// Identity fields
-	ID       string `json:"id"`              // UUID
+	ID       string `json:"_id,omitempty"`   // UUID (CouchDB _id)
+	Rev      string `json:"_rev,omitempty"`  // CouchDB revision
 	Username string `json:"username"`        // Unique, 3-50 chars
 	Email    string `json:"email,omitempty"` // Optional, unique if provided
+	Name     string `json:"name,omitempty"`  // Display name
 
 	// Authentication fields
-	PasswordHash string   `json:"password_hash"`      // bcrypt hash
-	Roles        []string `json:"roles"`              // Array of role names
-	APIKeys      []string `json:"api_keys,omitempty"` // Hashed API keys (optional)
+	PasswordHash string   `json:"password_hash,omitempty"` // bcrypt hash (never sent to client)
+	Roles        []string `json:"roles"`                   // Array of role names
+	APIKeys      []string `json:"api_keys,omitempty"`      // Hashed API keys (optional)
 
 	// Account status
 	Enabled            bool `json:"enabled"`              // Account active/inactive
@@ -20,17 +28,13 @@ type User struct {
 	MustChangePassword bool `json:"must_change_password"` // Force password change
 	FailedLogins       int  `json:"failed_logins"`        // Failed login counter
 
-	// Metadata
-	Name        string     `json:"name,omitempty"` // Display name
+	// Timestamps
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 
-	// Storage-specific fields (optional)
-	Context  string                 `json:"@context,omitempty"` // JSON-LD context
-	Type     string                 `json:"@type,omitempty"`    // JSON-LD type
-	Rev      string                 `json:"_rev,omitempty"`     // CouchDB revision
-	Metadata map[string]interface{} `json:"metadata,omitempty"` // Extensible metadata
+	// Extensible metadata
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // UserResponse represents a user with sensitive fields removed
@@ -92,42 +96,52 @@ type UpdateUserRequest struct {
 }
 
 // RefreshToken represents a refresh token for token rotation
+// Fully semantic with JSON-LD support
 type RefreshToken struct {
-	ID         string     `json:"id"`      // UUID
-	UserID     string     `json:"user_id"` // Foreign key to User
-	Token      string     `json:"token"`   // Hashed refresh token
+	// JSON-LD semantic fields
+	Context string `json:"@context,omitempty"` // JSON-LD context
+	Type    string `json:"@type,omitempty"`    // JSON-LD type (RefreshToken)
+
+	// Identity fields
+	ID     string `json:"_id,omitempty"`  // UUID (CouchDB _id)
+	Rev    string `json:"_rev,omitempty"` // CouchDB revision
+	UserID string `json:"user_id"`        // Foreign key to User
+
+	// Token fields
+	Token      string     `json:"token"` // Hashed refresh token
 	ExpiresAt  time.Time  `json:"expires_at"`
 	CreatedAt  time.Time  `json:"created_at"`
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 	Revoked    bool       `json:"revoked"`
-
-	// Storage-specific fields (optional)
-	Context string `json:"@context,omitempty"`
-	Type    string `json:"@type,omitempty"`
-	Rev     string `json:"_rev,omitempty"`
 }
 
 // AuditLog represents an audit log entry
+// Fully semantic with JSON-LD support
 type AuditLog struct {
-	ID           string                 `json:"id"` // UUID or timestamp-based
-	Timestamp    time.Time              `json:"timestamp"`
-	UserID       string                 `json:"user_id,omitempty"`
-	Username     string                 `json:"username,omitempty"`
-	Action       string                 `json:"action"`             // login, logout, create_user, etc.
-	Resource     string                 `json:"resource,omitempty"` // user:username, container:id, etc.
-	ResourceID   string                 `json:"resource_id,omitempty"`
-	Method       string                 `json:"method,omitempty"` // HTTP method
-	Path         string                 `json:"path,omitempty"`   // API path
-	IPAddress    string                 `json:"ip_address,omitempty"`
-	UserAgent    string                 `json:"user_agent,omitempty"`
-	Success      bool                   `json:"success"`
-	ErrorMessage string                 `json:"error_message,omitempty"`
-	Details      map[string]interface{} `json:"details,omitempty"`
+	// JSON-LD semantic fields
+	Context string `json:"@context,omitempty"` // JSON-LD context
+	Type    string `json:"@type,omitempty"`    // JSON-LD type (AuditLog)
 
-	// Storage-specific fields (optional)
-	Context string `json:"@context,omitempty"`
-	Type    string `json:"@type,omitempty"`
-	Rev     string `json:"_rev,omitempty"`
+	// Identity fields
+	ID  string `json:"_id,omitempty"`  // UUID or timestamp-based (CouchDB _id)
+	Rev string `json:"_rev,omitempty"` // CouchDB revision
+
+	// Audit fields
+	Timestamp    time.Time `json:"timestamp"`
+	UserID       string    `json:"user_id,omitempty"`
+	Username     string    `json:"username,omitempty"`
+	Action       string    `json:"action"`             // login, logout, create_user, etc.
+	Resource     string    `json:"resource,omitempty"` // user:username, container:id, etc.
+	ResourceID   string    `json:"resource_id,omitempty"`
+	Method       string    `json:"method,omitempty"` // HTTP method
+	Path         string    `json:"path,omitempty"`   // API path
+	IPAddress    string    `json:"ip_address,omitempty"`
+	UserAgent    string    `json:"user_agent,omitempty"`
+	Success      bool      `json:"success"`
+	ErrorMessage string    `json:"error_message,omitempty"`
+
+	// Extensible metadata
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // AuditSearchCriteria represents search criteria for audit logs
