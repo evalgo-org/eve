@@ -1,384 +1,349 @@
-// Package config provides common configuration loading and management utilities for EVE services.
-// This package includes standard environment variable loading, validation, and
-// configuration patterns used across the EVE ecosystem.
+// Package config provides comprehensive configuration management for EVE services.
+//
+// This package handles loading configuration from multiple sources with proper precedence:
+//   - YAML configuration files
+//   - Environment variables (configurable prefix)
+//   - .env files
+//   - Default values
+//
+// # Configuration Sources Priority
+//
+// Configuration is loaded in the following order (later sources override earlier ones):
+//  1. Default values (set via SetDefaults)
+//  2. Configuration files (./config.yaml, ./configs/config.yaml, ~/.eve/config.yaml, /etc/eve/config.yaml)
+//  3. .env files
+//  4. Environment variables (configurable prefix, default: EVE_)
+//
+// # Usage Example
+//
+//	cfg, err := config.LoadConfig("myservice", "config.yaml")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Printf("Server: %s:%d\n", cfg.Server.Host, cfg.Server.Port)
+//
+// # Environment Variables
+//
+// Environment variables override all other configuration sources.
+// Use prefix and underscores for nested keys:
+//   - MYSERVICE_SERVER_PORT=8095
+//   - MYSERVICE_DATABASE_URL=http://localhost:5984
+//   - MYSERVICE_DEBUG=true
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
-// EnvConfig provides utilities for loading configuration from environment variables
-type EnvConfig struct {
-	prefix string // Optional prefix for all environment variables
+// ServerConfig contains HTTP server configuration.
+type ServerConfig struct {
+	// Host is the server bind address (default: 0.0.0.0)
+	Host string `mapstructure:"host"`
+
+	// Port is the server listen port (default: 8080)
+	Port int `mapstructure:"port"`
+
+	// ReadTimeout is the maximum duration for reading requests
+	ReadTimeout time.Duration `mapstructure:"read_timeout"`
+
+	// WriteTimeout is the maximum duration for writing responses
+	WriteTimeout time.Duration `mapstructure:"write_timeout"`
+
+	// ShutdownTimeout is the maximum duration for graceful shutdown
+	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+
+	// Debug enables debug logging and additional endpoints
+	Debug bool `mapstructure:"debug"`
+
+	// TLSEnabled enables HTTPS
+	TLSEnabled bool `mapstructure:"tls_enabled"`
+
+	// TLSCert is the path to the TLS certificate file
+	TLSCert string `mapstructure:"tls_cert"`
+
+	// TLSKey is the path to the TLS private key file
+	TLSKey string `mapstructure:"tls_key"`
 }
 
-// NewEnvConfig creates a new environment configuration loader
-func NewEnvConfig(prefix string) *EnvConfig {
-	return &EnvConfig{
-		prefix: prefix,
+// DatabaseConfig contains database connection settings.
+type DatabaseConfig struct {
+	// URL is the database server URL (e.g., http://localhost:5984)
+	URL string `mapstructure:"url"`
+
+	// Database is the database name to use
+	Database string `mapstructure:"database"`
+
+	// Username for database authentication
+	Username string `mapstructure:"username"`
+
+	// Password for database authentication
+	Password string `mapstructure:"password"`
+
+	// MaxConnections is the maximum number of concurrent connections
+	MaxConnections int `mapstructure:"max_connections"`
+
+	// Timeout in seconds for database operations
+	Timeout int `mapstructure:"timeout"`
+
+	// CreateIfMissing automatically creates database if it doesn't exist
+	CreateIfMissing bool `mapstructure:"create_if_missing"`
+}
+
+// RegistryConfig contains service registry configuration.
+type RegistryConfig struct {
+	// URL is the registry service URL
+	URL string `mapstructure:"url"`
+
+	// HeartbeatInterval is the duration between heartbeats
+	HeartbeatInterval time.Duration `mapstructure:"heartbeat_interval"`
+
+	// Timeout for registry operations
+	Timeout time.Duration `mapstructure:"timeout"`
+}
+
+// LoggingConfig contains logging configuration.
+type LoggingConfig struct {
+	// Level is the log level (debug, info, warn, error)
+	Level string `mapstructure:"level"`
+
+	// Format is the log format (json, text)
+	Format string `mapstructure:"format"`
+
+	// Output is the log output destination (stdout, stderr, file)
+	Output string `mapstructure:"output"`
+
+	// MaxSize is the maximum log file size in megabytes
+	MaxSize int `mapstructure:"max_size"`
+
+	// MaxBackups is the maximum number of old log files to keep
+	MaxBackups int `mapstructure:"max_backups"`
+
+	// MaxAge is the maximum number of days to keep old log files
+	MaxAge int `mapstructure:"max_age"`
+}
+
+// SecurityConfig contains security and authentication settings.
+type SecurityConfig struct {
+	// RateLimit is the maximum requests per second per client
+	RateLimit int `mapstructure:"rate_limit"`
+
+	// AllowedOrigins are the CORS allowed origins
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
+
+	// APIKey for simple API key authentication
+	APIKey string `mapstructure:"api_key"`
+
+	// JWTSecret is the secret key for signing JWT tokens
+	JWTSecret string `mapstructure:"jwt_secret"`
+
+	// JWTExpiration is the JWT token expiration duration (default: 24h)
+	JWTExpiration time.Duration `mapstructure:"jwt_expiration"`
+
+	// RefreshTokenExpiration is the refresh token expiration duration (default: 7 days)
+	RefreshTokenExpiration time.Duration `mapstructure:"refresh_token_expiration"`
+}
+
+// ServiceConfig contains service-specific metadata.
+type ServiceConfig struct {
+	// Name is the service name
+	Name string `mapstructure:"name"`
+
+	// Version is the service version
+	Version string `mapstructure:"version"`
+
+	// Environment is the deployment environment (development, staging, production)
+	Environment string `mapstructure:"environment"`
+}
+
+// Config is a flexible configuration structure for EVE services.
+// Services can embed this or use only the sections they need.
+type Config struct {
+	// Service contains service metadata
+	Service ServiceConfig `mapstructure:"service"`
+
+	// Server contains HTTP server configuration
+	Server ServerConfig `mapstructure:"server"`
+
+	// Database contains database connection settings
+	Database DatabaseConfig `mapstructure:"database"`
+
+	// Registry contains service registry settings
+	Registry RegistryConfig `mapstructure:"registry"`
+
+	// Logging contains logging settings
+	Logging LoggingConfig `mapstructure:"logging"`
+
+	// Security contains security settings
+	Security SecurityConfig `mapstructure:"security"`
+}
+
+// Loader provides configuration loading functionality.
+type Loader struct {
+	v      *viper.Viper
+	prefix string
+}
+
+// NewLoader creates a new configuration loader with the given environment prefix.
+// The prefix is used for environment variables (e.g., "MYSERVICE" -> "MYSERVICE_SERVER_PORT").
+func NewLoader(envPrefix string) *Loader {
+	return &Loader{
+		v:      viper.New(),
+		prefix: envPrefix,
 	}
 }
 
-// GetString retrieves a string value from environment with optional default
-func (ec *EnvConfig) GetString(key, defaultValue string) string {
-	fullKey := ec.buildKey(key)
-	if value := os.Getenv(fullKey); value != "" {
-		return value
+// SetDefaults sets default configuration values.
+// This should be called before Load().
+func (l *Loader) SetDefaults(defaults map[string]interface{}) {
+	for key, value := range defaults {
+		l.v.SetDefault(key, value)
 	}
-	return defaultValue
 }
 
-// MustGetString retrieves a required string value from environment or panics
-func (ec *EnvConfig) MustGetString(key string) string {
-	fullKey := ec.buildKey(key)
-	value := os.Getenv(fullKey)
-	if value == "" {
-		panic(fmt.Sprintf("required environment variable %s not set", fullKey))
-	}
-	return value
+// SetConfigDefaults sets standard EVE service defaults.
+func (l *Loader) SetConfigDefaults() {
+	l.v.SetDefault("server.host", "0.0.0.0")
+	l.v.SetDefault("server.port", 8080)
+	l.v.SetDefault("server.read_timeout", "30s")
+	l.v.SetDefault("server.write_timeout", "30s")
+	l.v.SetDefault("server.shutdown_timeout", "10s")
+	l.v.SetDefault("server.debug", false)
+	l.v.SetDefault("server.tls_enabled", false)
+
+	l.v.SetDefault("database.url", "http://localhost:5984")
+	l.v.SetDefault("database.database", "")
+	l.v.SetDefault("database.username", "")
+	l.v.SetDefault("database.password", "")
+	l.v.SetDefault("database.max_connections", 10)
+	l.v.SetDefault("database.timeout", 30)
+	l.v.SetDefault("database.create_if_missing", true)
+
+	l.v.SetDefault("registry.url", "http://localhost:8096")
+	l.v.SetDefault("registry.heartbeat_interval", "30s")
+	l.v.SetDefault("registry.timeout", "10s")
+
+	l.v.SetDefault("logging.level", "info")
+	l.v.SetDefault("logging.format", "json")
+	l.v.SetDefault("logging.output", "stdout")
+	l.v.SetDefault("logging.max_size", 100)
+	l.v.SetDefault("logging.max_backups", 3)
+	l.v.SetDefault("logging.max_age", 7)
+
+	l.v.SetDefault("security.rate_limit", 100)
+	l.v.SetDefault("security.allowed_origins", []string{"*"})
+	l.v.SetDefault("security.jwt_expiration", "24h")
+	l.v.SetDefault("security.refresh_token_expiration", "168h") // 7 days
 }
 
-// GetInt retrieves an integer value from environment with optional default
-func (ec *EnvConfig) GetInt(key string, defaultValue int) int {
-	fullKey := ec.buildKey(key)
-	if value := os.Getenv(fullKey); value != "" {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
+// Load reads configuration from file, .env, and environment variables.
+// If cfgFile is empty, searches for config.yaml in standard locations.
+//
+// Configuration precedence (highest to lowest):
+//  1. Environment variables (with prefix)
+//  2. .env file
+//  3. Configuration file
+//  4. Default values
+func (l *Loader) Load(cfgFile string, target interface{}) error {
+	// Set config file
+	if cfgFile != "" {
+		l.v.SetConfigFile(cfgFile)
+	} else {
+		l.v.SetConfigName("config")
+		l.v.SetConfigType("yaml")
+		l.v.AddConfigPath(".")
+		l.v.AddConfigPath("./configs")
+		l.v.AddConfigPath("$HOME/.eve")
+		l.v.AddConfigPath("/etc/eve")
+	}
+
+	// Read config file
+	if err := l.v.ReadInConfig(); err != nil {
+		// Only fail on non-NotFound errors for explicit file paths
+		if cfgFile != "" && !isFileNotFoundError(err) {
+			return fmt.Errorf("error reading config file: %w", err)
 		}
-	}
-	return defaultValue
-}
-
-// MustGetInt retrieves a required integer value from environment or panics
-func (ec *EnvConfig) MustGetInt(key string) int {
-	fullKey := ec.buildKey(key)
-	value := os.Getenv(fullKey)
-	if value == "" {
-		panic(fmt.Sprintf("required environment variable %s not set", fullKey))
-	}
-	intValue, err := strconv.Atoi(value)
-	if err != nil {
-		panic(fmt.Sprintf("environment variable %s is not a valid integer: %v", fullKey, err))
-	}
-	return intValue
-}
-
-// GetBool retrieves a boolean value from environment with optional default
-func (ec *EnvConfig) GetBool(key string, defaultValue bool) bool {
-	fullKey := ec.buildKey(key)
-	if value := os.Getenv(fullKey); value != "" {
-		boolValue, err := strconv.ParseBool(value)
-		if err == nil {
-			return boolValue
-		}
-	}
-	return defaultValue
-}
-
-// GetDuration retrieves a duration value from environment with optional default
-func (ec *EnvConfig) GetDuration(key string, defaultValue time.Duration) time.Duration {
-	fullKey := ec.buildKey(key)
-	if value := os.Getenv(fullKey); value != "" {
-		duration, err := time.ParseDuration(value)
-		if err == nil {
-			return duration
-		}
-	}
-	return defaultValue
-}
-
-// GetStringSlice retrieves a comma-separated string slice from environment
-func (ec *EnvConfig) GetStringSlice(key string, defaultValue []string) []string {
-	fullKey := ec.buildKey(key)
-	if value := os.Getenv(fullKey); value != "" {
-		parts := strings.Split(value, ",")
-		result := make([]string, 0, len(parts))
-		for _, part := range parts {
-			if trimmed := strings.TrimSpace(part); trimmed != "" {
-				result = append(result, trimmed)
+		// For auto-discovery, only fail on non-NotFound errors
+		if cfgFile == "" {
+			if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+				return fmt.Errorf("error reading config file: %w", err)
 			}
 		}
-		return result
 	}
-	return defaultValue
-}
 
-// buildKey builds the full environment variable key with optional prefix
-func (ec *EnvConfig) buildKey(key string) string {
-	if ec.prefix != "" {
-		return ec.prefix + "_" + key
+	// Merge .env file if present
+	l.v.SetConfigFile(".env")
+	l.v.SetConfigType("env")
+	_ = l.v.MergeInConfig() // Ignore if .env doesn't exist
+
+	// Setup environment variable binding
+	if l.prefix != "" {
+		l.v.SetEnvPrefix(l.prefix)
 	}
-	return key
-}
+	l.v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	l.v.AutomaticEnv()
 
-// ServerConfig contains common server configuration
-type ServerConfig struct {
-	Port            int
-	Host            string
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	ShutdownTimeout time.Duration
-	Debug           bool
-}
-
-// LoadServerConfig loads server configuration from environment
-func LoadServerConfig(prefix string) ServerConfig {
-	env := NewEnvConfig(prefix)
-	return ServerConfig{
-		Port:            env.GetInt("PORT", 8080),
-		Host:            env.GetString("HOST", "0.0.0.0"),
-		ReadTimeout:     env.GetDuration("READ_TIMEOUT", 30*time.Second),
-		WriteTimeout:    env.GetDuration("WRITE_TIMEOUT", 30*time.Second),
-		ShutdownTimeout: env.GetDuration("SHUTDOWN_TIMEOUT", 10*time.Second),
-		Debug:           env.GetBool("DEBUG", false),
+	// Unmarshal into target
+	if err := l.v.Unmarshal(target); err != nil {
+		return fmt.Errorf("unable to decode config: %w", err)
 	}
-}
 
-// DatabaseConfig contains common database configuration
-type DatabaseConfig struct {
-	URL             string
-	Database        string
-	Username        string
-	Password        string
-	MaxConnections  int
-	Timeout         time.Duration
-	CreateIfMissing bool
-}
-
-// LoadDatabaseConfig loads database configuration from environment
-func LoadDatabaseConfig(prefix string) DatabaseConfig {
-	env := NewEnvConfig(prefix)
-	return DatabaseConfig{
-		URL:             env.GetString("URL", "http://localhost:5984"),
-		Database:        env.GetString("DATABASE", ""),
-		Username:        env.GetString("USERNAME", ""),
-		Password:        env.GetString("PASSWORD", ""),
-		MaxConnections:  env.GetInt("MAX_CONNECTIONS", 10),
-		Timeout:         env.GetDuration("TIMEOUT", 30*time.Second),
-		CreateIfMissing: env.GetBool("CREATE_IF_MISSING", true),
-	}
-}
-
-// RegistryConfig contains registry service configuration
-type RegistryConfig struct {
-	URL               string
-	HeartbeatInterval time.Duration
-	Timeout           time.Duration
-}
-
-// LoadRegistryConfig loads registry configuration from environment
-func LoadRegistryConfig(prefix string) RegistryConfig {
-	env := NewEnvConfig(prefix)
-	return RegistryConfig{
-		URL:               env.GetString("URL", "http://localhost:8096"),
-		HeartbeatInterval: env.GetDuration("HEARTBEAT_INTERVAL", 30*time.Second),
-		Timeout:           env.GetDuration("TIMEOUT", 10*time.Second),
-	}
-}
-
-// ServiceConfig contains common service configuration
-type ServiceConfig struct {
-	Name        string
-	Version     string
-	Environment string
-	LogLevel    string
-	LogFormat   string
-}
-
-// LoadServiceConfig loads service configuration from environment
-func LoadServiceConfig(prefix string) ServiceConfig {
-	env := NewEnvConfig(prefix)
-	return ServiceConfig{
-		Name:        env.GetString("NAME", ""),
-		Version:     env.GetString("VERSION", "0.0.1"),
-		Environment: env.GetString("ENVIRONMENT", "development"),
-		LogLevel:    env.GetString("LOG_LEVEL", "info"),
-		LogFormat:   env.GetString("LOG_FORMAT", "text"),
-	}
-}
-
-// AuthConfig contains authentication configuration
-type AuthConfig struct {
-	APIKey        string
-	JWTSecret     string
-	JWTExpiry     time.Duration
-	SessionExpiry time.Duration
-}
-
-// LoadAuthConfig loads authentication configuration from environment
-func LoadAuthConfig(prefix string) AuthConfig {
-	env := NewEnvConfig(prefix)
-	return AuthConfig{
-		APIKey:        env.GetString("API_KEY", ""),
-		JWTSecret:     env.GetString("JWT_SECRET", ""),
-		JWTExpiry:     env.GetDuration("JWT_EXPIRY", 24*time.Hour),
-		SessionExpiry: env.GetDuration("SESSION_EXPIRY", 7*24*time.Hour),
-	}
-}
-
-// CORSConfig contains CORS configuration
-type CORSConfig struct {
-	AllowedOrigins []string
-	AllowedMethods []string
-	AllowedHeaders []string
-	MaxAge         time.Duration
-}
-
-// LoadCORSConfig loads CORS configuration from environment
-func LoadCORSConfig(prefix string) CORSConfig {
-	env := NewEnvConfig(prefix)
-	return CORSConfig{
-		AllowedOrigins: env.GetStringSlice("ALLOWED_ORIGINS", []string{"*"}),
-		AllowedMethods: env.GetStringSlice("ALLOWED_METHODS", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
-		AllowedHeaders: env.GetStringSlice("ALLOWED_HEADERS", []string{"Content-Type", "Authorization", "X-API-Key"}),
-		MaxAge:         env.GetDuration("MAX_AGE", 12*time.Hour),
-	}
-}
-
-// Validator provides configuration validation utilities
-type Validator struct {
-	errors []string
-}
-
-// NewValidator creates a new configuration validator
-func NewValidator() *Validator {
-	return &Validator{
-		errors: make([]string, 0),
-	}
-}
-
-// RequireString validates that a string field is not empty
-func (v *Validator) RequireString(field, value string) {
-	if value == "" {
-		v.errors = append(v.errors, fmt.Sprintf("%s is required", field))
-	}
-}
-
-// RequireInt validates that an integer field is within range
-func (v *Validator) RequireInt(field string, value, min, max int) {
-	if value < min || value > max {
-		v.errors = append(v.errors, fmt.Sprintf("%s must be between %d and %d", field, min, max))
-	}
-}
-
-// RequirePositiveInt validates that an integer field is positive
-func (v *Validator) RequirePositiveInt(field string, value int) {
-	if value <= 0 {
-		v.errors = append(v.errors, fmt.Sprintf("%s must be positive", field))
-	}
-}
-
-// RequireURL validates that a string is a valid URL
-func (v *Validator) RequireURL(field, value string) {
-	if value == "" {
-		v.errors = append(v.errors, fmt.Sprintf("%s is required", field))
-		return
-	}
-	if !strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://") {
-		v.errors = append(v.errors, fmt.Sprintf("%s must be a valid URL (http:// or https://)", field))
-	}
-}
-
-// RequireOneOf validates that a value is one of the allowed options
-func (v *Validator) RequireOneOf(field, value string, allowed []string) {
-	if value == "" {
-		v.errors = append(v.errors, fmt.Sprintf("%s is required", field))
-		return
-	}
-	for _, option := range allowed {
-		if value == option {
-			return
-		}
-	}
-	v.errors = append(v.errors, fmt.Sprintf("%s must be one of: %s", field, strings.Join(allowed, ", ")))
-}
-
-// IsValid returns true if there are no validation errors
-func (v *Validator) IsValid() bool {
-	return len(v.errors) == 0
-}
-
-// Errors returns all validation errors
-func (v *Validator) Errors() []string {
-	return v.errors
-}
-
-// ErrorString returns all validation errors as a single string
-func (v *Validator) ErrorString() string {
-	if len(v.errors) == 0 {
-		return ""
-	}
-	return strings.Join(v.errors, "; ")
-}
-
-// Validate runs validation and returns error if invalid
-func (v *Validator) Validate() error {
-	if !v.IsValid() {
-		return fmt.Errorf("configuration validation failed: %s", v.ErrorString())
-	}
 	return nil
 }
 
-// ConfigLoader provides a fluent interface for loading configuration
-type ConfigLoader struct {
-	prefix string
-	env    *EnvConfig
-}
+// LoadConfig is a convenience function that loads configuration with standard defaults.
+// The envPrefix is used for environment variables (e.g., "MYSERVICE" -> "MYSERVICE_SERVER_PORT").
+func LoadConfig(envPrefix, cfgFile string) (*Config, error) {
+	loader := NewLoader(envPrefix)
+	loader.SetConfigDefaults()
 
-// NewConfigLoader creates a new configuration loader
-func NewConfigLoader(prefix string) *ConfigLoader {
-	return &ConfigLoader{
-		prefix: prefix,
-		env:    NewEnvConfig(prefix),
-	}
-}
-
-// LoadAll loads all common configurations
-func (cl *ConfigLoader) LoadAll() (*AllConfig, error) {
-	config := &AllConfig{
-		Server:   LoadServerConfig(cl.prefix),
-		Database: LoadDatabaseConfig(cl.prefix + "_DB"),
-		Registry: LoadRegistryConfig(cl.prefix + "_REGISTRY"),
-		Service:  LoadServiceConfig(cl.prefix),
-		Auth:     LoadAuthConfig(cl.prefix + "_AUTH"),
-		CORS:     LoadCORSConfig(cl.prefix + "_CORS"),
-	}
-
-	// Validate configuration
-	if err := cl.validate(config); err != nil {
+	cfg := &Config{}
+	if err := loader.Load(cfgFile, cfg); err != nil {
 		return nil, err
 	}
 
-	return config, nil
+	if err := ValidateConfig(cfg); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
+	return cfg, nil
 }
 
-// validate validates the loaded configuration
-func (cl *ConfigLoader) validate(config *AllConfig) error {
-	validator := NewValidator()
+// ValidateConfig validates the loaded configuration.
+func ValidateConfig(cfg *Config) error {
+	if cfg.Server.Port < 1 || cfg.Server.Port > 65535 {
+		return fmt.Errorf("invalid server port: %d", cfg.Server.Port)
+	}
 
-	// Validate service config
-	validator.RequireString("Service.Name", config.Service.Name)
-	validator.RequireOneOf("Service.Environment", config.Service.Environment,
-		[]string{"development", "staging", "production"})
-	validator.RequireOneOf("Service.LogLevel", config.Service.LogLevel,
-		[]string{"debug", "info", "warn", "error"})
+	// Only validate database if it's configured
+	if cfg.Database.Database != "" {
+		if cfg.Database.URL == "" {
+			return fmt.Errorf("database url is required when database is specified")
+		}
+	}
 
-	// Validate server config
-	validator.RequirePositiveInt("Server.Port", config.Server.Port)
-
-	return validator.Validate()
+	return nil
 }
 
-// AllConfig contains all common configurations
-type AllConfig struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Registry RegistryConfig
-	Service  ServiceConfig
-	Auth     AuthConfig
-	CORS     CORSConfig
+// BuildDatabaseURL constructs the full database URL with authentication.
+func (c *DatabaseConfig) BuildURL() string {
+	if c.Username != "" && c.Password != "" {
+		url := strings.Replace(c.URL, "://", "://"+c.Username+":"+c.Password+"@", 1)
+		return url
+	}
+	return c.URL
+}
+
+// isFileNotFoundError checks if an error is a file not found error.
+func isFileNotFoundError(err error) bool {
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		return errors.Is(pathErr, os.ErrNotExist)
+	}
+	return false
 }
