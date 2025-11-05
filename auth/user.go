@@ -1,6 +1,10 @@
 package auth
 
-import "time"
+import (
+	"time"
+
+	"eve.evalgo.org/semantic"
+)
 
 // User represents a user account in the system
 // Fully semantic with JSON-LD support (@context, @type)
@@ -121,7 +125,8 @@ func (rt *RefreshToken) IsValid() bool {
 }
 
 // AuditLog represents an audit log entry as a Schema.org Action
-// Semantic representation of audit events following Schema.org Action pattern
+// Uses canonical semantic types from eve.evalgo.org/semantic for workflow compatibility
+// FULLY WORKFLOW-COMPATIBLE: Can be executed as part of when workflows
 type AuditLog struct {
 	// JSON-LD semantic fields
 	Context string `json:"@context,omitempty"` // https://schema.org
@@ -137,73 +142,31 @@ type AuditLog struct {
 	StartTime    time.Time  `json:"startTime"`         // When action occurred
 	EndTime      *time.Time `json:"endTime,omitempty"` // When action completed (optional)
 
-	// Agent (who performed the action)
-	Agent *AuditAgent `json:"agent,omitempty"` // Person who performed action
+	// CANONICAL SEMANTIC TYPES (workflow-compatible)
+	Agent      *semantic.SemanticAgent      `json:"agent,omitempty"`      // Person who performed action
+	Object     *semantic.SemanticObject     `json:"object,omitempty"`     // Resource targeted
+	Target     *semantic.EntryPoint         `json:"target,omitempty"`     // HTTP endpoint details (for workflow compat)
+	Instrument *semantic.SemanticInstrument `json:"instrument,omitempty"` // Tool/client used
+	Result     *semantic.SemanticResult     `json:"result,omitempty"`     // Success result
+	Error      *semantic.SemanticError      `json:"error,omitempty"`      // Error details if failed
 
-	// Object (what was acted upon)
-	Object *AuditObject `json:"object,omitempty"` // Resource targeted
-
-	// Instrument (how it was done)
-	Instrument *AuditInstrument `json:"instrument,omitempty"` // HTTP request details
-
-	// Result or Error
-	Result *AuditResult `json:"result,omitempty"` // Success result
-	Error  *AuditError  `json:"error,omitempty"`  // Error details if failed
+	// Additional properties
+	Properties map[string]interface{} `json:"additionalProperty,omitempty"` // Extra metadata
 
 	// Legacy fields (for backward compatibility)
 	Timestamp    time.Time              `json:"timestamp,omitempty"`     // Deprecated: use startTime
-	UserID       string                 `json:"user_id,omitempty"`       // Deprecated: use agent.identifier
+	UserID       string                 `json:"user_id,omitempty"`       // Deprecated: use agent (no identifier field in SemanticAgent)
 	Username     string                 `json:"username,omitempty"`      // Deprecated: use agent.name
 	Action       string                 `json:"action,omitempty"`        // Deprecated: use name
 	Resource     string                 `json:"resource,omitempty"`      // Deprecated: use object
 	ResourceID   string                 `json:"resource_id,omitempty"`   // Deprecated: use object.identifier
-	Method       string                 `json:"method,omitempty"`        // Deprecated: use instrument.httpMethod
-	Path         string                 `json:"path,omitempty"`          // Deprecated: use instrument.url
-	IPAddress    string                 `json:"ip_address,omitempty"`    // Deprecated: use instrument.ipAddress
-	UserAgent    string                 `json:"user_agent,omitempty"`    // Deprecated: use instrument.userAgent
+	Method       string                 `json:"method,omitempty"`        // Deprecated: use target.httpMethod
+	Path         string                 `json:"path,omitempty"`          // Deprecated: use target.url
+	IPAddress    string                 `json:"ip_address,omitempty"`    // Deprecated: use properties.ipAddress
+	UserAgent    string                 `json:"user_agent,omitempty"`    // Deprecated: use instrument.name
 	Success      bool                   `json:"success,omitempty"`       // Deprecated: use actionStatus
-	ErrorMessage string                 `json:"error_message,omitempty"` // Deprecated: use error.description
+	ErrorMessage string                 `json:"error_message,omitempty"` // Deprecated: use error.message
 	Metadata     map[string]interface{} `json:"metadata,omitempty"`      // Deprecated: use additionalProperty
-}
-
-// AuditAgent represents the person who performed the audited action
-type AuditAgent struct {
-	Type       string `json:"@type"`           // Person
-	Identifier string `json:"identifier"`      // User ID
-	Name       string `json:"name,omitempty"`  // Username
-	Email      string `json:"email,omitempty"` // User email
-}
-
-// AuditObject represents the resource that was acted upon
-type AuditObject struct {
-	Type       string `json:"@type"`          // Thing or specific type
-	Identifier string `json:"identifier"`     // Resource ID
-	Name       string `json:"name,omitempty"` // Resource name/description
-	URL        string `json:"url,omitempty"`  // Resource URL
-}
-
-// AuditInstrument represents how the action was performed (HTTP request details)
-type AuditInstrument struct {
-	Type       string `json:"@type"`                // SoftwareApplication or WebAPI
-	HTTPMethod string `json:"httpMethod,omitempty"` // GET, POST, etc.
-	URL        string `json:"url,omitempty"`        // API path
-	IPAddress  string `json:"ipAddress,omitempty"`  // Client IP
-	UserAgent  string `json:"userAgent,omitempty"`  // Browser/client
-}
-
-// AuditResult represents a successful audit action result
-type AuditResult struct {
-	Type        string                 `json:"@type"`                 // Thing
-	Name        string                 `json:"name"`                  // Result summary
-	Description string                 `json:"description,omitempty"` // Detailed description
-	Value       map[string]interface{} `json:"value,omitempty"`       // Structured result data
-}
-
-// AuditError represents an audit action error
-type AuditError struct {
-	Type        string `json:"@type"`       // Thing
-	Name        string `json:"name"`        // Error type/code
-	Description string `json:"description"` // Error message
 }
 
 // AuditSearchCriteria represents search criteria for audit logs

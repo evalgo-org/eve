@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"eve.evalgo.org/semantic"
 	"github.com/google/uuid"
 )
 
@@ -472,21 +473,24 @@ func (s *authService) audit(action, username, userID string, success bool, messa
 		ErrorMessage: message,
 	}
 
-	// Create semantic agent if user info available
+	// Create semantic agent if user info available (CANONICAL TYPE)
 	if userID != "" || username != "" {
-		log.Agent = &AuditAgent{
-			Type:       "Person",
-			Identifier: userID,
-			Name:       username,
+		log.Agent = &semantic.SemanticAgent{
+			Type: "Person",
+			Name: username,
 		}
+		// Store userID in properties since SemanticAgent doesn't have identifier field
+		if log.Properties == nil {
+			log.Properties = make(map[string]interface{})
+		}
+		log.Properties["userId"] = userID
 	}
 
-	// Create semantic error if failed
+	// Create semantic error if failed (CANONICAL TYPE)
 	if !success && message != "" {
-		log.Error = &AuditError{
-			Type:        "Thing",
-			Name:        action + "_error",
-			Description: message,
+		log.Error = &semantic.SemanticError{
+			Type:    "Error",
+			Message: message,
 		}
 	}
 
