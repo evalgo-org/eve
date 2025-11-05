@@ -115,6 +115,11 @@ type RefreshToken struct {
 	Revoked    bool       `json:"revoked"`
 }
 
+// IsValid checks if the refresh token is still valid (not expired and not revoked)
+func (rt *RefreshToken) IsValid() bool {
+	return !rt.Revoked && time.Now().Before(rt.ExpiresAt)
+}
+
 // AuditLog represents an audit log entry
 // Fully semantic with JSON-LD support
 type AuditLog struct {
