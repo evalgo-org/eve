@@ -84,6 +84,16 @@ func SetErrorOnAction(action interface{}, message string) {
 		v.Error = &PropertyValue{Type: "PropertyValue", Name: "error", Value: message}
 		v.EndTime = now
 
+	// SemanticAction - universal type, uses SemanticError and *time.Time
+	case *SemanticAction:
+		v.ActionStatus = "FailedActionStatus"
+		v.Error = &SemanticError{
+			Type:    "Error",
+			Message: message,
+		}
+		nowTime := time.Now()
+		v.EndTime = &nowTime
+
 	// Canonical action - uses SemanticThing for Error, *time.Time for EndTime
 	case *CanonicalSemanticAction:
 		v.ActionStatus = "FailedActionStatus"
@@ -220,6 +230,12 @@ func SetSuccessOnAction(action interface{}) {
 	case *BuildAction:
 		v.ActionStatus = "CompletedActionStatus"
 		v.EndTime = now
+
+	// SemanticAction - universal type
+	case *SemanticAction:
+		v.ActionStatus = "CompletedActionStatus"
+		nowTime := time.Now()
+		v.EndTime = &nowTime
 
 	// Canonical action
 	case *CanonicalSemanticAction:

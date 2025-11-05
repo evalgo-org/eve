@@ -167,6 +167,7 @@ type Volume struct {
 // ============================================================================
 
 // ParseContainerAction parses a JSON-LD container action
+// NEW: Now supports both legacy specific types AND SemanticAction
 func ParseContainerAction(data []byte) (interface{}, error) {
 	var typeCheck struct {
 		Type string `json:"@type"`
@@ -178,46 +179,91 @@ func ParseContainerAction(data []byte) (interface{}, error) {
 
 	switch typeCheck.Type {
 	case "ActivateAction":
-		var action ActivateAction
-		if err := json.Unmarshal(data, &action); err != nil {
+		// Try SemanticAction first (new way), fall back to ActivateAction (legacy)
+		var action SemanticAction
+		if err := json.Unmarshal(data, &action); err == nil {
+			// Check if it has container-specific properties
+			if action.Properties != nil && action.Properties["object"] != nil {
+				return &action, nil // This is a SemanticAction
+			}
+		}
+
+		// Fall back to legacy ActivateAction
+		var legacyAction ActivateAction
+		if err := json.Unmarshal(data, &legacyAction); err != nil {
 			return nil, fmt.Errorf("failed to parse ActivateAction: %w", err)
 		}
-		return &action, nil
+		return &legacyAction, nil
 
 	case "DeactivateAction":
-		var action DeactivateAction
-		if err := json.Unmarshal(data, &action); err != nil {
+		// Try SemanticAction first, fall back to legacy
+		var action SemanticAction
+		if err := json.Unmarshal(data, &action); err == nil {
+			if action.Properties != nil && action.Properties["object"] != nil {
+				return &action, nil
+			}
+		}
+		var legacyAction DeactivateAction
+		if err := json.Unmarshal(data, &legacyAction); err != nil {
 			return nil, fmt.Errorf("failed to parse DeactivateAction: %w", err)
 		}
-		return &action, nil
+		return &legacyAction, nil
 
 	case "DownloadAction":
-		var action DownloadAction
-		if err := json.Unmarshal(data, &action); err != nil {
+		// Try SemanticAction first, fall back to legacy
+		var action SemanticAction
+		if err := json.Unmarshal(data, &action); err == nil {
+			if action.Properties != nil && action.Properties["object"] != nil {
+				return &action, nil
+			}
+		}
+		var legacyAction DownloadAction
+		if err := json.Unmarshal(data, &legacyAction); err != nil {
 			return nil, fmt.Errorf("failed to parse DownloadAction: %w", err)
 		}
-		return &action, nil
+		return &legacyAction, nil
 
 	case "CreateAction": // BuildAction
-		var action BuildAction
-		if err := json.Unmarshal(data, &action); err != nil {
+		// Try SemanticAction first, fall back to legacy BuildAction
+		var action SemanticAction
+		if err := json.Unmarshal(data, &action); err == nil {
+			if action.Properties != nil && (action.Properties["result"] != nil || action.Properties["object"] != nil) {
+				return &action, nil
+			}
+		}
+		var legacyAction BuildAction
+		if err := json.Unmarshal(data, &legacyAction); err != nil {
 			return nil, fmt.Errorf("failed to parse BuildAction: %w", err)
 		}
-		return &action, nil
+		return &legacyAction, nil
 
 	case "ConnectAction": // NetworkAction
-		var action NetworkAction
-		if err := json.Unmarshal(data, &action); err != nil {
+		// Try SemanticAction first, fall back to legacy
+		var action SemanticAction
+		if err := json.Unmarshal(data, &action); err == nil {
+			if action.Properties != nil {
+				return &action, nil
+			}
+		}
+		var legacyAction NetworkAction
+		if err := json.Unmarshal(data, &legacyAction); err != nil {
 			return nil, fmt.Errorf("failed to parse NetworkAction: %w", err)
 		}
-		return &action, nil
+		return &legacyAction, nil
 
 	case "AssignAction": // VolumeAction
-		var action VolumeAction
-		if err := json.Unmarshal(data, &action); err != nil {
+		// Try SemanticAction first, fall back to legacy
+		var action SemanticAction
+		if err := json.Unmarshal(data, &action); err == nil {
+			if action.Properties != nil && action.Properties["object"] != nil {
+				return &action, nil
+			}
+		}
+		var legacyAction VolumeAction
+		if err := json.Unmarshal(data, &legacyAction); err != nil {
 			return nil, fmt.Errorf("failed to parse VolumeAction: %w", err)
 		}
-		return &action, nil
+		return &legacyAction, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported container action type: %s", typeCheck.Type)
@@ -253,6 +299,128 @@ func NewActivateAction(id, name string, container *Container, target *ComputeNod
 		Target:       target,
 		ActionStatus: "PotentialActionStatus",
 	}
+}
+
+// NewSemanticActivateAction creates a container deployment action using SemanticAction
+// This is the new recommended way - provides full semantic action capabilities
+func NewSemanticActivateAction(id, name string, container *Container, target *ComputeNode) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "ActivateAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	// Store container-specific data in Properties
+	if container != nil {
+		action.Properties["object"] = container
+	}
+	if target != nil {
+		action.Properties["target"] = target
+	}
+
+	return action
+}
+
+// NewSemanticBuildAction creates a container image build action using SemanticAction
+func NewSemanticBuildAction(id, name string, resultImage *ContainerImage, sourceCode *SourceCode) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "CreateAction", // BuildAction uses CreateAction in Schema.org
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if resultImage != nil {
+		action.Properties["result"] = resultImage
+	}
+	if sourceCode != nil {
+		action.Properties["object"] = sourceCode
+	}
+
+	return action
+}
+
+// NewSemanticDeactivateAction creates a container stop action using SemanticAction
+func NewSemanticDeactivateAction(id, name string, container *Container) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "DeactivateAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if container != nil {
+		action.Properties["object"] = container
+	}
+
+	return action
+}
+
+// NewSemanticDownloadAction creates an image pull action using SemanticAction
+func NewSemanticDownloadAction(id, name string, image *ContainerImage, registry *ContainerRegistry) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "DownloadAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if image != nil {
+		action.Properties["object"] = image
+	}
+	if registry != nil {
+		action.Properties["fromLocation"] = registry
+	}
+
+	return action
+}
+
+// NewSemanticNetworkAction creates a network connection action using SemanticAction
+func NewSemanticNetworkAction(id, name string, object interface{}) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "ConnectAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if object != nil {
+		action.Properties["object"] = object
+	}
+
+	return action
+}
+
+// NewSemanticVolumeAction creates a volume mount action using SemanticAction
+func NewSemanticVolumeAction(id, name string, volume *Volume, targetContainer *Container) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "AssignAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if volume != nil {
+		action.Properties["object"] = volume
+	}
+	if targetContainer != nil {
+		action.Properties["target"] = targetContainer
+	}
+
+	return action
 }
 
 // NewDeactivateAction creates a new container stop action
@@ -304,4 +472,201 @@ func ExtractImageName(image *ContainerImage) string {
 	}
 
 	return image.Identifier
+}
+
+// ============================================================================
+// SemanticAction Helper Functions for Container Operations
+// ============================================================================
+
+// GetContainerFromAction extracts Container from SemanticAction properties
+func GetContainerFromAction(action *SemanticAction) (*Container, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	obj, ok := action.Properties["object"]
+	if !ok {
+		return nil, fmt.Errorf("no object found in action properties")
+	}
+
+	// Handle type assertion - could be Container or map[string]interface{}
+	switch v := obj.(type) {
+	case *Container:
+		return v, nil
+	case Container:
+		return &v, nil
+	case map[string]interface{}:
+		// Convert map to Container via JSON marshaling
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal container: %w", err)
+		}
+		var container Container
+		if err := json.Unmarshal(data, &container); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal container: %w", err)
+		}
+		return &container, nil
+	default:
+		return nil, fmt.Errorf("unexpected object type: %T", obj)
+	}
+}
+
+// GetTargetFromAction extracts ComputeNode target from SemanticAction properties
+func GetTargetFromAction(action *SemanticAction) (*ComputeNode, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	target, ok := action.Properties["target"]
+	if !ok {
+		return nil, nil // Target is optional
+	}
+
+	// Handle type assertion
+	switch v := target.(type) {
+	case *ComputeNode:
+		return v, nil
+	case ComputeNode:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal target: %w", err)
+		}
+		var node ComputeNode
+		if err := json.Unmarshal(data, &node); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal target: %w", err)
+		}
+		return &node, nil
+	default:
+		return nil, fmt.Errorf("unexpected target type: %T", target)
+	}
+}
+
+// GetImageFromAction extracts ContainerImage from SemanticAction properties
+func GetImageFromAction(action *SemanticAction) (*ContainerImage, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	// Try "object" first (for DownloadAction), then "result" (for BuildAction)
+	obj, hasObject := action.Properties["object"]
+	if !hasObject {
+		obj, hasObject = action.Properties["result"]
+		if !hasObject {
+			return nil, fmt.Errorf("no object or result found in action properties")
+		}
+	}
+
+	switch v := obj.(type) {
+	case *ContainerImage:
+		return v, nil
+	case ContainerImage:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal image: %w", err)
+		}
+		var image ContainerImage
+		if err := json.Unmarshal(data, &image); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal image: %w", err)
+		}
+		return &image, nil
+	default:
+		return nil, fmt.Errorf("unexpected image type: %T", obj)
+	}
+}
+
+// GetSourceCodeFromAction extracts SourceCode from SemanticAction properties
+func GetSourceCodeFromAction(action *SemanticAction) (*SourceCode, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	obj, ok := action.Properties["object"]
+	if !ok {
+		return nil, fmt.Errorf("no object found in action properties")
+	}
+
+	switch v := obj.(type) {
+	case *SourceCode:
+		return v, nil
+	case SourceCode:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal source code: %w", err)
+		}
+		var sourceCode SourceCode
+		if err := json.Unmarshal(data, &sourceCode); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal source code: %w", err)
+		}
+		return &sourceCode, nil
+	default:
+		return nil, fmt.Errorf("unexpected source code type: %T", obj)
+	}
+}
+
+// GetVolumeFromAction extracts Volume from SemanticAction properties
+func GetVolumeFromAction(action *SemanticAction) (*Volume, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	obj, ok := action.Properties["object"]
+	if !ok {
+		return nil, fmt.Errorf("no object found in action properties")
+	}
+
+	switch v := obj.(type) {
+	case *Volume:
+		return v, nil
+	case Volume:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal volume: %w", err)
+		}
+		var volume Volume
+		if err := json.Unmarshal(data, &volume); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal volume: %w", err)
+		}
+		return &volume, nil
+	default:
+		return nil, fmt.Errorf("unexpected volume type: %T", obj)
+	}
+}
+
+// GetRegistryFromAction extracts ContainerRegistry from SemanticAction properties
+func GetRegistryFromAction(action *SemanticAction) (*ContainerRegistry, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	loc, ok := action.Properties["fromLocation"]
+	if !ok {
+		return nil, nil // Registry is optional
+	}
+
+	switch v := loc.(type) {
+	case *ContainerRegistry:
+		return v, nil
+	case ContainerRegistry:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal registry: %w", err)
+		}
+		var registry ContainerRegistry
+		if err := json.Unmarshal(data, &registry); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal registry: %w", err)
+		}
+		return &registry, nil
+	default:
+		return nil, fmt.Errorf("unexpected registry type: %T", loc)
+	}
 }
