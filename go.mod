@@ -2,6 +2,8 @@ module eve.evalgo.org
 
 go 1.24.7
 
+// Version: v0.0.21
+
 require (
 	code.gitea.io/sdk/gitea v0.21.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.1
