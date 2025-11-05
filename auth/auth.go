@@ -444,14 +444,50 @@ func (s *authService) audit(action, username, userID string, success bool, messa
 		return
 	}
 
+	now := time.Now()
+
+	// Determine action status
+	actionStatus := "CompletedActionStatus"
+	if !success {
+		actionStatus = "FailedActionStatus"
+	}
+
 	log := &AuditLog{
-		ID:           uuid.New().String(),
-		Timestamp:    time.Now(),
+		// Semantic fields
+		Context:      "https://schema.org",
+		Type:         "AssessAction",
+		Name:         action,
+		ActionStatus: actionStatus,
+		StartTime:    now,
+
+		// Identity
+		ID: uuid.New().String(),
+
+		// Legacy fields (for backward compatibility)
+		Timestamp:    now,
 		UserID:       userID,
 		Username:     username,
 		Action:       action,
 		Success:      success,
 		ErrorMessage: message,
+	}
+
+	// Create semantic agent if user info available
+	if userID != "" || username != "" {
+		log.Agent = &AuditAgent{
+			Type:       "Person",
+			Identifier: userID,
+			Name:       username,
+		}
+	}
+
+	// Create semantic error if failed
+	if !success && message != "" {
+		log.Error = &AuditError{
+			Type:        "Thing",
+			Name:        action + "_error",
+			Description: message,
+		}
 	}
 
 	s.store.SaveAuditLog(log)
