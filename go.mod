@@ -2,7 +2,7 @@ module eve.evalgo.org
 
 go 1.24.7
 
-// Version: v0.0.21
+// Version: v0.0.22
 
 require (
 	code.gitea.io/sdk/gitea v0.21.0
