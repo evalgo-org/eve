@@ -179,3 +179,45 @@ const (
 	RoleViewer = "viewer"
 	RoleAgent  = "agent"
 )
+
+// User helper methods for role checking and authorization
+
+// HasRole checks if the user has a specific role
+func (u *User) HasRole(role string) bool {
+	for _, r := range u.Roles {
+		if r == role {
+			return true
+		}
+	}
+	return false
+}
+
+// HasAnyRole checks if the user has any of the specified roles
+func (u *User) HasAnyRole(roles ...string) bool {
+	for _, role := range roles {
+		if u.HasRole(role) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsAdmin checks if the user has admin role
+func (u *User) IsAdmin() bool {
+	return u.HasRole(RoleAdmin)
+}
+
+// CanWrite checks if the user can write (admin or user role)
+func (u *User) CanWrite() bool {
+	return u.HasAnyRole(RoleAdmin, RoleUser)
+}
+
+// CanRead checks if the user can read (any role except disabled)
+func (u *User) CanRead() bool {
+	return u.Enabled && len(u.Roles) > 0
+}
+
+// IsAgent checks if the user has agent role
+func (u *User) IsAgent() bool {
+	return u.HasRole(RoleAgent)
+}
