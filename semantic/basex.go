@@ -277,3 +277,199 @@ func ExtractDatabaseCredentials(db *XMLDatabase) (baseURL, username, password st
 
 	return baseURL, username, password, nil
 }
+
+// ============================================================================
+// SemanticAction Constructors for BaseX Operations
+// ============================================================================
+
+// NewSemanticTransformAction creates a TransformAction using SemanticAction
+func NewSemanticTransformAction(id, name string, object *XMLDocument, instrument *XSLTStylesheet, target *XMLDatabase) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "UpdateAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if object != nil {
+		action.Properties["object"] = object
+	}
+	if instrument != nil {
+		action.Properties["instrument"] = instrument
+	}
+	if target != nil {
+		action.Properties["target"] = target
+	}
+
+	return action
+}
+
+// NewSemanticQueryAction creates a QueryAction using SemanticAction
+func NewSemanticQueryAction(id, name, query string, target *XMLDatabase) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "SearchAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if query != "" {
+		action.Properties["query"] = query
+	}
+	if target != nil {
+		action.Properties["target"] = target
+	}
+
+	return action
+}
+
+// NewSemanticBaseXUploadAction creates a BaseXUploadAction using SemanticAction
+func NewSemanticBaseXUploadAction(id, name string, object *XMLDocument, target *XMLDatabase, targetUrl string) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "UploadAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if object != nil {
+		action.Properties["object"] = object
+	}
+	if target != nil {
+		action.Properties["target"] = target
+	}
+	if targetUrl != "" {
+		action.Properties["targetUrl"] = targetUrl
+	}
+
+	return action
+}
+
+// ============================================================================
+// SemanticAction Helper Functions for BaseX Operations
+// ============================================================================
+
+// GetXMLDocumentFromAction extracts XMLDocument from SemanticAction properties
+func GetXMLDocumentFromAction(action *SemanticAction) (*XMLDocument, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	obj, ok := action.Properties["object"]
+	if !ok {
+		return nil, fmt.Errorf("no object found in action properties")
+	}
+
+	switch v := obj.(type) {
+	case *XMLDocument:
+		return v, nil
+	case XMLDocument:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal XMLDocument: %w", err)
+		}
+		var doc XMLDocument
+		if err := json.Unmarshal(data, &doc); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal XMLDocument: %w", err)
+		}
+		return &doc, nil
+	default:
+		return nil, fmt.Errorf("unexpected object type: %T", obj)
+	}
+}
+
+// GetXSLTStylesheetFromAction extracts XSLTStylesheet from SemanticAction properties
+func GetXSLTStylesheetFromAction(action *SemanticAction) (*XSLTStylesheet, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	instr, ok := action.Properties["instrument"]
+	if !ok {
+		return nil, fmt.Errorf("no instrument found in action properties")
+	}
+
+	switch v := instr.(type) {
+	case *XSLTStylesheet:
+		return v, nil
+	case XSLTStylesheet:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal XSLTStylesheet: %w", err)
+		}
+		var stylesheet XSLTStylesheet
+		if err := json.Unmarshal(data, &stylesheet); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal XSLTStylesheet: %w", err)
+		}
+		return &stylesheet, nil
+	default:
+		return nil, fmt.Errorf("unexpected instrument type: %T", instr)
+	}
+}
+
+// GetXMLDatabaseFromAction extracts XMLDatabase from SemanticAction properties
+func GetXMLDatabaseFromAction(action *SemanticAction) (*XMLDatabase, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	target, ok := action.Properties["target"]
+	if !ok {
+		return nil, fmt.Errorf("no target found in action properties")
+	}
+
+	switch v := target.(type) {
+	case *XMLDatabase:
+		return v, nil
+	case XMLDatabase:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal XMLDatabase: %w", err)
+		}
+		var db XMLDatabase
+		if err := json.Unmarshal(data, &db); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal XMLDatabase: %w", err)
+		}
+		return &db, nil
+	default:
+		return nil, fmt.Errorf("unexpected target type: %T", target)
+	}
+}
+
+// GetQueryFromAction extracts query string from SemanticAction properties
+func GetQueryFromAction(action *SemanticAction) string {
+	if action == nil || action.Properties == nil {
+		return ""
+	}
+
+	if query, ok := action.Properties["query"].(string); ok {
+		return query
+	}
+
+	return ""
+}
+
+// GetTargetUrlFromAction extracts targetUrl from SemanticAction properties
+func GetTargetUrlFromAction(action *SemanticAction) string {
+	if action == nil || action.Properties == nil {
+		return ""
+	}
+
+	if url, ok := action.Properties["targetUrl"].(string); ok {
+		return url
+	}
+
+	return ""
+}

@@ -186,3 +186,100 @@ func NewSPARQLEndpoint(url, projectID, username, password, contentType string) *
 
 	return endpoint
 }
+
+// ============================================================================
+// SemanticAction Constructors for SPARQL Operations
+// ============================================================================
+
+// NewSemanticSearchAction creates a SearchAction using SemanticAction
+func NewSemanticSearchAction(id, name string, query *SearchQuery, target *SPARQLEndpoint) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "SearchAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if query != nil {
+		action.Properties["query"] = query
+	}
+	if target != nil {
+		action.Properties["target"] = target
+	}
+
+	return action
+}
+
+// ============================================================================
+// SemanticAction Helper Functions for SPARQL Operations
+// ============================================================================
+
+// GetSearchQueryFromAction extracts SearchQuery from SemanticAction properties
+func GetSearchQueryFromAction(action *SemanticAction) (*SearchQuery, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	query, ok := action.Properties["query"]
+	if !ok {
+		return nil, fmt.Errorf("no query found in action properties")
+	}
+
+	switch v := query.(type) {
+	case *SearchQuery:
+		return v, nil
+	case SearchQuery:
+		return &v, nil
+	case string:
+		// Allow inline query string - convert to SearchQuery
+		return &SearchQuery{
+			Type:       "SearchAction",
+			QueryInput: v,
+		}, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal SearchQuery: %w", err)
+		}
+		var sq SearchQuery
+		if err := json.Unmarshal(data, &sq); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal SearchQuery: %w", err)
+		}
+		return &sq, nil
+	default:
+		return nil, fmt.Errorf("unexpected query type: %T", query)
+	}
+}
+
+// GetSPARQLEndpointFromAction extracts SPARQLEndpoint from SemanticAction properties
+func GetSPARQLEndpointFromAction(action *SemanticAction) (*SPARQLEndpoint, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	target, ok := action.Properties["target"]
+	if !ok {
+		return nil, fmt.Errorf("no target found in action properties")
+	}
+
+	switch v := target.(type) {
+	case *SPARQLEndpoint:
+		return v, nil
+	case SPARQLEndpoint:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal SPARQLEndpoint: %w", err)
+		}
+		var endpoint SPARQLEndpoint
+		if err := json.Unmarshal(data, &endpoint); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal SPARQLEndpoint: %w", err)
+		}
+		return &endpoint, nil
+	default:
+		return nil, fmt.Errorf("unexpected target type: %T", target)
+	}
+}

@@ -337,3 +337,224 @@ func ActionStatusActive() string {
 func ActionStatusPotential() string {
 	return "PotentialActionStatus"
 }
+
+// ============================================================================
+// SemanticAction Constructors for GraphDB Operations
+// ============================================================================
+
+// NewSemanticTransferAction creates a TransferAction using SemanticAction
+func NewSemanticTransferAction(id, name string, fromLocation, toLocation, object interface{}) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "TransferAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if fromLocation != nil {
+		action.Properties["fromLocation"] = fromLocation
+	}
+	if toLocation != nil {
+		action.Properties["toLocation"] = toLocation
+	}
+	if object != nil {
+		action.Properties["object"] = object
+	}
+
+	return action
+}
+
+// NewSemanticCreateAction creates a CreateAction using SemanticAction
+func NewSemanticCreateAction(id, name string, result interface{}) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "CreateAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if result != nil {
+		action.Properties["result"] = result
+	}
+
+	return action
+}
+
+// NewSemanticDeleteAction creates a DeleteAction using SemanticAction
+func NewSemanticDeleteAction(id, name string, object interface{}) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "DeleteAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if object != nil {
+		action.Properties["object"] = object
+	}
+
+	return action
+}
+
+// NewSemanticUpdateAction creates an UpdateAction using SemanticAction
+func NewSemanticUpdateAction(id, name, targetName string, object, replacesObject interface{}) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "UpdateAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if object != nil {
+		action.Properties["object"] = object
+	}
+	if targetName != "" {
+		action.Properties["targetName"] = targetName
+	}
+	if replacesObject != nil {
+		action.Properties["replacesObject"] = replacesObject
+	}
+
+	return action
+}
+
+// NewSemanticUploadAction creates an UploadAction using SemanticAction
+func NewSemanticUploadAction(id, name string, object, target interface{}) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "UploadAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if object != nil {
+		action.Properties["object"] = object
+	}
+	if target != nil {
+		action.Properties["target"] = target
+	}
+
+	return action
+}
+
+// ============================================================================
+// SemanticAction Helper Functions for GraphDB Operations
+// ============================================================================
+
+// GetGraphDBRepositoryFromAction extracts GraphDBRepository from SemanticAction properties
+// Can check multiple property keys: fromLocation, toLocation, target, object
+func GetGraphDBRepositoryFromAction(action *SemanticAction, propertyKey string) (*GraphDBRepository, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	prop, ok := action.Properties[propertyKey]
+	if !ok {
+		return nil, fmt.Errorf("no %s found in action properties", propertyKey)
+	}
+
+	switch v := prop.(type) {
+	case *GraphDBRepository:
+		return v, nil
+	case GraphDBRepository:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal GraphDBRepository: %w", err)
+		}
+		var repo GraphDBRepository
+		if err := json.Unmarshal(data, &repo); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal GraphDBRepository: %w", err)
+		}
+		return &repo, nil
+	default:
+		return nil, fmt.Errorf("unexpected %s type: %T", propertyKey, prop)
+	}
+}
+
+// GetGraphDBGraphFromAction extracts GraphDBGraph from SemanticAction properties
+// Can check multiple property keys: object, result, target
+func GetGraphDBGraphFromAction(action *SemanticAction, propertyKey string) (*GraphDBGraph, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	prop, ok := action.Properties[propertyKey]
+	if !ok {
+		return nil, fmt.Errorf("no %s found in action properties", propertyKey)
+	}
+
+	switch v := prop.(type) {
+	case *GraphDBGraph:
+		return v, nil
+	case GraphDBGraph:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal GraphDBGraph: %w", err)
+		}
+		var graph GraphDBGraph
+		if err := json.Unmarshal(data, &graph); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal GraphDBGraph: %w", err)
+		}
+		return &graph, nil
+	default:
+		return nil, fmt.Errorf("unexpected %s type: %T", propertyKey, prop)
+	}
+}
+
+// GetDataCatalogFromAction extracts DataCatalog from SemanticAction properties
+func GetDataCatalogFromAction(action *SemanticAction, propertyKey string) (*DataCatalog, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	prop, ok := action.Properties[propertyKey]
+	if !ok {
+		return nil, fmt.Errorf("no %s found in action properties", propertyKey)
+	}
+
+	switch v := prop.(type) {
+	case *DataCatalog:
+		return v, nil
+	case DataCatalog:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal DataCatalog: %w", err)
+		}
+		var catalog DataCatalog
+		if err := json.Unmarshal(data, &catalog); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal DataCatalog: %w", err)
+		}
+		return &catalog, nil
+	default:
+		return nil, fmt.Errorf("unexpected %s type: %T", propertyKey, prop)
+	}
+}
+
+// GetTargetNameFromAction extracts targetName from SemanticAction properties
+func GetTargetNameFromAction(action *SemanticAction) string {
+	if action == nil || action.Properties == nil {
+		return ""
+	}
+
+	if name, ok := action.Properties["targetName"].(string); ok {
+		return name
+	}
+
+	return ""
+}
