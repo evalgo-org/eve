@@ -53,9 +53,13 @@ func TestParseMultipartSemanticRequest_CreateAction(t *testing.T) {
 	}
 
 	// Verify action type
-	action, ok := semanticReq.Action.(*CreateAction)
+	action, ok := semanticReq.Action.(*SemanticAction)
 	if !ok {
-		t.Fatalf("Expected CreateAction, got %T", semanticReq.Action)
+		t.Fatalf("Expected SemanticAction, got %T", semanticReq.Action)
+	}
+
+	if action.Type != "CreateAction" {
+		t.Errorf("Expected @type 'CreateAction', got '%s'", action.Type)
 	}
 
 	if action.Identifier != "create-test-repo" {
@@ -135,9 +139,13 @@ func TestParseMultipartSemanticRequest_UploadAction(t *testing.T) {
 	}
 
 	// Verify action type
-	action, ok := semanticReq.Action.(*UploadAction)
+	action, ok := semanticReq.Action.(*SemanticAction)
 	if !ok {
-		t.Fatalf("Expected UploadAction, got %T", semanticReq.Action)
+		t.Fatalf("Expected SemanticAction, got %T", semanticReq.Action)
+	}
+
+	if action.Type != "UploadAction" {
+		t.Errorf("Expected @type 'UploadAction', got '%s'", action.Type)
 	}
 
 	if action.Identifier != "import-graph" {
@@ -176,17 +184,17 @@ func TestParseMultipartSemanticRequest_MissingAction(t *testing.T) {
 	}
 }
 
-func TestCreateActionWithConfigFile(t *testing.T) {
+func TestSemanticActionWithConfigFile(t *testing.T) {
 	repo := NewGraphDBRepository("http://localhost:7200", "test-repo", "admin", "admin")
-	action := NewCreateAction("create-repo", "Create Repository", repo)
+	action := NewSemanticCreateAction("create-repo", "Create Repository", repo)
 
 	// Add config file metadata
-	action = CreateActionWithConfigFile(action, "repo-config.ttl", "text/turtle", 1024)
+	action = SemanticActionWithConfigFile(action, "repo-config.ttl", "text/turtle", 1024)
 
 	// Verify metadata was added
-	resultRepo, ok := action.Result.(*GraphDBRepository)
+	resultRepo, ok := action.Properties["result"].(*GraphDBRepository)
 	if !ok {
-		t.Fatalf("Expected GraphDBRepository, got %T", action.Result)
+		t.Fatalf("Expected GraphDBRepository in result, got %T", action.Properties["result"])
 	}
 
 	configFile, ok := resultRepo.Properties["configFile"].(map[string]interface{})
@@ -203,21 +211,21 @@ func TestCreateActionWithConfigFile(t *testing.T) {
 	}
 }
 
-func TestUploadActionWithDataFiles(t *testing.T) {
+func TestSemanticActionWithDataFiles(t *testing.T) {
 	graph := NewGraphDBGraph("http://example.org/graph/test", "http://localhost:7200", "test-repo")
 	catalog := &DataCatalog{
 		Type:       "DataCatalog",
 		Identifier: "test-repo",
 		URL:        "http://localhost:7200",
 	}
-	action := NewUploadAction("import-data", "Import Data", graph, catalog)
+	action := NewSemanticUploadAction("import-data", "Import Data", graph, catalog)
 
 	// Add data file metadata
 	fileNames := []string{"data1.ttl", "data2.rdf", "data3.n3"}
-	action = UploadActionWithDataFiles(action, fileNames)
+	action = SemanticActionWithDataFiles(action, fileNames)
 
 	// Verify metadata was added
-	resultGraph, ok := action.Object.(*GraphDBGraph)
+	resultGraph, ok := action.Properties["object"].(*GraphDBGraph)
 	if !ok {
 		t.Fatalf("Expected GraphDBGraph, got %T", action.Object)
 	}

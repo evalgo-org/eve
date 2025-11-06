@@ -46,67 +46,8 @@ type ContainerRegistry struct {
 // ============================================================================
 // Container Action Types
 // ============================================================================
-
-// ActivateAction represents container deployment/start operations
-// Maps to Schema.org ActivateAction for starting containers
-type ActivateAction struct {
-	Context      string         `json:"@context,omitempty"`
-	Type         string         `json:"@type"` // "ActivateAction"
-	Identifier   string         `json:"identifier"`
-	Name         string         `json:"name,omitempty"`
-	Description  string         `json:"description,omitempty"`
-	Object       *Container     `json:"object"`           // Container to deploy
-	Target       *ComputeNode   `json:"target,omitempty"` // Where to deploy
-	ActionStatus string         `json:"actionStatus,omitempty"`
-	StartTime    string         `json:"startTime,omitempty"`
-	EndTime      string         `json:"endTime,omitempty"`
-	Error        *PropertyValue `json:"error,omitempty"`
-}
-
-// DeactivateAction represents container stop/removal operations
-// Maps to Schema.org DeactivateAction for stopping containers
-type DeactivateAction struct {
-	Context      string         `json:"@context,omitempty"`
-	Type         string         `json:"@type"` // "DeactivateAction"
-	Identifier   string         `json:"identifier"`
-	Name         string         `json:"name,omitempty"`
-	Description  string         `json:"description,omitempty"`
-	Object       *Container     `json:"object"` // Container to stop
-	ActionStatus string         `json:"actionStatus,omitempty"`
-	StartTime    string         `json:"startTime,omitempty"`
-	EndTime      string         `json:"endTime,omitempty"`
-	Error        *PropertyValue `json:"error,omitempty"`
-}
-
-// DownloadAction represents image pull operations
-type DownloadAction struct {
-	Context      string             `json:"@context,omitempty"`
-	Type         string             `json:"@type"` // "DownloadAction"
-	Identifier   string             `json:"identifier"`
-	Name         string             `json:"name,omitempty"`
-	Description  string             `json:"description,omitempty"`
-	Object       *ContainerImage    `json:"object"`                 // Image to pull
-	FromLocation *ContainerRegistry `json:"fromLocation,omitempty"` // Source registry
-	ActionStatus string             `json:"actionStatus,omitempty"`
-	StartTime    string             `json:"startTime,omitempty"`
-	EndTime      string             `json:"endTime,omitempty"`
-	Error        *PropertyValue     `json:"error,omitempty"`
-}
-
-// BuildAction represents container image build operations
-type BuildAction struct {
-	Context      string          `json:"@context,omitempty"`
-	Type         string          `json:"@type"` // "CreateAction"
-	Identifier   string          `json:"identifier"`
-	Name         string          `json:"name,omitempty"`
-	Description  string          `json:"description,omitempty"`
-	Result       *ContainerImage `json:"result"`           // Resulting image
-	Object       *SourceCode     `json:"object,omitempty"` // Source code/Dockerfile
-	ActionStatus string          `json:"actionStatus,omitempty"`
-	StartTime    string          `json:"startTime,omitempty"`
-	EndTime      string          `json:"endTime,omitempty"`
-	Error        *PropertyValue  `json:"error,omitempty"`
-}
+// Note: Legacy specific action structs have been removed.
+// Use SemanticAction with NewSemantic* constructors instead.
 
 // SourceCode represents build context (Dockerfile, source code)
 type SourceCode struct {
@@ -128,31 +69,6 @@ type ComputeNode struct {
 // Network and Volume Types
 // ============================================================================
 
-// NetworkAction represents network creation/connection
-type NetworkAction struct {
-	Context      string         `json:"@context,omitempty"`
-	Type         string         `json:"@type"` // "ConnectAction"
-	Identifier   string         `json:"identifier"`
-	Name         string         `json:"name,omitempty"`
-	Description  string         `json:"description,omitempty"`
-	Object       interface{}    `json:"object"` // Container or network
-	ActionStatus string         `json:"actionStatus,omitempty"`
-	Error        *PropertyValue `json:"error,omitempty"`
-}
-
-// VolumeAction represents volume mounting/assignment
-type VolumeAction struct {
-	Context      string         `json:"@context,omitempty"`
-	Type         string         `json:"@type"` // "AssignAction"
-	Identifier   string         `json:"identifier"`
-	Name         string         `json:"name,omitempty"`
-	Description  string         `json:"description,omitempty"`
-	Object       *Volume        `json:"object"` // Volume to mount
-	Target       *Container     `json:"target"` // Container to mount to
-	ActionStatus string         `json:"actionStatus,omitempty"`
-	Error        *PropertyValue `json:"error,omitempty"`
-}
-
 // Volume represents a storage volume
 type Volume struct {
 	Type       string                 `json:"@type"` // "DataCatalog"
@@ -166,9 +82,8 @@ type Volume struct {
 // Helper Functions
 // ============================================================================
 
-// ParseContainerAction parses a JSON-LD container action
-// NEW: Now supports both legacy specific types AND SemanticAction
-func ParseContainerAction(data []byte) (interface{}, error) {
+// ParseContainerAction parses a JSON-LD container action as SemanticAction
+func ParseContainerAction(data []byte) (*SemanticAction, error) {
 	var typeCheck struct {
 		Type string `json:"@type"`
 	}
@@ -178,93 +93,12 @@ func ParseContainerAction(data []byte) (interface{}, error) {
 	}
 
 	switch typeCheck.Type {
-	case "ActivateAction":
-		// Try SemanticAction first (new way), fall back to ActivateAction (legacy)
+	case "ActivateAction", "DeactivateAction", "DownloadAction", "CreateAction", "ConnectAction", "AssignAction":
 		var action SemanticAction
-		if err := json.Unmarshal(data, &action); err == nil {
-			// Check if it has container-specific properties
-			if action.Properties != nil && action.Properties["object"] != nil {
-				return &action, nil // This is a SemanticAction
-			}
+		if err := json.Unmarshal(data, &action); err != nil {
+			return nil, fmt.Errorf("failed to parse %s: %w", typeCheck.Type, err)
 		}
-
-		// Fall back to legacy ActivateAction
-		var legacyAction ActivateAction
-		if err := json.Unmarshal(data, &legacyAction); err != nil {
-			return nil, fmt.Errorf("failed to parse ActivateAction: %w", err)
-		}
-		return &legacyAction, nil
-
-	case "DeactivateAction":
-		// Try SemanticAction first, fall back to legacy
-		var action SemanticAction
-		if err := json.Unmarshal(data, &action); err == nil {
-			if action.Properties != nil && action.Properties["object"] != nil {
-				return &action, nil
-			}
-		}
-		var legacyAction DeactivateAction
-		if err := json.Unmarshal(data, &legacyAction); err != nil {
-			return nil, fmt.Errorf("failed to parse DeactivateAction: %w", err)
-		}
-		return &legacyAction, nil
-
-	case "DownloadAction":
-		// Try SemanticAction first, fall back to legacy
-		var action SemanticAction
-		if err := json.Unmarshal(data, &action); err == nil {
-			if action.Properties != nil && action.Properties["object"] != nil {
-				return &action, nil
-			}
-		}
-		var legacyAction DownloadAction
-		if err := json.Unmarshal(data, &legacyAction); err != nil {
-			return nil, fmt.Errorf("failed to parse DownloadAction: %w", err)
-		}
-		return &legacyAction, nil
-
-	case "CreateAction": // BuildAction
-		// Try SemanticAction first, fall back to legacy BuildAction
-		var action SemanticAction
-		if err := json.Unmarshal(data, &action); err == nil {
-			if action.Properties != nil && (action.Properties["result"] != nil || action.Properties["object"] != nil) {
-				return &action, nil
-			}
-		}
-		var legacyAction BuildAction
-		if err := json.Unmarshal(data, &legacyAction); err != nil {
-			return nil, fmt.Errorf("failed to parse BuildAction: %w", err)
-		}
-		return &legacyAction, nil
-
-	case "ConnectAction": // NetworkAction
-		// Try SemanticAction first, fall back to legacy
-		var action SemanticAction
-		if err := json.Unmarshal(data, &action); err == nil {
-			if action.Properties != nil {
-				return &action, nil
-			}
-		}
-		var legacyAction NetworkAction
-		if err := json.Unmarshal(data, &legacyAction); err != nil {
-			return nil, fmt.Errorf("failed to parse NetworkAction: %w", err)
-		}
-		return &legacyAction, nil
-
-	case "AssignAction": // VolumeAction
-		// Try SemanticAction first, fall back to legacy
-		var action SemanticAction
-		if err := json.Unmarshal(data, &action); err == nil {
-			if action.Properties != nil && action.Properties["object"] != nil {
-				return &action, nil
-			}
-		}
-		var legacyAction VolumeAction
-		if err := json.Unmarshal(data, &legacyAction); err != nil {
-			return nil, fmt.Errorf("failed to parse VolumeAction: %w", err)
-		}
-		return &legacyAction, nil
-
+		return &action, nil
 	default:
 		return nil, fmt.Errorf("unsupported container action type: %s", typeCheck.Type)
 	}
@@ -288,18 +122,9 @@ func NewContainer(name, image, runtime string) *Container {
 	}
 }
 
-// NewActivateAction creates a new container deployment action
-func NewActivateAction(id, name string, container *Container, target *ComputeNode) *ActivateAction {
-	return &ActivateAction{
-		Context:      "https://schema.org",
-		Type:         "ActivateAction",
-		Identifier:   id,
-		Name:         name,
-		Object:       container,
-		Target:       target,
-		ActionStatus: "PotentialActionStatus",
-	}
-}
+// ============================================================================
+// SemanticAction Constructors for Container Operations
+// ============================================================================
 
 // NewSemanticActivateAction creates a container deployment action using SemanticAction
 // This is the new recommended way - provides full semantic action capabilities
@@ -423,31 +248,6 @@ func NewSemanticVolumeAction(id, name string, volume *Volume, targetContainer *C
 	return action
 }
 
-// NewDeactivateAction creates a new container stop action
-func NewDeactivateAction(id, name string, container *Container) *DeactivateAction {
-	return &DeactivateAction{
-		Context:      "https://schema.org",
-		Type:         "DeactivateAction",
-		Identifier:   id,
-		Name:         name,
-		Object:       container,
-		ActionStatus: "PotentialActionStatus",
-	}
-}
-
-// NewDownloadAction creates a new image pull action
-func NewDownloadAction(id, name string, image *ContainerImage, registry *ContainerRegistry) *DownloadAction {
-	return &DownloadAction{
-		Context:      "https://schema.org",
-		Type:         "DownloadAction",
-		Identifier:   id,
-		Name:         name,
-		Object:       image,
-		FromLocation: registry,
-		ActionStatus: "PotentialActionStatus",
-	}
-}
-
 // ExtractContainerConfig extracts container configuration from additionalProperty
 func ExtractContainerConfig(container *Container) (map[string]interface{}, error) {
 	if container == nil {
@@ -473,10 +273,6 @@ func ExtractImageName(image *ContainerImage) string {
 
 	return image.Identifier
 }
-
-// ============================================================================
-// SemanticAction Helper Functions for Container Operations
-// ============================================================================
 
 // GetContainerFromAction extracts Container from SemanticAction properties
 func GetContainerFromAction(action *SemanticAction) (*Container, error) {

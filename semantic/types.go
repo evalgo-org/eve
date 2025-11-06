@@ -120,3 +120,12 @@ func ToJSONLD(v interface{}) ([]byte, error) {
 func FromJSONLD(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }
+
+// ParseSemanticAction parses JSON-LD bytes into a SemanticAction
+func ParseSemanticAction(data []byte) (*SemanticAction, error) {
+	var action SemanticAction
+	if err := json.Unmarshal(data, &action); err != nil {
+		return nil, err
+	}
+	return &action, nil
+}

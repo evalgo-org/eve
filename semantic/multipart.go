@@ -75,38 +75,13 @@ func ParseMultipartSemanticRequest(r *http.Request) (*MultipartSemanticRequest, 
 	var parsedAction interface{}
 
 	switch actionType {
-	case "TransferAction":
-		var action TransferAction
+	case "TransferAction", "CreateAction", "DeleteAction", "UpdateAction", "UploadAction",
+		"ActivateAction", "DeactivateAction", "DownloadAction", "ConnectAction", "AssignAction",
+		"SearchAction", "RetrieveAction":
+		// All these action types now use SemanticAction
+		var action SemanticAction
 		if err := json.Unmarshal([]byte(actionJSON), &action); err != nil {
-			return nil, fmt.Errorf("failed to parse TransferAction: %w", err)
-		}
-		parsedAction = &action
-
-	case "CreateAction":
-		var action CreateAction
-		if err := json.Unmarshal([]byte(actionJSON), &action); err != nil {
-			return nil, fmt.Errorf("failed to parse CreateAction: %w", err)
-		}
-		parsedAction = &action
-
-	case "DeleteAction":
-		var action DeleteAction
-		if err := json.Unmarshal([]byte(actionJSON), &action); err != nil {
-			return nil, fmt.Errorf("failed to parse DeleteAction: %w", err)
-		}
-		parsedAction = &action
-
-	case "UpdateAction":
-		var action UpdateAction
-		if err := json.Unmarshal([]byte(actionJSON), &action); err != nil {
-			return nil, fmt.Errorf("failed to parse UpdateAction: %w", err)
-		}
-		parsedAction = &action
-
-	case "UploadAction":
-		var action UploadAction
-		if err := json.Unmarshal([]byte(actionJSON), &action); err != nil {
-			return nil, fmt.Errorf("failed to parse UploadAction: %w", err)
+			return nil, fmt.Errorf("failed to parse %s: %w", actionType, err)
 		}
 		parsedAction = &action
 
@@ -184,45 +159,33 @@ func SaveUploadedFile(fileHeader *multipart.FileHeader, destPath string) error {
 	return fmt.Errorf("not implemented - use ReadFileContent instead")
 }
 
-// CreateActionWithConfigFile is a helper to create a CreateAction with config file reference
+// SemanticActionWithConfigFile is a helper to add config file metadata to a SemanticAction
 // This adds metadata about the config file to the action's properties
-func CreateActionWithConfigFile(action *CreateAction, fileName, fileType string, fileSize int64) *CreateAction {
-	if action.Result == nil {
+func SemanticActionWithConfigFile(action *SemanticAction, fileName, fileType string, fileSize int64) *SemanticAction {
+	if action == nil || action.Properties == nil {
 		return action
 	}
 
-	// Add file metadata to the result repository
-	if repo, ok := action.Result.(*GraphDBRepository); ok {
-		if repo.Properties == nil {
-			repo.Properties = make(map[string]interface{})
-		}
-		repo.Properties["configFile"] = map[string]interface{}{
-			"fileName":       fileName,
-			"fileType":       fileType,
-			"fileSize":       fileSize,
-			"encodingFormat": "text/turtle",
-		}
-		action.Result = repo
+	// Add file metadata to the action properties
+	action.Properties["configFile"] = map[string]interface{}{
+		"fileName":       fileName,
+		"fileType":       fileType,
+		"fileSize":       fileSize,
+		"encodingFormat": "text/turtle",
 	}
 
 	return action
 }
 
-// UploadActionWithDataFiles is a helper to add data file metadata to an UploadAction
+// SemanticActionWithDataFiles is a helper to add data file metadata to a SemanticAction
 // This tracks which files are being uploaded with the action
-func UploadActionWithDataFiles(action *UploadAction, fileNames []string) *UploadAction {
-	if action.Object == nil {
+func SemanticActionWithDataFiles(action *SemanticAction, fileNames []string) *SemanticAction {
+	if action == nil || action.Properties == nil {
 		return action
 	}
 
-	// Add file metadata to the graph object
-	if graph, ok := action.Object.(*GraphDBGraph); ok {
-		if graph.Properties == nil {
-			graph.Properties = make(map[string]interface{})
-		}
-		graph.Properties["dataFiles"] = fileNames
-		action.Object = graph
-	}
+	// Add file metadata to the action properties
+	action.Properties["dataFiles"] = fileNames
 
 	return action
 }
