@@ -202,6 +202,30 @@ func NewS3UploadAction(id, name string, object *S3Object, target *S3Bucket) *S3U
 	}
 }
 
+// NewSemanticS3UploadAction creates an S3 upload action using SemanticAction
+func NewSemanticS3UploadAction(id, name string, object *S3Object, target *S3Bucket, targetUrl string) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "CreateAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if object != nil {
+		action.Properties["object"] = object
+	}
+	if target != nil {
+		action.Properties["target"] = target
+	}
+	if targetUrl != "" {
+		action.Properties["targetUrl"] = targetUrl
+	}
+
+	return action
+}
+
 // NewS3DownloadAction creates a new S3 download action
 func NewS3DownloadAction(id, name string, object *S3Object, target *S3Bucket) *S3DownloadAction {
 	return &S3DownloadAction{
@@ -213,6 +237,27 @@ func NewS3DownloadAction(id, name string, object *S3Object, target *S3Bucket) *S
 		Target:       target,
 		ActionStatus: "PotentialActionStatus",
 	}
+}
+
+// NewSemanticS3DownloadAction creates an S3 download action using SemanticAction
+func NewSemanticS3DownloadAction(id, name string, object *S3Object, target *S3Bucket) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "DownloadAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if object != nil {
+		action.Properties["object"] = object
+	}
+	if target != nil {
+		action.Properties["target"] = target
+	}
+
+	return action
 }
 
 // NewS3DeleteAction creates a new S3 delete action
@@ -228,6 +273,27 @@ func NewS3DeleteAction(id, name string, object *S3Object, target *S3Bucket) *S3D
 	}
 }
 
+// NewSemanticS3DeleteAction creates an S3 delete action using SemanticAction
+func NewSemanticS3DeleteAction(id, name string, object *S3Object, target *S3Bucket) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "DeleteAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if object != nil {
+		action.Properties["object"] = object
+	}
+	if target != nil {
+		action.Properties["target"] = target
+	}
+
+	return action
+}
+
 // NewS3ListAction creates a new S3 list action
 func NewS3ListAction(id, name, prefix string, target *S3Bucket) *S3ListAction {
 	return &S3ListAction{
@@ -239,6 +305,27 @@ func NewS3ListAction(id, name, prefix string, target *S3Bucket) *S3ListAction {
 		Target:       target,
 		ActionStatus: "PotentialActionStatus",
 	}
+}
+
+// NewSemanticS3ListAction creates an S3 list action using SemanticAction
+func NewSemanticS3ListAction(id, name, prefix string, target *S3Bucket) *SemanticAction {
+	action := &SemanticAction{
+		Context:      "https://schema.org",
+		Type:         "SearchAction",
+		Identifier:   id,
+		Name:         name,
+		ActionStatus: "PotentialActionStatus",
+		Properties:   make(map[string]interface{}),
+	}
+
+	if prefix != "" {
+		action.Properties["query"] = prefix
+	}
+	if target != nil {
+		action.Properties["target"] = target
+	}
+
+	return action
 }
 
 // ExtractS3Credentials extracts connection info from S3Bucket
@@ -267,4 +354,96 @@ func ExtractS3Credentials(bucket *S3Bucket) (url, region, accessKey, secretKey, 
 	}
 
 	return url, region, accessKey, secretKey, bucketName, nil
+}
+
+// ============================================================================
+// SemanticAction Helper Functions for S3 Operations
+// ============================================================================
+
+// GetS3ObjectFromAction extracts S3Object from SemanticAction properties
+func GetS3ObjectFromAction(action *SemanticAction) (*S3Object, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	obj, ok := action.Properties["object"]
+	if !ok {
+		return nil, fmt.Errorf("no object found in action properties")
+	}
+
+	switch v := obj.(type) {
+	case *S3Object:
+		return v, nil
+	case S3Object:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal S3Object: %w", err)
+		}
+		var s3obj S3Object
+		if err := json.Unmarshal(data, &s3obj); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal S3Object: %w", err)
+		}
+		return &s3obj, nil
+	default:
+		return nil, fmt.Errorf("unexpected object type: %T", obj)
+	}
+}
+
+// GetS3BucketFromAction extracts S3Bucket from SemanticAction properties
+func GetS3BucketFromAction(action *SemanticAction) (*S3Bucket, error) {
+	if action == nil || action.Properties == nil {
+		return nil, fmt.Errorf("action or properties is nil")
+	}
+
+	target, ok := action.Properties["target"]
+	if !ok {
+		return nil, fmt.Errorf("no target found in action properties")
+	}
+
+	switch v := target.(type) {
+	case *S3Bucket:
+		return v, nil
+	case S3Bucket:
+		return &v, nil
+	case map[string]interface{}:
+		data, err := json.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal S3Bucket: %w", err)
+		}
+		var bucket S3Bucket
+		if err := json.Unmarshal(data, &bucket); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal S3Bucket: %w", err)
+		}
+		return &bucket, nil
+	default:
+		return nil, fmt.Errorf("unexpected target type: %T", target)
+	}
+}
+
+// GetS3TargetUrlFromAction extracts targetUrl from SemanticAction properties
+func GetS3TargetUrlFromAction(action *SemanticAction) string {
+	if action == nil || action.Properties == nil {
+		return ""
+	}
+
+	if url, ok := action.Properties["targetUrl"].(string); ok {
+		return url
+	}
+
+	return ""
+}
+
+// GetS3QueryFromAction extracts query/prefix from SemanticAction properties
+func GetS3QueryFromAction(action *SemanticAction) string {
+	if action == nil || action.Properties == nil {
+		return ""
+	}
+
+	if query, ok := action.Properties["query"].(string); ok {
+		return query
+	}
+
+	return ""
 }
