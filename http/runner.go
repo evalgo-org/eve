@@ -10,9 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/labstack/echo/v4"
+
 	"eve.evalgo.org/common"
 	"eve.evalgo.org/registry"
-	"github.com/labstack/echo/v4"
 )
 
 // RunServerConfig contains configuration for running an EVE service

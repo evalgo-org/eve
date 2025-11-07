@@ -18,8 +18,9 @@ import (
 	"fmt"
 	"log"
 
-	eve "eve.evalgo.org/common"
 	"github.com/streadway/amqp"
+
+	eve "eve.evalgo.org/common"
 )
 
 // MessagePublisher defines the interface for publishing flow process messages.

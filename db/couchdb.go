@@ -47,9 +47,10 @@ import (
 	"strings"
 	"time"
 
-	eve "eve.evalgo.org/common"
 	kivik "github.com/go-kivik/kivik/v4"
 	_ "github.com/go-kivik/kivik/v4/couchdb" // The CouchDB driver
+
+	eve "eve.evalgo.org/common"
 )
 
 // DocumentStore defines the interface for flow process document storage and retrieval.

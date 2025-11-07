@@ -45,9 +45,10 @@ import (
 	"sync"
 	"time"
 
-	eve "eve.evalgo.org/common"
 	sdk_golang "github.com/openziti/sdk-golang"
 	"github.com/openziti/sdk-golang/ziti"
+
+	eve "eve.evalgo.org/common"
 )
 
 // Global cache for Ziti contexts to prevent multiple contexts from same identity

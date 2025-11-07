@@ -12,11 +12,12 @@ import (
 	"testing"
 	"time"
 
-	eve "eve.evalgo.org/common"
-	"eve.evalgo.org/security"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	eve "eve.evalgo.org/common"
+	"eve.evalgo.org/security"
 )
 
 // TestGenerateToken_Success tests successful JWT token generation with valid user ID.

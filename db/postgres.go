@@ -44,9 +44,10 @@ import (
 	"fmt"
 	"time"
 
-	eve "eve.evalgo.org/common"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	eve "eve.evalgo.org/common"
 )
 
 // RabbitLog represents a RabbitMQ message processing log entry in the database.

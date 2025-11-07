@@ -6,12 +6,13 @@ import (
 	"net/http"
 	"time"
 
+	echojwt "github.com/labstack/echo-jwt/v4"
+	"github.com/labstack/echo/v4"
+
 	eve "eve.evalgo.org/common"
 	"eve.evalgo.org/db"
 	"eve.evalgo.org/queue"
 	"eve.evalgo.org/security"
-	echojwt "github.com/labstack/echo-jwt/v4"
-	"github.com/labstack/echo/v4"
 )
 
 // Handlers contains the service dependencies required for API operations.

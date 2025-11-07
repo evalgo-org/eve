@@ -29,8 +29,9 @@ package cloud
 import (
 	"context"
 
-	eve "eve.evalgo.org/common"
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+
+	eve "eve.evalgo.org/common"
 )
 
 // HetznerServerCreate creates a new server instance on Hetzner Cloud with predefined configuration.

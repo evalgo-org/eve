@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
-	eve "eve.evalgo.org/common"
 	"github.com/openziti/sdk-golang/ziti"
+
+	eve "eve.evalgo.org/common"
 )
 
 // VersionInfo holds controller and SDK version information

@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"eve.evalgo.org/semantic"
 	"github.com/google/uuid"
+
+	"eve.evalgo.org/semantic"
 )
 
 // AuthService provides authentication and authorization

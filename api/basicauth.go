@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"eve.evalgo.org/security"
 	"github.com/labstack/echo/v4"
+
+	"eve.evalgo.org/security"
 )
 
 // BasicAuthConfig contains configuration for Basic Authentication middleware.

@@ -15,8 +15,9 @@ import (
 	"os"
 	"strings"
 
-	eve "eve.evalgo.org/common"
 	"github.com/dustin/go-humanize"
+
+	eve "eve.evalgo.org/common"
 )
 
 // WriteCounter counts the number of bytes written to it and provides

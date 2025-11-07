@@ -9,8 +9,9 @@ import (
 	"strings"
 	"time"
 
-	eve "eve.evalgo.org/common"
 	"github.com/golang-jwt/jwt/v5"
+
+	eve "eve.evalgo.org/common"
 )
 
 // Middleware represents an HTTP middleware function

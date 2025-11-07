@@ -21,9 +21,10 @@ import (
 	"strings"
 	"time"
 
+	gitlab "gitlab.com/gitlab-org/api/client-go"
+
 	eve "eve.evalgo.org/common"
 	"eve.evalgo.org/network"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 // JobInfo represents simplified job information for display and processing.

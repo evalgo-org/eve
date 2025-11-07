@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	eve "eve.evalgo.org/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	eve "eve.evalgo.org/common"
 )
 
 // TestSanitizeFilename tests the filename sanitization function

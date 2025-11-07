@@ -6,9 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"eve.evalgo.org/security"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+
+	"eve.evalgo.org/security"
 )
 
 func TestBasicAuthMiddleware(t *testing.T) {

@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"eve.evalgo.org/semantic"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+
+	"eve.evalgo.org/semantic"
 )
 
 // Neo4jRepository implements GraphRepository using Neo4j

@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"os"
 
-	"eve.evalgo.org/security"
 	"github.com/labstack/echo/v4"
+
+	"eve.evalgo.org/security"
 )
 
 // Example demonstrates how to set up an Echo web server with SAP BTP XSUAA authentication.

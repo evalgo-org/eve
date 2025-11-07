@@ -7,9 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"eve.evalgo.org/semantic"
 	kivik "github.com/go-kivik/kivik/v4"
 	_ "github.com/go-kivik/kivik/v4/couchdb"
+
+	"eve.evalgo.org/semantic"
 )
 
 // CouchDBRepository implements DocumentRepository using CouchDB

@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	eve "eve.evalgo.org/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	eve "eve.evalgo.org/common"
 )
 
 // TestNewRabbitMQService_InvalidConfig tests connection with invalid configurations

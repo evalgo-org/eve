@@ -46,12 +46,13 @@ package cloud
 import (
 	"context"
 
-	eve "eve.evalgo.org/common"
 	azidentity "github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	msgraphsdk "github.com/microsoftgraph/msgraph-sdk-go"
 	msgraphcore "github.com/microsoftgraph/msgraph-sdk-go-core"
 	"github.com/microsoftgraph/msgraph-sdk-go/models"
 	"github.com/microsoftgraph/msgraph-sdk-go/users"
+
+	eve "eve.evalgo.org/common"
 )
 
 // ptrInt32 creates a pointer to an int32 value for use with Microsoft Graph API.
