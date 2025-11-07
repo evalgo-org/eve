@@ -12,13 +12,14 @@ import (
 type SemanticAction struct {
 	Context      string                 `json:"@context"`
 	Type         string                 `json:"@type"`
+	ID           string                 `json:"@id,omitempty"`
 	Identifier   string                 `json:"identifier,omitempty"`
 	Name         string                 `json:"name,omitempty"`
 	Description  string                 `json:"description,omitempty"`
 	ActionStatus string                 `json:"actionStatus"` // PotentialActionStatus, ActiveActionStatus, CompletedActionStatus, FailedActionStatus
 	Agent        *SemanticAgent         `json:"agent,omitempty"`
 	Object       *SemanticObject        `json:"object,omitempty"`
-	Instrument   *SemanticInstrument    `json:"instrument,omitempty"`
+	Instrument   interface{}            `json:"instrument,omitempty"`
 	StartTime    *time.Time             `json:"startTime,omitempty"`
 	EndTime      *time.Time             `json:"endTime,omitempty"`
 	Duration     string                 `json:"duration,omitempty"` // ISO 8601 duration
@@ -37,6 +38,18 @@ type SemanticScheduledAction struct {
 	Schedule  *SemanticSchedule `json:"schedule,omitempty"`
 	Created   time.Time         `json:"dateCreated"`
 	Modified  time.Time         `json:"dateModified"`
+	Meta      *ActionMeta       `json:"controlMetadata,omitempty"` // Control metadata (separate from semantic properties)
+}
+
+// ActionMeta contains control metadata for action execution (not semantic properties)
+// This is kept separate from additionalProperty to avoid polluting semantic parameters
+type ActionMeta struct {
+	Enabled      bool   `json:"enabled"`              // Whether action is enabled
+	RetryCount   int    `json:"retryCount"`           // Number of retries on failure
+	RetryBackoff string `json:"retryBackoff"`         // Backoff strategy (linear, exponential)
+	Singleton    bool   `json:"singleton"`            // Only one instance can run at a time
+	URL          string `json:"url,omitempty"`        // Service endpoint URL (for routing)
+	HTTPMethod   string `json:"httpMethod,omitempty"` // HTTP method (for routing)
 }
 
 // EntryPoint represents a Schema.org EntryPoint (action target like HTTP endpoint)
@@ -75,16 +88,18 @@ type SemanticObject struct {
 	ProgrammingLanguage string                 `json:"programmingLanguage,omitempty"`
 	CodeRepository      string                 `json:"codeRepository,omitempty"`
 	RuntimePlatform     string                 `json:"runtimePlatform,omitempty"`
+	Target              interface{}            `json:"target,omitempty"`             // Target for actions (Project, EntryPoint, etc.)
 	Properties          map[string]interface{} `json:"additionalProperty,omitempty"` // Additional properties
 }
 
 // SemanticInstrument represents tools used for execution
 type SemanticInstrument struct {
-	Type           string `json:"@type"` // SoftwareApplication, MediaObject
-	Name           string `json:"name,omitempty"`
-	ContentUrl     string `json:"contentUrl,omitempty"`     // File path or URL to tool/script
-	CodeRepository string `json:"codeRepository,omitempty"` // Repository URL
-	EncodingFormat string `json:"encodingFormat,omitempty"` // Format of the content
+	Type           string                 `json:"@type"` // SoftwareApplication, MediaObject
+	Name           string                 `json:"name,omitempty"`
+	ContentUrl     string                 `json:"contentUrl,omitempty"`         // File path or URL to tool/script
+	CodeRepository string                 `json:"codeRepository,omitempty"`     // Repository URL
+	EncodingFormat string                 `json:"encodingFormat,omitempty"`     // Format of the content
+	Properties     map[string]interface{} `json:"additionalProperty,omitempty"` // Additional properties
 }
 
 // SemanticResult represents action execution result

@@ -66,9 +66,58 @@ type DataCatalog struct {
 
 // PropertyValue represents generic property values (Schema.org: PropertyValue)
 type PropertyValue struct {
-	Type  string `json:"@type"` // "PropertyValue"
-	Name  string `json:"name,omitempty"`
-	Value string `json:"value"`
+	Type       string                 `json:"@type"` // "PropertyValue"
+	Name       string                 `json:"name,omitempty"`
+	Value      string                 `json:"value,omitempty"`
+	Properties map[string]interface{} `json:"-"` // Additional properties (all extra fields)
+}
+
+// UnmarshalJSON implements custom unmarshaling that captures all extra fields
+func (pv *PropertyValue) UnmarshalJSON(data []byte) error {
+	// First unmarshal into a map to capture all fields
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	// Extract known fields
+	if t, ok := raw["@type"].(string); ok {
+		pv.Type = t
+	}
+	if n, ok := raw["name"].(string); ok {
+		pv.Name = n
+	}
+	if v, ok := raw["value"].(string); ok {
+		pv.Value = v
+	}
+
+	// Put all extra fields into Properties
+	pv.Properties = make(map[string]interface{})
+	for k, v := range raw {
+		if k != "@type" && k != "name" && k != "value" {
+			pv.Properties[k] = v
+		}
+	}
+
+	return nil
+}
+
+// MarshalJSON implements custom marshaling that includes all properties
+func (pv *PropertyValue) MarshalJSON() ([]byte, error) {
+	// Create a map with all fields
+	result := make(map[string]interface{})
+	result["@type"] = pv.Type
+	if pv.Name != "" {
+		result["name"] = pv.Name
+	}
+	if pv.Value != "" {
+		result["value"] = pv.Value
+	}
+	// Include all additional properties
+	for k, v := range pv.Properties {
+		result[k] = v
+	}
+	return json.Marshal(result)
 }
 
 // ============================================================================

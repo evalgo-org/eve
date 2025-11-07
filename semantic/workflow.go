@@ -10,6 +10,7 @@ import "time"
 type SemanticItemList struct {
 	Context         string             `json:"@context"`
 	Type            string             `json:"@type"` // Must be "ItemList"
+	ID              string             `json:"@id,omitempty"`
 	Identifier      string             `json:"identifier,omitempty"`
 	Name            string             `json:"name"`
 	Description     string             `json:"description,omitempty"`
@@ -34,7 +35,8 @@ type SemanticListItem struct {
 type SemanticHowTo struct {
 	Context     string              `json:"@context"`
 	Type        string              `json:"@type"` // Must be "HowTo"
-	Identifier  string              `json:"identifier"`
+	ID          string              `json:"@id,omitempty"`
+	Identifier  string              `json:"identifier,omitempty"`
 	Name        string              `json:"name"`
 	Description string              `json:"description,omitempty"`
 	Step        []SemanticHowToStep `json:"step"`
