@@ -45,8 +45,10 @@ type Service struct {
 	Name          string            `json:"name"`
 	Description   string            `json:"description"`
 	URL           string            `json:"url"`
-	Documentation string            `json:"documentation,omitempty"`
+	Version       string            `json:"version,omitempty"`       // API version (e.g., "v1")
+	Documentation string            `json:"documentation,omitempty"` // URL to documentation
 	Properties    ServiceProperties `json:"additionalProperty"`
+	APIVersions   []APIVersion      `json:"apiVersions,omitempty"` // Multiple API versions
 }
 
 // ServiceProperties contains service metadata
@@ -105,29 +107,43 @@ func (c *Client) Register(ctx context.Context, config ServiceConfig) error {
 		c.serviceIdentifier = fmt.Sprintf("%s-%s", config.ServiceType, hostname)
 	}
 
-	// Build properties map
-	properties := make(map[string]interface{})
+	// Extract documentation URL from properties if provided
+	documentationURL := ""
 	if config.Properties != nil {
-		for k, v := range config.Properties {
-			properties[k] = v
+		if docURL, ok := config.Properties["documentation"].(string); ok {
+			documentationURL = docURL
 		}
 	}
 
-	// Add standard properties
-	properties["version"] = config.Version
-	properties["hostname"] = hostname
-	properties["serviceType"] = config.ServiceType
-	properties["capabilities"] = config.Capabilities
-	properties["healthEndpoint"] = fmt.Sprintf("%s/health", config.ServiceURL)
+	// Create APIVersions array with current version as default
+	apiVersions := []APIVersion{
+		{
+			Version:       config.Version,
+			URL:           fmt.Sprintf("%s/%s", config.ServiceURL, config.Version),
+			Documentation: documentationURL,
+			IsDefault:     true,
+			Status:        "stable",
+			Capabilities:  config.Capabilities,
+		},
+	}
 
-	// Create semantic service registration
-	registration := SemanticService{
-		Context:    "https://schema.org",
-		Type:       "SoftwareApplication",
-		Identifier: c.serviceIdentifier,
-		Name:       config.ServiceName,
-		URL:        config.ServiceURL,
-		Properties: properties,
+	// Create service registration in the format the registry service expects
+	registration := Service{
+		ID:            c.serviceIdentifier,
+		Name:          config.ServiceName,
+		Description:   "", // Could be added to ServiceConfig if needed
+		URL:           config.ServiceURL,
+		Version:       config.Version,
+		Documentation: documentationURL,
+		Properties: ServiceProperties{
+			Port:         0, // Could be extracted from config if needed
+			Directory:    "",
+			Binary:       "",
+			LogFile:      "",
+			HealthCheck:  fmt.Sprintf("%s/health", config.ServiceURL),
+			Capabilities: config.Capabilities,
+		},
+		APIVersions: apiVersions,
 	}
 
 	// Marshal to JSON
@@ -137,7 +153,7 @@ func (c *Client) Register(ctx context.Context, config ServiceConfig) error {
 	}
 
 	// Send registration
-	registrationURL := fmt.Sprintf("%s/v1/api/services", c.registryURL)
+	registrationURL := fmt.Sprintf("%s/v1/api/services/register", c.registryURL)
 	req, err := http.NewRequestWithContext(ctx, "POST", registrationURL, bytes.NewBuffer(payload))
 	if err != nil {
 		return fmt.Errorf("failed to create registration request: %w", err)
@@ -317,6 +333,17 @@ func (c *Client) GetServiceIdentifier() string {
 	return c.serviceIdentifier
 }
 
+// APIVersion represents a specific API version
+type APIVersion struct {
+	Version       string   `json:"version"`                 // Version identifier (e.g., "v1", "v2")
+	URL           string   `json:"url"`                     // Base URL for this version
+	Documentation string   `json:"documentation,omitempty"` // Documentation URL for this version
+	IsDefault     bool     `json:"isDefault,omitempty"`     // Whether this is the default version
+	Status        string   `json:"status,omitempty"`        // Status: "stable", "beta", "deprecated"
+	ReleaseDate   string   `json:"releaseDate,omitempty"`   // Release date
+	Capabilities  []string `json:"capabilities,omitempty"`  // Version-specific capabilities
+}
+
 // AutoRegisterConfig contains configuration for auto-registration
 type AutoRegisterConfig struct {
 	ServiceID    string
@@ -326,7 +353,9 @@ type AutoRegisterConfig struct {
 	Directory    string
 	Binary       string
 	Capabilities []string
-	RegistryURL  string // e.g., http://localhost:8096
+	RegistryURL  string       // e.g., http://localhost:8096
+	Version      string       // Single version (e.g., "v1")
+	APIVersions  []APIVersion // Multiple API versions
 }
 
 // AutoRegister registers a service with the registry service if REGISTRYSERVICE_API_URL is set
@@ -343,13 +372,38 @@ func AutoRegister(config AutoRegisterConfig) (bool, error) {
 		return false, nil
 	}
 
+	// If no version specified, default to v1
+	version := config.Version
+	if version == "" && len(config.APIVersions) == 0 {
+		version = "v1"
+	}
+
+	// Build documentation URL
+	documentationURL := fmt.Sprintf("http://localhost:%d/v1/api/docs", config.Port)
+
+	// Create APIVersions array if not provided
+	apiVersions := config.APIVersions
+	if len(apiVersions) == 0 && version != "" {
+		apiVersions = []APIVersion{
+			{
+				Version:       version,
+				URL:           fmt.Sprintf("http://localhost:%d/%s", config.Port, version),
+				Documentation: documentationURL,
+				IsDefault:     true,
+				Status:        "stable",
+				Capabilities:  config.Capabilities,
+			},
+		}
+	}
+
 	// Build service registration
 	service := Service{
 		ID:            config.ServiceID,
 		Name:          config.ServiceName,
 		Description:   config.Description,
 		URL:           fmt.Sprintf("http://localhost:%d", config.Port),
-		Documentation: fmt.Sprintf("http://localhost:%d/v1/api", config.Port),
+		Version:       version,
+		Documentation: documentationURL,
 		Properties: ServiceProperties{
 			Port:         config.Port,
 			Directory:    config.Directory,
@@ -358,6 +412,7 @@ func AutoRegister(config AutoRegisterConfig) (bool, error) {
 			HealthCheck:  fmt.Sprintf("http://localhost:%d/health", config.Port),
 			Capabilities: config.Capabilities,
 		},
+		APIVersions: apiVersions,
 	}
 
 	// Marshal to JSON
