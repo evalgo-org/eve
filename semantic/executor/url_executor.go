@@ -101,37 +101,14 @@ func ResolveRegistryURL(registryURL string) (string, error) {
 	return "", fmt.Errorf("service %s not found in registry", serviceName)
 }
 
-// extractTargetURL extracts the service endpoint URL from an action's target
-// Priority: additionalProperty.url > target.url (for backward compatibility)
+// extractTargetURL extracts the service endpoint URL from an action's _meta
 // Supports registry:// URLs which are resolved via the registry service
 func extractTargetURL(action *semantic.SemanticScheduledAction) string {
-	if action.Target == nil {
+	if action.Meta == nil || action.Meta.URL == "" {
 		return ""
 	}
 
-	var rawURL string
-
-	switch target := action.Target.(type) {
-	case *semantic.EntryPoint:
-		rawURL = target.URL
-	case map[string]interface{}:
-		// First check additionalProperty.url (service endpoint)
-		if props, ok := target["additionalProperty"].(map[string]interface{}); ok {
-			if urlStr, ok := props["url"].(string); ok {
-				rawURL = urlStr
-			}
-		}
-		// Fallback to target.url
-		if rawURL == "" {
-			if urlStr, ok := target["url"].(string); ok {
-				rawURL = urlStr
-			}
-		}
-	}
-
-	if rawURL == "" {
-		return ""
-	}
+	rawURL := action.Meta.URL
 
 	// Resolve registry:// URLs
 	if strings.HasPrefix(rawURL, "registry://") {
@@ -172,6 +149,11 @@ func (e *URLBasedExecutor) Execute(action *semantic.SemanticScheduledAction) (st
 	actionCopy.ActionStatus = ""
 	actionCopy.StartTime = nil
 	actionCopy.EndTime = nil
+
+	// Remove control metadata (Meta) before sending
+	// Meta is for the when-daemon executor only (routing, retry, singleton)
+	// Services should only receive semantic properties in additionalProperty
+	actionCopy.Meta = nil
 
 	// Remove the service endpoint URL from target before sending, but keep other URLs (like S3 bucket URLs)
 	// The service endpoint URL is for routing only and should not be part of the semantic action payload
@@ -223,6 +205,9 @@ func (e *URLBasedExecutor) Execute(action *semantic.SemanticScheduledAction) (st
 		return "", fmt.Errorf("failed to serialize action: %w", err)
 	}
 
+	// DEBUG: Log what's being sent
+	fmt.Fprintf(os.Stderr, "DEBUG URL_EXECUTOR sending to %s: %s\n", targetURL, string(jsonldData))
+
 	// POST to service (services expect application/json, not application/ld+json)
 	resp, err := http.Post(targetURL, "application/json", bytes.NewReader(jsonldData))
 	if err != nil {
@@ -240,4 +225,50 @@ func (e *URLBasedExecutor) Execute(action *semantic.SemanticScheduledAction) (st
 	}
 
 	return string(body), nil
+}
+
+// FindServicesByCapability queries the registry for services with a specific capability
+func FindServicesByCapability(capability string) ([]*Service, error) {
+	registryAPIURL := os.Getenv("REGISTRYSERVICE_API_URL")
+	if registryAPIURL == "" {
+		registryAPIURL = "http://localhost:8096" // Default
+	}
+
+	resp, err := http.Get(registryAPIURL + "/v1/api/services")
+	if err != nil {
+		return nil, fmt.Errorf("failed to query registry: %w", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("registry returned status %d", resp.StatusCode)
+	}
+
+	var services []*Service
+	if err := json.NewDecoder(resp.Body).Decode(&services); err != nil {
+		return nil, fmt.Errorf("failed to decode registry response: %w", err)
+	}
+
+	// Filter services by capability
+	var matches []*Service
+	for _, svc := range services {
+		if svc.Properties == nil {
+			continue
+		}
+		// Properties is map[string]interface{}, capabilities is an array
+		if caps, ok := svc.Properties["capabilities"]; ok {
+			if capArray, ok := caps.([]interface{}); ok {
+				for _, cap := range capArray {
+					if capStr, ok := cap.(string); ok && capStr == capability {
+						matches = append(matches, svc)
+						break
+					}
+				}
+			}
+		}
+	}
+
+	return matches, nil
 }
