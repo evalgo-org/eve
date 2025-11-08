@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: eve_user
       POSTGRES_PASSWORD: eve_password
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
@@ -150,7 +150,7 @@ services:
     container_name: eve-example-service
     environment:
       # Database connection
-      DATABASE_URL: postgres://eve_user:eve_password@postgres:5432/eve_traces
+      DATABASE_URL: postgres://eve_user:eve_password@postgres:5432/eve_traces  # Internal port is still 5432
 
       # S3 configuration
       S3_ENDPOINT: http://minio:9000
