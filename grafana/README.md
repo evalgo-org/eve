@@ -151,7 +151,7 @@ scrape_configs:
           - 'fetcher:8080'
           - 'antwrapperservice:8080'
           - 'rabbitmqservice:8080'
-          - 'pxgraphservice:8080'
+          - 'graphdbservice:8080'
 ```
 
 ### Dashboard Variables
