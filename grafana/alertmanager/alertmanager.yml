@@ -1,0 +1,156 @@
+# AlertManager Configuration for EVE Tracing System
+# Handles routing and notification of alerts from Prometheus
+
+global:
+  # Default SMTP configuration (update with your SMTP server)
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'eve-alerts@example.com'
+  smtp_auth_username: 'eve-alerts@example.com'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+  # Slack webhook (update with your webhook URL)
+  slack_api_url: '${SLACK_WEBHOOK_URL}'
+
+  # PagerDuty integration key
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+
+# Templates for notifications
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route tree for alert routing
+route:
+  # Default receiver for all alerts
+  receiver: 'team-platform'
+
+  # Group alerts by these labels
+  group_by: ['alertname', 'cluster', 'service']
+
+  # Wait time before sending first notification
+  group_wait: 30s
+
+  # Wait time before sending notification about new alerts in group
+  group_interval: 5m
+
+  # Wait time before re-sending notification
+  repeat_interval: 4h
+
+  # Child routes with specific routing logic
+  routes:
+    # Critical production alerts -> PagerDuty
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 1h
+      continue: true  # Also send to team-platform
+
+    # GDPR/Compliance alerts -> Legal team + Platform team
+    - match:
+        category: compliance
+      receiver: 'team-legal-compliance'
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      continue: true
+
+    # Business workflow alerts -> Product team
+    - match:
+        category: business
+      receiver: 'team-product'
+      group_wait: 1m
+      group_interval: 10m
+      repeat_interval: 6h
+
+    # Operational/Infrastructure alerts -> Platform/SRE team
+    - match:
+        category: operational
+      receiver: 'team-platform'
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+
+# Inhibition rules - suppress alerts based on other active alerts
+inhibit_rules:
+  # If entire service is down, suppress individual component alerts
+  - source_match:
+      severity: critical
+      alertname: ServiceDown
+    target_match:
+      severity: warning
+    equal: ['service_id']
+
+  # If trace exporter is failing, suppress queue size alerts
+  - source_match:
+      alertname: TraceExporterFailure
+    target_match:
+      alertname: ExporterQueueHigh
+    equal: ['service_id']
+
+  # If PostgreSQL is down, suppress write failure alerts
+  - source_match:
+      alertname: PostgreSQLDown
+    target_match:
+      alertname: PostgreSQLWriteErrors
+    equal: ['instance']
+
+# Receivers - notification integrations
+receivers:
+  # Default platform/SRE team
+  - name: 'team-platform'
+    slack_configs:
+      - channel: '#eve-platform-alerts'
+        username: 'EVE AlertManager'
+        title: '{{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+    email_configs:
+      - to: 'platform-team@example.com'
+        headers:
+          Subject: '[EVE] {{ .GroupLabels.alertname }}'
+        html: '{{ template "email.default.html" . }}'
+        send_resolved: true
+
+  # Critical alerts -> PagerDuty
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ .Alerts.Firing | len }}'
+          resolved: '{{ .Alerts.Resolved | len }}'
+        severity: '{{ .CommonLabels.severity }}'
+
+  # Legal/Compliance team
+  - name: 'team-legal-compliance'
+    slack_configs:
+      - channel: '#eve-compliance-alerts'
+        username: 'EVE Compliance Monitor'
+        title: '{{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+    email_configs:
+      - to: 'legal@example.com,compliance@example.com'
+        headers:
+          Subject: '[EVE COMPLIANCE] {{ .GroupLabels.alertname }}'
+          Priority: 'high'
+        html: '{{ template "email.compliance.html" . }}'
+        send_resolved: true
+
+  # Product team
+  - name: 'team-product'
+    slack_configs:
+      - channel: '#eve-product-alerts'
+        username: 'EVE Product Monitor'
+        title: '{{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+    email_configs:
+      - to: 'product-team@example.com'
+        headers:
+          Subject: '[EVE Product] {{ .GroupLabels.alertname }}'
+        html: '{{ template "email.default.html" . }}'
+        send_resolved: true
