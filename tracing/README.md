@@ -127,7 +127,9 @@ The tracer automatically extracts queryable metadata based on action + object ty
 
 Environment variables:
 
-- `POSTGRES_DSN`: PostgreSQL connection string (required)
+- `POSTGRES_DSN`: PostgreSQL connection string for **action_traces database** (required)
+  - Example: `postgresql://claude:password@localhost:5433/action_traces?sslmode=disable`
+  - ⚠️ Must point to `action_traces`, not `claude_metrics` or `when_metrics`!
 - `S3_ENDPOINT_URL`: S3 endpoint URL (for Hetzner/MinIO)
 - `S3_ACCESS_KEY`: S3 access key
 - `S3_SECRET_KEY`: S3 secret key
@@ -136,11 +138,21 @@ Environment variables:
 
 ## Database Setup
 
-Apply the action tracing schema:
+⚠️ **IMPORTANT**: Action tracing uses a SEPARATE database!
+
+Apply the action tracing schema to the `action_traces` database:
 
 ```bash
-psql -U claude -d claude_metrics -f /home/opunix/when/action_tracing_schema.sql
+# Create the database
+createdb -U claude action_traces
+
+# Apply schema
+psql -U claude -d action_traces -f /home/opunix/when/action_tracing_schema.sql
 ```
+
+**Do NOT use claude_metrics or when_metrics for action tracing!**
+
+See `/home/opunix/when/DATABASE_SEPARATION.md` for details.
 
 ## S3 Setup
 
