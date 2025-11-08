@@ -48,11 +48,13 @@ func main() {
 			Enabled:   true,
 
 			// Async export
-			AsyncExportEnabled: cfg.AsyncExportEnabled,
-			AsyncQueueSize:     cfg.AsyncQueueSize,
-			AsyncBatchSize:     cfg.AsyncBatchSize,
-			AsyncWorkerCount:   cfg.AsyncWorkerCount,
-			AsyncFlushInterval: 10 * time.Second,
+			AsyncExport: cfg.AsyncExportEnabled,
+			AsyncConfig: tracing.AsyncExporterConfig{
+				QueueSize:   cfg.AsyncQueueSize,
+				BatchSize:   cfg.AsyncBatchSize,
+				Workers:     cfg.AsyncWorkerCount,
+				FlushPeriod: 10 * time.Second,
+			},
 
 			// Sampling
 			SamplingEnabled: cfg.SamplingEnabled,
@@ -61,12 +63,12 @@ func main() {
 				BaseRate:              cfg.SamplingBaseRate,
 				AlwaysSampleErrors:    cfg.SamplingAlwaysSampleErrors,
 				AlwaysSampleSlow:      cfg.SamplingAlwaysSampleSlow,
-				SlowThresholdMs:       cfg.SamplingSlowThresholdMs,
+				SlowThresholdMs:       float64(cfg.SamplingSlowThresholdMs),
 				DeterministicSampling: true,
 			},
 
-			// OpenTelemetry (disabled for this demo)
-			OTelEnabled: cfg.OTelEnabled,
+			// Enable metrics
+			EnableMetrics: true,
 		}
 
 		tracer = tracing.New(tracingConfig)
