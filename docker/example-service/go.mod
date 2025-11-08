@@ -13,4 +13,4 @@ require (
 	github.com/prometheus/client_golang v1.18.0
 )
 
-replace eve.evalgo.org/tracing => ../../tracing
+replace eve.evalgo.org/tracing => ./tracing

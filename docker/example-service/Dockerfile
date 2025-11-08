@@ -4,12 +4,15 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /build
 
-# Copy go mod files
-COPY go.mod go.sum ./
+# Copy tracing package
+COPY tracing/ ./tracing/
+
+# Copy example service files
+COPY docker/example-service/go.mod docker/example-service/go.sum ./
 RUN go mod download
 
 # Copy source code
-COPY . .
+COPY docker/example-service/*.go ./
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o example-service .

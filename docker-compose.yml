@@ -145,8 +145,8 @@ services:
   # Example EVE service with tracing enabled
   example-service:
     build:
-      context: ./docker/example-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker/example-service/Dockerfile
     container_name: eve-example-service
     environment:
       # Database connection
