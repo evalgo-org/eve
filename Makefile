@@ -162,9 +162,9 @@ docker-traffic:
 	@echo "Generating test traffic to example-service..."
 	@echo "Press Ctrl+C to stop"
 	@bash -c 'while true; do \
-		for i in {1..9}; do curl -s -X POST http://localhost:8080/v1/api/workflow/create > /dev/null & done; \
-		curl -s -X POST http://localhost:8080/v1/api/workflow/slow > /dev/null & \
-		if [ $$((RANDOM % 10)) -eq 0 ]; then curl -s -X POST http://localhost:8080/v1/api/workflow/error > /dev/null & fi; \
+		for i in {1..9}; do curl -s -X POST http://localhost:8082/v1/api/workflow/create > /dev/null & done; \
+		curl -s -X POST http://localhost:8082/v1/api/workflow/slow > /dev/null & \
+		if [ $$((RANDOM % 10)) -eq 0 ]; then curl -s -X POST http://localhost:8082/v1/api/workflow/error > /dev/null & fi; \
 		sleep 1; \
 	done'
 
@@ -173,16 +173,16 @@ docker-test:
 	@echo "Running smoke tests..."
 	@echo ""
 	@echo "1. Testing example-service health..."
-	@curl -s http://localhost:8080/health | grep -q "healthy" && echo "✓ Service is healthy" || echo "✗ Service check failed"
+	@curl -s http://localhost:8082/health | grep -q "healthy" && echo "✓ Service is healthy" || echo "✗ Service check failed"
 	@echo ""
 	@echo "2. Testing metrics endpoint..."
 	@curl -s http://localhost:9091/metrics | grep -q "eve_tracing" && echo "✓ Metrics endpoint working" || echo "✗ Metrics check failed"
 	@echo ""
 	@echo "3. Testing Prometheus..."
-	@curl -s http://localhost:9090/-/healthy | grep -q "Prometheus" && echo "✓ Prometheus is healthy" || echo "✗ Prometheus check failed"
+	@curl -s http://localhost:9090/-/healthy 2>&1 | grep -qE "(Prometheus|OK)" && echo "✓ Prometheus is healthy" || echo "✗ Prometheus check failed"
 	@echo ""
 	@echo "4. Testing AlertManager..."
-	@curl -s http://localhost:9093/-/healthy && echo "✓ AlertManager is healthy" || echo "✗ AlertManager check failed"
+	@curl -s http://localhost:9093/-/healthy 2>&1 && echo "✓ AlertManager is healthy" || echo "✗ AlertManager check failed"
 	@echo ""
 	@echo "5. Testing MinIO..."
 	@curl -s http://localhost:9000/minio/health/live && echo "✓ MinIO is healthy" || echo "✗ MinIO check failed"
@@ -191,7 +191,7 @@ docker-test:
 	@docker exec eve-postgres pg_isready -U eve_user -q && echo "✓ PostgreSQL is ready" || echo "✗ PostgreSQL check failed"
 	@echo ""
 	@echo "7. Creating test workflow..."
-	@curl -s -X POST http://localhost:8080/v1/api/workflow/create | grep -q "completed" && echo "✓ Workflow creation successful" || echo "✗ Workflow creation failed"
+	@curl -s -X POST http://localhost:8082/v1/api/workflow/create | grep -q "completed" && echo "✓ Workflow creation successful" || echo "✗ Workflow creation failed"
 	@echo ""
 	@echo "8. Checking trace in database..."
 	@docker exec eve-postgres psql -U eve_user -d eve_traces -tAc "SELECT COUNT(*) FROM action_executions WHERE started_at > NOW() - INTERVAL '1 minute'" | grep -q -v "^0$$" && echo "✓ Trace stored in database" || echo "✗ No recent traces found"
