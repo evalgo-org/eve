@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: eve_user
       POSTGRES_PASSWORD: eve_password
     ports:
-      - "5433:5432"
+      - "5436:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
@@ -183,7 +183,7 @@ services:
       # Log level
       LOG_LEVEL: info
     ports:
-      - "8080:8080"
+      - "8081:8080"  # External 8081, internal 8080
       - "9091:9091"  # Metrics endpoint
     networks:
       - eve-network
