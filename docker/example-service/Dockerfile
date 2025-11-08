@@ -22,7 +22,8 @@ COPY statemanager/ ./statemanager/
 # Now copy example service source
 COPY docker/example-service/*.go ./cmd/example-service/
 
-# Download all dependencies
+# Download all dependencies (let Go download required toolchain automatically)
+ENV GOTOOLCHAIN=auto
 RUN go mod download
 
 # Build the binary from the cmd/example-service directory
