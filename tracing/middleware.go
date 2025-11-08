@@ -146,14 +146,35 @@ func (t *Tracer) Middleware() echo.MiddlewareFunc {
 				otelSpanID:        otelSpanIDVal,
 			}
 
-			// Export trace (async if enabled, otherwise sync)
-			if t.asyncExporter != nil {
-				// Async export - non-blocking
-				t.asyncExporter.QueueTrace(trace)
-			} else {
-				// Fallback to sync export in goroutine
-				go t.recordTrace(trace)
+			// Apply tail-based sampling if enabled
+			shouldExport := true
+
+			if t.sampler != nil {
+				decision := t.sampler.ShouldSample(&trace)
+				shouldExport = decision.ShouldSample
+
+				// Record sampling metrics
+				if t.metrics != nil {
+					if decision.ShouldSample {
+						t.metrics.SamplingDecisions.WithLabelValues(t.config.ServiceID, "sampled", decision.Reason).Inc()
+					} else {
+						t.metrics.SamplingDecisions.WithLabelValues(t.config.ServiceID, "rejected", decision.Reason).Inc()
+					}
+				}
 			}
+
+			// Export trace only if sampling decision is positive
+			if shouldExport {
+				// Export trace (async if enabled, otherwise sync)
+				if t.asyncExporter != nil {
+					// Async export - non-blocking
+					t.asyncExporter.QueueTrace(trace)
+				} else {
+					// Fallback to sync export in goroutine
+					go t.recordTrace(trace)
+				}
+			}
+			// Note: Sampling rejections are tracked in metrics, no need to log
 
 			return handlerErr
 		}

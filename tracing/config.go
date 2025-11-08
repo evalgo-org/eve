@@ -54,6 +54,10 @@ type Config struct {
 	// Metrics settings
 	EnableMetrics    bool   // Enable Prometheus metrics (default: true)
 	MetricsNamespace string // Prometheus namespace (default: "eve_tracing")
+
+	// Sampling settings
+	SamplingEnabled bool           // Enable tail-based sampling (default: false)
+	SamplingConfig  SamplingConfig // Sampling configuration
 }
 
 // Tracer handles action execution tracing
@@ -61,6 +65,7 @@ type Tracer struct {
 	config        Config
 	asyncExporter *AsyncExporter // Optional async exporter
 	metrics       *Metrics       // Optional Prometheus metrics
+	sampler       *Sampler       // Optional tail-based sampler
 }
 
 // New creates a new tracer instance
@@ -79,6 +84,11 @@ func New(config Config) *Tracer {
 	// Initialize async exporter if enabled
 	if config.AsyncExport {
 		tracer.asyncExporter = NewAsyncExporter(tracer, config.AsyncConfig)
+	}
+
+	// Initialize sampler if enabled
+	if config.SamplingEnabled {
+		tracer.sampler = NewSampler(config.SamplingConfig)
 	}
 
 	return tracer

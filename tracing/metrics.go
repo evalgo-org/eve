@@ -45,6 +45,9 @@ type Metrics struct {
 	// OpenTelemetry integration metrics
 	OTelTraceLinks   *prometheus.CounterVec
 	OTelSamplingRate prometheus.Gauge
+
+	// Sampling metrics
+	SamplingDecisions *prometheus.CounterVec
 }
 
 // NewMetrics creates and registers Prometheus metrics
@@ -275,6 +278,16 @@ func NewMetrics(namespace string) *Metrics {
 				Name:      "otel_sampling_rate",
 				Help:      "Current OpenTelemetry sampling rate (0.0-1.0)",
 			},
+		),
+
+		// Sampling metrics
+		SamplingDecisions: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "sampling_decisions_total",
+				Help:      "Total number of sampling decisions made",
+			},
+			[]string{"service_id", "decision", "reason"},
 		),
 	}
 
