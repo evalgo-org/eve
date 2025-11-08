@@ -13,7 +13,7 @@ Middleware for tracing Schema.org action execution across EVE services using hyb
 ## Installation
 
 ```go
-import "eve.evalgo.org/pkg/tracing"
+import "eve.evalgo.org/tracing"
 ```
 
 ## Usage
@@ -27,7 +27,7 @@ import (
     "database/sql"
     "os"
 
-    "eve.evalgo.org/pkg/tracing"
+    "eve.evalgo.org/tracing"
     "github.com/aws/aws-sdk-go-v2/config"
     "github.com/aws/aws-sdk-go-v2/service/s3"
     "github.com/labstack/echo/v4"
