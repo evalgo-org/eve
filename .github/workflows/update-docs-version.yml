@@ -1,0 +1,56 @@
+name: Update Documentation Version
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on version tags like v0.0.32
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history and tags
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          LATEST_TAG=$(git tag --sort=-v:refname | head -1)
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest tag: $LATEST_TAG"
+
+      - name: Update version in documentation
+        run: |
+          chmod +x docs/update-version.sh
+          ./docs/update-version.sh
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet docs/*.html; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+            echo "No version changes detected"
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
+            echo "Version changes detected"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/*.html
+          git commit -m "docs: Update version to ${{ steps.get_tag.outputs.tag }}"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "✓ Documentation version updated to ${{ steps.get_tag.outputs.tag }}"
+          echo "✓ Changes pushed to main branch"
+          echo "✓ GitHub Pages will auto-deploy"
