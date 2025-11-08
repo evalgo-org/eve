@@ -4,18 +4,30 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /build
 
-# Copy tracing package
+# Copy root go.mod and go.sum for the eve module
+COPY go.mod go.sum ./
+
+# Copy the entire tracing package (part of eve.evalgo.org module)
 COPY tracing/ ./tracing/
 
-# Copy example service files
-COPY docker/example-service/go.mod docker/example-service/go.sum ./
+# Copy db package (dependency for tracing)
+COPY db/ ./db/
+
+# Copy semantic package (dependency for tracing)
+COPY semantic/ ./semantic/
+
+# Copy statemanager package (dependency for tracing)
+COPY statemanager/ ./statemanager/
+
+# Now copy example service source
+COPY docker/example-service/*.go ./cmd/example-service/
+
+# Download all dependencies
 RUN go mod download
 
-# Copy source code
-COPY docker/example-service/*.go ./
-
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o example-service .
+# Build the binary from the cmd/example-service directory
+WORKDIR /build/cmd/example-service
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /build/example-service .
 
 # Final stage
 FROM alpine:latest
