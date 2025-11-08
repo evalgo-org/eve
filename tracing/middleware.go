@@ -56,6 +56,11 @@ func (t *Tracer) Middleware() echo.MiddlewareFunc {
 			// Parse action type for metadata extraction
 			actionType, objectType := parseActionTypes(reqBody)
 
+			// Check if this action should be traced
+			if !t.shouldTrace(actionType, objectType) {
+				return next(c)
+			}
+
 			// Create response recorder
 			rec := &responseRecorder{
 				ResponseWriter: c.Response().Writer,
@@ -181,18 +186,30 @@ type traceRecord struct {
 func (t *Tracer) recordTrace(rec traceRecord) {
 	ctx := context.Background()
 
-	// Upload payloads to S3
-	requestURL := fmt.Sprintf("s3://%s/%s/%s/request.json", t.config.S3Bucket, rec.correlationID, rec.operationID)
-	responseURL := fmt.Sprintf("s3://%s/%s/%s/response.json", t.config.S3Bucket, rec.correlationID, rec.operationID)
+	// Check if payloads should be stored
+	storePayloads := t.shouldStorePayload(rec.actionType, rec.objectType)
 
-	// Upload request to S3
-	if err := t.uploadToS3(ctx, rec.correlationID, rec.operationID, "request.json", rec.requestBody); err != nil {
-		t.logError("Failed to upload request to S3", err)
-	}
+	// S3 URLs (only set if payloads are stored)
+	var requestURL, responseURL string
 
-	// Upload response to S3
-	if err := t.uploadToS3(ctx, rec.correlationID, rec.operationID, "response.json", rec.responseBody); err != nil {
-		t.logError("Failed to upload response to S3", err)
+	if storePayloads {
+		// Upload payloads to S3
+		requestURL = fmt.Sprintf("s3://%s/%s/%s/request.json", t.config.S3Bucket, rec.correlationID, rec.operationID)
+		responseURL = fmt.Sprintf("s3://%s/%s/%s/response.json", t.config.S3Bucket, rec.correlationID, rec.operationID)
+
+		// Upload request to S3
+		if err := t.uploadToS3(ctx, rec.correlationID, rec.operationID, "request.json", rec.requestBody); err != nil {
+			t.logError("Failed to upload request to S3", err)
+		}
+
+		// Upload response to S3
+		if err := t.uploadToS3(ctx, rec.correlationID, rec.operationID, "response.json", rec.responseBody); err != nil {
+			t.logError("Failed to upload response to S3", err)
+		}
+	} else {
+		// For credential-related actions, mark URLs as redacted
+		requestURL = "[REDACTED - Credential payload not stored]"
+		responseURL = "[REDACTED - Credential payload not stored]"
 	}
 
 	// Extract metadata based on action type

@@ -49,6 +49,16 @@ func main() {
         S3Client:   s3Client,
         S3Bucket:   "eve-traces",
         Enabled:    os.Getenv("TRACING_ENABLED") != "false",
+
+        // Optional: Exclude specific action types from tracing
+        ExcludeActionTypes: []string{"WaitAction"},
+
+        // Optional: Exclude specific object types from tracing
+        ExcludeObjectTypes: []string{},
+
+        // Store request/response payloads in S3 (default: false)
+        // Automatically disabled for credential-related actions
+        StorePayloads: true,
     })
 
     // Create Echo server
@@ -111,6 +121,74 @@ func uploadArtifacts(c echo.Context, tracer *tracing.Tracer) {
 }
 ```
 
+## Selective Tracing
+
+### Excluding Actions from Tracing
+
+You can exclude specific action types or object types from being traced:
+
+```go
+tracer := tracing.New(tracing.Config{
+    // ...
+
+    // Exclude WaitAction and SearchAction from tracing
+    ExcludeActionTypes: []string{"WaitAction", "SearchAction"},
+
+    // Exclude Database and DataFeed objects from tracing
+    ExcludeObjectTypes: []string{"Database", "DataFeed"},
+})
+```
+
+When an action is excluded, it will not be recorded in the database at all.
+
+### Credential Security
+
+**IMPORTANT**: The tracer automatically detects and redacts credential-related actions to prevent storing sensitive data.
+
+Actions with the following object types are **automatically redacted**:
+- `Credential`
+- `PasswordCredential`
+- `Secret`
+- `DigitalDocument` (may contain credentials)
+
+For redacted actions:
+- ✓ Metadata is still recorded in PostgreSQL (timing, status, service)
+- ✗ Request/response payloads are **NOT** uploaded to S3
+- ✓ S3 URLs are marked as `[REDACTED - Credential payload not stored]`
+
+Example redacted trace:
+
+```
+## Action Details: op-abc123
+
+**Service:** infisicalservice
+**Action Type:** CreateAction
+**Object Type:** Secret
+**Status:** CompletedActionStatus
+
+## Storage
+
+**Request:** [REDACTED - Credential payload not stored]
+**Response:** [REDACTED - Credential payload not stored]
+```
+
+This ensures credentials never leave the service, even in trace data.
+
+### Payload Storage Control
+
+Control whether request/response payloads are stored in S3:
+
+```go
+tracer := tracing.New(tracing.Config{
+    // ...
+
+    // Enable payload storage (disabled by default for security)
+    StorePayloads: true,
+})
+```
+
+Even when `StorePayloads: true`, credential payloads are **always redacted**.
+
 ## Metadata Extraction
 
 The tracer automatically extracts queryable metadata based on action + object type:
@@ -135,6 +213,28 @@ Environment variables:
 - `S3_SECRET_KEY`: S3 secret key
 - `S3_BUCKET`: S3 bucket name (default: eve-traces)
 - `TRACING_ENABLED`: Enable/disable tracing (default: true)
+- `TRACING_STORE_PAYLOADS`: Store request/response in S3 (default: false for security)
+
+### Config Options
+
+```go
+type Config struct {
+    ServiceID          string    // Service identifier (required)
+    DB                 *sql.DB   // PostgreSQL connection (required)
+    S3Client           *s3.Client // S3 client (required if StorePayloads=true)
+    S3Bucket           string    // S3 bucket name
+    S3Endpoint         string    // S3 endpoint URL
+    Enabled            bool      // Enable/disable tracing
+    ExcludeActionTypes []string  // Action types to exclude from tracing
+    ExcludeObjectTypes []string  // Object types to exclude from tracing
+    StorePayloads      bool      // Store request/response in S3 (false by default)
+}
+```
+
+**Security Notes**:
+- `StorePayloads` defaults to `false` to prevent accidental credential leakage
+- Credential-related actions are **always redacted** regardless of `StorePayloads` setting
+- Use `ExcludeObjectTypes: []string{"Credential", "Secret"}` to completely skip tracing credential operations
 
 ## Database Setup
 

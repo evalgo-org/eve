@@ -25,6 +25,16 @@ type Config struct {
 
 	// Enable/disable tracing
 	Enabled bool
+
+	// ExcludeActionTypes lists action types to exclude from tracing (e.g., ["WaitAction"])
+	ExcludeActionTypes []string
+
+	// ExcludeObjectTypes lists object types to exclude from tracing (e.g., ["Credential"])
+	ExcludeObjectTypes []string
+
+	// StorePayloads controls whether to store request/response bodies in S3
+	// Automatically disabled for credential-related actions
+	StorePayloads bool
 }
 
 // Tracer handles action execution tracing
@@ -56,4 +66,53 @@ func GetOperationID(c interface{}) string {
 		}
 	}
 	return ""
+}
+
+// shouldTrace checks if an action should be traced based on exclusion rules
+func (t *Tracer) shouldTrace(actionType, objectType string) bool {
+	// Check if action type is excluded
+	for _, excluded := range t.config.ExcludeActionTypes {
+		if actionType == excluded {
+			return false
+		}
+	}
+
+	// Check if object type is excluded
+	for _, excluded := range t.config.ExcludeObjectTypes {
+		if objectType == excluded {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isCredentialRelated checks if an action involves credentials or secrets
+func isCredentialRelated(actionType, objectType string) bool {
+	// Check object type
+	credentialTypes := []string{
+		"Credential",
+		"PasswordCredential",
+		"Secret",
+		"DigitalDocument", // Can contain credentials
+	}
+
+	for _, t := range credentialTypes {
+		if objectType == t {
+			return true
+		}
+	}
+
+	return false
+}
+
+// shouldStorePayload checks if request/response payloads should be stored in S3
+func (t *Tracer) shouldStorePayload(actionType, objectType string) bool {
+	// Never store credential payloads
+	if isCredentialRelated(actionType, objectType) {
+		return false
+	}
+
+	// Respect global StorePayloads config
+	return t.config.StorePayloads
 }
