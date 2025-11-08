@@ -23,13 +23,13 @@ type AsyncExporter struct {
 
 // ExporterStats tracks exporter performance
 type ExporterStats struct {
-	mu             sync.RWMutex
-	TracesQueued   int64
-	TracesExported int64
-	TracesFailed   int64
-	QueueDropped   int64
+	mu              sync.RWMutex
+	TracesQueued    int64
+	TracesExported  int64
+	TracesFailed    int64
+	QueueDropped    int64
 	BatchesExported int64
-	LastExportTime time.Time
+	LastExportTime  time.Time
 }
 
 // AsyncExporterConfig configures the async exporter

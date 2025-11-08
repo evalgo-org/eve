@@ -52,8 +52,8 @@ type Config struct {
 	AsyncConfig AsyncExporterConfig // Async exporter configuration
 
 	// Metrics settings
-	EnableMetrics     bool   // Enable Prometheus metrics (default: true)
-	MetricsNamespace  string // Prometheus namespace (default: "eve_tracing")
+	EnableMetrics    bool   // Enable Prometheus metrics (default: true)
+	MetricsNamespace string // Prometheus namespace (default: "eve_tracing")
 }
 
 // Tracer handles action execution tracing

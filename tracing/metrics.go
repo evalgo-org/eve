@@ -299,7 +299,7 @@ func (m *Metrics) RecordWorkflow(correlationID, status string, duration time.Dur
 }
 
 // UpdateExporterMetrics updates async exporter metrics
-func (m *Metrics) UpdateExporterMetrics(stats ExporterStats, queueSize int) {
+func (m *Metrics) UpdateExporterMetrics(stats *ExporterStats, queueSize int) {
 	m.ExporterQueueSize.Set(float64(queueSize))
 }
 
