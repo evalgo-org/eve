@@ -286,7 +286,46 @@ func (t *Tracer) recordTrace(rec traceRecord) {
 	// Extract metadata based on action type
 	metadata := t.extractMetadata(rec.actionType, rec.objectType, rec.requestBody, rec.responseBody)
 
-	// Store metadata in PostgreSQL
+	// Extract data subject ID from metadata or request (if present)
+	dataSubjectID := extractDataSubjectID(rec.requestBody)
+
+	// Calculate retention until based on config
+	var retentionUntil interface{}
+	if t.config.RetentionDays > 0 {
+		retentionUntil = rec.startTime.AddDate(0, 0, t.config.RetentionDays)
+	}
+
+	// Detect PII if enabled
+	containsPII := false
+	if t.config.EnablePII {
+		// Check request and response for PII
+		requestPII := t.DetectPII(string(rec.requestBody), nil)
+		responsePII := t.DetectPII(string(rec.responseBody), nil)
+
+		if len(requestPII) > 0 || len(responsePII) > 0 {
+			containsPII = true
+
+			// Record PII detections asynchronously
+			go func() {
+				for _, detection := range requestPII {
+					detection.CorrelationID = rec.correlationID
+					detection.OperationID = rec.operationID
+					detection.Location = "request"
+					detection.DataSubjectID = dataSubjectID
+					_ = t.RecordPIIDetection(context.Background(), detection)
+				}
+				for _, detection := range responsePII {
+					detection.CorrelationID = rec.correlationID
+					detection.OperationID = rec.operationID
+					detection.Location = "response"
+					detection.DataSubjectID = dataSubjectID
+					_ = t.RecordPIIDetection(context.Background(), detection)
+				}
+			}()
+		}
+	}
+
+	// Store metadata in PostgreSQL with GDPR compliance fields
 	query := `
 		INSERT INTO action_executions (
 			correlation_id, operation_id, parent_operation_id,
@@ -297,9 +336,11 @@ func (t *Tracer) recordTrace(rec traceRecord) {
 			request_url, response_url,
 			request_size_bytes, response_size_bytes,
 			metadata, client_ip, user_agent,
-			otel_trace_id, otel_span_id
+			otel_trace_id, otel_span_id,
+			data_subject_id, data_region, legal_basis, retention_until, contains_pii
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
+			$24, $25, $26, $27, $28
 		)
 	`
 
@@ -327,6 +368,11 @@ func (t *Tracer) recordTrace(rec traceRecord) {
 		rec.userAgent,
 		nullString(rec.otelTraceID),
 		nullString(rec.otelSpanID),
+		nullString(dataSubjectID),
+		t.config.DataRegion,
+		t.config.LegalBasis,
+		retentionUntil,
+		containsPII,
 	)
 
 	if err != nil {
@@ -345,4 +391,49 @@ func nullString(s string) interface{} {
 // logError logs errors (simple implementation, replace with proper logger)
 func (t *Tracer) logError(msg string, err error) {
 	fmt.Printf("[tracing] %s: %v\n", msg, err)
+}
+
+// extractDataSubjectID attempts to extract data subject ID from request
+// Checks common JSON-LD fields like agent.identifier, participant.identifier, etc.
+func extractDataSubjectID(body []byte) string {
+	var action struct {
+		Agent struct {
+			Identifier string `json:"identifier"`
+		} `json:"agent"`
+		Participant struct {
+			Identifier string `json:"identifier"`
+		} `json:"participant"`
+		Customer struct {
+			Identifier string `json:"identifier"`
+		} `json:"customer"`
+		DataSubject struct {
+			Identifier string `json:"identifier"`
+		} `json:"dataSubject"`
+		Meta struct {
+			DataSubjectID string `json:"dataSubjectId"`
+		} `json:"meta"`
+	}
+
+	if err := json.Unmarshal(body, &action); err != nil {
+		return ""
+	}
+
+	// Try various fields
+	if action.DataSubject.Identifier != "" {
+		return action.DataSubject.Identifier
+	}
+	if action.Meta.DataSubjectID != "" {
+		return action.Meta.DataSubjectID
+	}
+	if action.Agent.Identifier != "" {
+		return action.Agent.Identifier
+	}
+	if action.Participant.Identifier != "" {
+		return action.Participant.Identifier
+	}
+	if action.Customer.Identifier != "" {
+		return action.Customer.Identifier
+	}
+
+	return ""
 }

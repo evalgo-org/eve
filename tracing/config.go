@@ -3,6 +3,7 @@ package tracing
 import (
 	"database/sql"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -37,6 +38,12 @@ type Config struct {
 	// StorePayloads controls whether to store request/response bodies in S3
 	// Automatically disabled for credential-related actions
 	StorePayloads bool
+
+	// GDPR & Compliance settings
+	DataRegion    string // us, eu, apac - controls data residency
+	RetentionDays int    // Default retention period in days
+	EnablePII     bool   // Enable PII detection
+	LegalBasis    string // Default legal basis for processing
 }
 
 // Tracer handles action execution tracing
@@ -95,6 +102,29 @@ func NewFromEnv(serviceID string, db *sql.DB, s3Client *s3.Client) *Tracer {
 		for i := range config.ExcludeObjectTypes {
 			config.ExcludeObjectTypes[i] = strings.TrimSpace(config.ExcludeObjectTypes[i])
 		}
+	}
+
+	// Parse GDPR compliance settings
+	config.DataRegion = os.Getenv("DATA_REGION")
+	if config.DataRegion == "" {
+		config.DataRegion = "us" // Default
+	}
+
+	// Parse retention days (default: 90 days)
+	config.RetentionDays = 90
+	if retDays := os.Getenv("TRACING_RETENTION_DAYS"); retDays != "" {
+		if days, err := strconv.Atoi(retDays); err == nil && days > 0 {
+			config.RetentionDays = days
+		}
+	}
+
+	// Parse PII detection setting (default: true)
+	config.EnablePII = os.Getenv("TRACING_ENABLE_PII") != "false"
+
+	// Parse legal basis
+	config.LegalBasis = os.Getenv("TRACING_LEGAL_BASIS")
+	if config.LegalBasis == "" {
+		config.LegalBasis = "Legitimate Interest" // Default
 	}
 
 	return &Tracer{config: config}
