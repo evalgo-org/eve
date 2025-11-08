@@ -1,0 +1,208 @@
+# Prometheus Alert Rules - EVE Tracing Business/Workflow Alerts
+# Category: business
+# Severity: critical, warning, info
+
+groups:
+  - name: tracing_business
+    interval: 1m
+    rules:
+      # ========== CRITICAL ALERTS ==========
+
+      - alert: WorkflowSuccessRateLow
+        expr: |
+          sum(rate(eve_tracing_workflows_total{status="completed"}[10m])) /
+          sum(rate(eve_tracing_workflows_total[10m])) < 0.90
+        for: 10m
+        labels:
+          severity: critical
+          category: business
+          component: workflows
+        annotations:
+          summary: "Workflow success rate below 90%"
+          description: "Only {{ $value | humanizePercentage }} of workflows completing successfully (SLO: >95%)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/low-success-rate"
+          dashboard_url: "https://grafana.example.com/d/eve-business"
+          action: "Check workflow error logs and trace failed workflows"
+
+      - alert: HighBusinessErrorRate
+        expr: sum(rate(eve_tracing_action_errors_total[5m])) by (service_id, action_type) > 5
+        for: 10m
+        labels:
+          severity: critical
+          category: business
+          component: actions
+        annotations:
+          summary: "High error rate for {{ $labels.action_type }} on {{ $labels.service_id }}"
+          description: "{{ $value }} errors/sec for business actions"
+          runbook_url: "https://wiki.example.com/eve/runbooks/business-errors"
+          action: "Review recent deployments and investigate error patterns"
+
+      - alert: WorkflowSLOViolation
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(eve_tracing_workflow_duration_seconds_bucket[10m])) by (le)
+          ) > 120
+        for: 15m
+        labels:
+          severity: critical
+          category: business
+          component: workflows
+          slo: duration
+        annotations:
+          summary: "Workflow duration SLO violated"
+          description: "p95 workflow duration is {{ $value }}s (SLO: <60s, critical: >120s)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/slo-violation"
+          dashboard_url: "https://grafana.example.com/d/eve-business"
+          action: "Identify slow workflow steps and optimize bottlenecks"
+
+      - alert: WorkflowStormDetected
+        expr: sum(eve_tracing_workflows_in_flight) > 100
+        for: 5m
+        labels:
+          severity: critical
+          category: business
+          component: workflows
+        annotations:
+          summary: "Too many workflows in flight"
+          description: "{{ $value }} workflows currently executing (threshold: 100)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/workflow-storm"
+          action: "Check for retry loops or stuck workflows"
+
+      # ========== WARNING ALERTS ==========
+
+      - alert: WorkflowSuccessRateDegraded
+        expr: |
+          sum(rate(eve_tracing_workflows_total{status="completed"}[10m])) /
+          sum(rate(eve_tracing_workflows_total[10m])) < 0.95
+        for: 10m
+        labels:
+          severity: warning
+          category: business
+          component: workflows
+        annotations:
+          summary: "Workflow success rate degraded"
+          description: "Success rate at {{ $value | humanizePercentage }} (SLO: >95%)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/degraded-success-rate"
+
+      - alert: WorkflowDurationIncreasing
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(eve_tracing_workflow_duration_seconds_bucket[10m])) by (le)
+          ) > 60
+        for: 15m
+        labels:
+          severity: warning
+          category: business
+          component: workflows
+          slo: duration
+        annotations:
+          summary: "Workflow duration approaching SLO threshold"
+          description: "p95 duration is {{ $value }}s (SLO: <60s)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/slow-workflows"
+          action: "Monitor for further degradation"
+
+      - alert: ActionTypeFailureSpike
+        expr: |
+          sum(rate(eve_tracing_action_errors_total[5m])) by (action_type, service_id) > 1
+          and
+          sum(rate(eve_tracing_action_errors_total[5m])) by (action_type, service_id) /
+          sum(rate(eve_tracing_actions_total[5m])) by (action_type, service_id) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          category: business
+          component: actions
+        annotations:
+          summary: "Elevated errors for {{ $labels.action_type }} on {{ $labels.service_id }}"
+          description: "{{ $value }} errors/sec (>5% error rate)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/action-errors"
+
+      - alert: LowThroughputWarning
+        expr: sum(rate(eve_tracing_actions_total[10m])) by (service_id) < 0.1
+        for: 20m
+        labels:
+          severity: warning
+          category: business
+          component: throughput
+        annotations:
+          summary: "Low throughput on {{ $labels.service_id }}"
+          description: "Only {{ $value }} actions/sec. Possible upstream issue or traffic drop."
+          runbook_url: "https://wiki.example.com/eve/runbooks/low-throughput"
+
+      - alert: SpecificActionTypeSlow
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(eve_tracing_action_duration_seconds_bucket[10m])) by (le, action_type, service_id)
+          ) > 10
+        for: 15m
+        labels:
+          severity: warning
+          category: business
+          component: actions
+        annotations:
+          summary: "Slow {{ $labels.action_type }} actions on {{ $labels.service_id }}"
+          description: "p95 latency is {{ $value }}s for this action type"
+          runbook_url: "https://wiki.example.com/eve/runbooks/slow-action-type"
+          action: "Profile {{ $labels.action_type }} execution"
+
+      # ========== INFO/SLO ALERTS ==========
+
+      - alert: WorkflowSLOHealthy
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(eve_tracing_workflow_duration_seconds_bucket[10m])) by (le)
+          ) < 30
+        for: 1h
+        labels:
+          severity: info
+          category: business
+          component: workflows
+          slo: duration
+        annotations:
+          summary: "Workflow performance excellent"
+          description: "p95 duration is {{ $value }}s, well below SLO target of 60s"
+
+      - alert: HighWorkflowThroughput
+        expr: sum(rate(eve_tracing_workflows_total[5m])) > 10
+        for: 10m
+        labels:
+          severity: info
+          category: business
+          component: workflows
+        annotations:
+          summary: "High workflow throughput detected"
+          description: "Processing {{ $value }} workflows/sec"
+          action: "Monitor system resources during high load"
+
+      # ========== BUSINESS-SPECIFIC ALERTS ==========
+
+      - alert: CreateActionFailureSpike
+        expr: |
+          sum(rate(eve_tracing_action_errors_total{action_type="CreateAction"}[5m])) by (service_id, object_type) > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: business
+          component: actions
+          action_type: CreateAction
+        annotations:
+          summary: "High CreateAction failures for {{ $labels.object_type }} on {{ $labels.service_id }}"
+          description: "{{ $value }} creation failures/sec"
+          runbook_url: "https://wiki.example.com/eve/runbooks/create-failures"
+          action: "Check resource limits and validation logic"
+
+      - alert: DeleteActionAnomalyDetected
+        expr: |
+          sum(rate(eve_tracing_actions_total{action_type="DeleteAction"}[5m])) by (service_id) >
+          sum(rate(eve_tracing_actions_total{action_type="DeleteAction"}[5m]) offset 1h) by (service_id) * 5
+        for: 5m
+        labels:
+          severity: warning
+          category: business
+          component: actions
+          action_type: DeleteAction
+        annotations:
+          summary: "Unusual spike in DeleteAction on {{ $labels.service_id }}"
+          description: "Delete rate is {{ $value }} actions/sec (5x higher than 1h ago)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/delete-spike"
+          action: "Investigate for unintended bulk deletions"

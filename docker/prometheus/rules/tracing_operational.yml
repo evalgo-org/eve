@@ -1,0 +1,173 @@
+# Prometheus Alert Rules - EVE Tracing Operational Alerts
+# Category: operational
+# Severity: critical, warning, info
+
+groups:
+  - name: tracing_operational
+    interval: 30s
+    rules:
+      # ========== CRITICAL ALERTS ==========
+
+      - alert: TraceExporterQueueCritical
+        expr: eve_tracing_exporter_queue_size > 9000
+        for: 5m
+        labels:
+          severity: critical
+          category: operational
+          component: async_exporter
+        annotations:
+          summary: "Trace exporter queue critically full"
+          description: "Trace exporter queue has {{ $value }} traces (>90% capacity). Traces will be dropped soon. Service: {{ $labels.service_id }}"
+          runbook_url: "https://wiki.example.com/eve/runbooks/exporter-queue-critical"
+          dashboard_url: "https://grafana.example.com/d/eve-operational"
+
+      - alert: TracesBeingDropped
+        expr: rate(eve_tracing_exporter_queue_dropped_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          category: operational
+          component: async_exporter
+        annotations:
+          summary: "Traces are being dropped due to queue overflow"
+          description: "Dropping {{ $value }} traces/sec on {{ $labels.service_id }}. Data loss occurring!"
+          runbook_url: "https://wiki.example.com/eve/runbooks/traces-dropped"
+          action: "Increase TRACING_ASYNC_QUEUE_SIZE or add more workers"
+
+      - alert: HighActionErrorRate
+        expr: sum(rate(eve_tracing_action_errors_total[5m])) by (service_id) > 10
+        for: 5m
+        labels:
+          severity: critical
+          category: operational
+          component: action_handler
+        annotations:
+          summary: "High action error rate on {{ $labels.service_id }}"
+          description: "Service {{ $labels.service_id }} experiencing {{ $value }} errors/sec"
+          runbook_url: "https://wiki.example.com/eve/runbooks/high-error-rate"
+
+      - alert: PostgreSQLWriteFailures
+        expr: rate(eve_tracing_postgresql_errors_total[5m]) > 1
+        for: 3m
+        labels:
+          severity: critical
+          category: operational
+          component: postgresql
+        annotations:
+          summary: "PostgreSQL write failures detected"
+          description: "Database writes failing at {{ $value }} errors/sec. Operation: {{ $labels.operation }}, Error: {{ $labels.error_type }}"
+          runbook_url: "https://wiki.example.com/eve/runbooks/postgresql-failures"
+          action: "Check database connectivity and disk space"
+
+      - alert: S3UploadFailures
+        expr: rate(eve_tracing_s3_errors_total[5m]) > 1
+        for: 3m
+        labels:
+          severity: critical
+          category: operational
+          component: s3
+        annotations:
+          summary: "S3 upload failures detected"
+          description: "S3 uploads failing at {{ $value }} errors/sec. Operation: {{ $labels.operation }}, Error: {{ $labels.error_type }}"
+          runbook_url: "https://wiki.example.com/eve/runbooks/s3-failures"
+          action: "Check S3 credentials and bucket permissions"
+
+      - alert: ExporterBatchFailureRate
+        expr: |
+          sum(rate(eve_tracing_exporter_batches_total{status="failure"}[5m])) /
+          sum(rate(eve_tracing_exporter_batches_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          category: operational
+          component: async_exporter
+        annotations:
+          summary: "High exporter batch failure rate"
+          description: "{{ $value | humanizePercentage }} of export batches are failing"
+          runbook_url: "https://wiki.example.com/eve/runbooks/exporter-failures"
+
+      # ========== WARNING ALERTS ==========
+
+      - alert: TraceExporterQueueHigh
+        expr: eve_tracing_exporter_queue_size > 7000
+        for: 10m
+        labels:
+          severity: warning
+          category: operational
+          component: async_exporter
+        annotations:
+          summary: "Trace exporter queue growing"
+          description: "Queue has {{ $value }} traces (>70% capacity). Monitor for further growth."
+          runbook_url: "https://wiki.example.com/eve/runbooks/exporter-queue-high"
+
+      - alert: HighActionLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(eve_tracing_action_duration_seconds_bucket[5m])) by (le, service_id, action_type)
+          ) > 5
+        for: 10m
+        labels:
+          severity: warning
+          category: operational
+          component: action_handler
+        annotations:
+          summary: "High action latency on {{ $labels.service_id }}"
+          description: "p95 latency for {{ $labels.action_type }} is {{ $value }}s (>5s threshold)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/high-latency"
+
+      - alert: ExporterBatchLatencyHigh
+        expr: histogram_quantile(0.95, rate(eve_tracing_exporter_latency_seconds_bucket[5m])) > 10
+        for: 10m
+        labels:
+          severity: warning
+          category: operational
+          component: async_exporter
+        annotations:
+          summary: "Slow trace export batches"
+          description: "p95 export batch latency is {{ $value }}s (>10s threshold)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/slow-exports"
+          action: "Check PostgreSQL and S3 performance"
+
+      - alert: TracePayloadSizeLarge
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(eve_tracing_trace_payload_bytes_bucket[5m])) by (le, type)
+          ) > 500000
+        for: 15m
+        labels:
+          severity: warning
+          category: operational
+          component: storage
+        annotations:
+          summary: "Large trace payloads detected"
+          description: "p95 {{ $labels.type }} payload size is {{ $value | humanize }}B (>500KB)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/large-payloads"
+          action: "Review StorePayloads configuration or implement payload truncation"
+
+      - alert: LowPostgreSQLWriteRate
+        expr: |
+          sum(rate(eve_tracing_postgresql_writes_total{status="success"}[5m])) by (table) < 0.1
+          and
+          sum(rate(eve_tracing_actions_total[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+          category: operational
+          component: postgresql
+        annotations:
+          summary: "Low PostgreSQL write rate despite active traffic"
+          description: "Only {{ $value }} writes/sec to {{ $labels.table }} despite active actions. Possible export stall."
+          runbook_url: "https://wiki.example.com/eve/runbooks/low-write-rate"
+
+      # ========== INFO ALERTS ==========
+
+      - alert: ExporterQueueRecovered
+        expr: eve_tracing_exporter_queue_size < 1000
+        for: 5m
+        labels:
+          severity: info
+          category: operational
+          component: async_exporter
+        annotations:
+          summary: "Exporter queue returned to normal"
+          description: "Queue size is {{ $value }}, back to healthy levels"

@@ -1,0 +1,264 @@
+# Prometheus Alert Rules - EVE Tracing Compliance & GDPR Alerts
+# Category: compliance
+# Severity: critical, warning, info
+# These alerts are legally sensitive - route to compliance team
+
+groups:
+  - name: tracing_compliance
+    interval: 1m
+    rules:
+      # ========== CRITICAL COMPLIANCE ALERTS ==========
+
+      - alert: DataResidencyViolation
+        expr: sum(increase(eve_tracing_s3_errors_total{error_type="wrong_region"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: compliance
+          component: storage
+          gdpr_impact: high
+        annotations:
+          summary: "URGENT: Data residency violation detected"
+          description: "{{ $value }} traces written to wrong region. GDPR violation!"
+          runbook_url: "https://wiki.example.com/eve/runbooks/data-residency-violation"
+          action: "IMMEDIATE: Stop service, investigate, notify DPO and legal"
+          legal_contact: "dpo@example.com, legal@example.com"
+
+      - alert: UnredactedPIIInTraces
+        expr: sum(increase(eve_tracing_pii_detections_total{redacted="false"}[10m])) > 10
+        for: 2m
+        labels:
+          severity: critical
+          category: compliance
+          component: pii_detection
+          gdpr_impact: high
+        annotations:
+          summary: "URGENT: Unredacted PII detected in traces"
+          description: "{{ $value }} instances of unredacted PII in last 10 minutes"
+          runbook_url: "https://wiki.example.com/eve/runbooks/unredacted-pii"
+          action: "IMMEDIATE: Enable PII redaction, audit affected traces, notify DPO"
+          legal_contact: "dpo@example.com"
+
+      - alert: GDPRErasureRequestBacklog
+        expr: |
+          sum(increase(eve_tracing_gdpr_erasures_total[1h])) > 0
+          and
+          count(eve_tracing_workflows_in_flight{correlation_id=~"erasure-.*"}) > 10
+        for: 30m
+        labels:
+          severity: critical
+          category: compliance
+          component: gdpr_erasure
+          gdpr_impact: high
+        annotations:
+          summary: "GDPR erasure requests backing up"
+          description: "{{ $value }} erasure workflows stuck/slow. Legal SLA at risk!"
+          runbook_url: "https://wiki.example.com/eve/runbooks/erasure-backlog"
+          action: "Scale erasure workers, investigate slow deletions"
+          sla: "Complete within 30 days (GDPR Article 17)"
+
+      - alert: GDPRErasureFailures
+        expr: |
+          sum(rate(eve_tracing_gdpr_erasure_errors_total[10m])) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          category: compliance
+          component: gdpr_erasure
+          gdpr_impact: high
+        annotations:
+          summary: "GDPR erasure requests failing"
+          description: "{{ $value }} erasure failures/sec. Cannot fulfill legal obligation!"
+          runbook_url: "https://wiki.example.com/eve/runbooks/erasure-failures"
+          action: "IMMEDIATE: Investigate failures, manual cleanup if needed"
+          legal_contact: "dpo@example.com"
+
+      - alert: AuditLogWriteFailures
+        expr: sum(rate(eve_tracing_audit_log_errors_total[5m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          category: compliance
+          component: audit_log
+          gdpr_impact: medium
+        annotations:
+          summary: "Audit log writes failing"
+          description: "Cannot record trace access. Compliance audit trail broken!"
+          runbook_url: "https://wiki.example.com/eve/runbooks/audit-log-failures"
+          action: "IMMEDIATE: Fix audit log, review security implications"
+
+      # ========== WARNING COMPLIANCE ALERTS ==========
+
+      - alert: PIIRedactionRateLow
+        expr: |
+          sum(rate(eve_tracing_pii_detections_total{redacted="true"}[10m])) /
+          sum(rate(eve_tracing_pii_detections_total[10m])) < 0.95
+        for: 15m
+        labels:
+          severity: warning
+          category: compliance
+          component: pii_detection
+          gdpr_impact: medium
+        annotations:
+          summary: "PII redaction rate below target"
+          description: "Only {{ $value | humanizePercentage }} of detected PII is being redacted (target: >99%)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/low-redaction-rate"
+          action: "Review PII detection and redaction logic"
+
+      - alert: HighPIIDetectionRate
+        expr: sum(rate(eve_tracing_pii_detections_total[10m])) by (pii_type) > 10
+        for: 15m
+        labels:
+          severity: warning
+          category: compliance
+          component: pii_detection
+          gdpr_impact: medium
+        annotations:
+          summary: "High PII detection rate for {{ $labels.pii_type }}"
+          description: "Detecting {{ $value }} {{ $labels.pii_type }} instances/sec"
+          runbook_url: "https://wiki.example.com/eve/runbooks/high-pii-rate"
+          action: "Review data minimization practices"
+          gdpr_principle: "Data Minimization (Article 5.1.c)"
+
+      - alert: GDPRErasureResponseTimeSlow
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(eve_tracing_gdpr_erasure_duration_seconds_bucket[1h])) by (le)
+          ) > 1800
+        for: 30m
+        labels:
+          severity: warning
+          category: compliance
+          component: gdpr_erasure
+          gdpr_impact: medium
+        annotations:
+          summary: "Slow GDPR erasure response time"
+          description: "p95 erasure time is {{ $value | humanizeDuration }} (target: <5 minutes)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/slow-erasures"
+          action: "Optimize deletion queries, add indexes"
+          sla: "Complete within 30 days, respond within 1 month"
+
+      - alert: RetentionPolicyNotRunning
+        expr: |
+          increase(eve_tracing_retention_cleanup_total[24h]) == 0
+          and
+          count(time() - eve_tracing_action_timestamp_seconds > (90 * 86400)) > 100
+        for: 6h
+        labels:
+          severity: warning
+          category: compliance
+          component: retention
+          gdpr_impact: medium
+        annotations:
+          summary: "Retention cleanup not running"
+          description: "No traces deleted in 24h despite old data existing"
+          runbook_url: "https://wiki.example.com/eve/runbooks/retention-not-running"
+          action: "Check retention cleanup cron job"
+          gdpr_principle: "Storage Limitation (Article 5.1.e)"
+
+      - alert: UnauthorizedTraceAccess
+        expr: sum(rate(eve_tracing_audit_access_total{authorized="false"}[10m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          category: compliance
+          component: audit_log
+          gdpr_impact: high
+          security_impact: high
+        annotations:
+          summary: "Unauthorized trace access attempts detected"
+          description: "{{ $value }} unauthorized access attempts/sec"
+          runbook_url: "https://wiki.example.com/eve/runbooks/unauthorized-access"
+          action: "Review access logs, investigate user: {{ $labels.user_id }}"
+          gdpr_article: "Article 32 - Security of Processing"
+
+      - alert: SuspiciousAuditAccessPattern
+        expr: |
+          sum(rate(eve_tracing_audit_access_total[5m])) by (user_id) > 50
+        for: 10m
+        labels:
+          severity: warning
+          category: compliance
+          component: audit_log
+          gdpr_impact: medium
+          security_impact: medium
+        annotations:
+          summary: "Suspicious trace access pattern for user {{ $labels.user_id }}"
+          description: "User accessing {{ $value }} traces/sec (threshold: 50)"
+          runbook_url: "https://wiki.example.com/eve/runbooks/suspicious-access"
+          action: "Investigate if legitimate or data exfiltration attempt"
+
+      # ========== INFO/MONITORING ALERTS ==========
+
+      - alert: GDPRDataExportRequested
+        expr: increase(eve_tracing_gdpr_exports_total[1h]) > 0
+        for: 5m
+        labels:
+          severity: info
+          category: compliance
+          component: gdpr_export
+          gdpr_impact: low
+        annotations:
+          summary: "GDPR data export requested"
+          description: "Data subject {{ $labels.data_subject_id }} requested data export"
+          runbook_url: "https://wiki.example.com/eve/runbooks/data-export"
+          sla: "Provide within 30 days (GDPR Article 15)"
+          action: "Notify compliance team, prepare export"
+
+      - alert: RetentionCleanupCompleted
+        expr: increase(eve_tracing_retention_cleanup_total[1h]) > 100
+        for: 5m
+        labels:
+          severity: info
+          category: compliance
+          component: retention
+        annotations:
+          summary: "Retention cleanup completed"
+          description: "{{ $value }} old traces deleted per retention policy"
+          gdpr_principle: "Storage Limitation (Article 5.1.e)"
+
+      - alert: PIIDetectionHealthy
+        expr: |
+          sum(rate(eve_tracing_pii_detections_total{redacted="true"}[1h])) /
+          sum(rate(eve_tracing_pii_detections_total[1h])) > 0.99
+        for: 1h
+        labels:
+          severity: info
+          category: compliance
+          component: pii_detection
+        annotations:
+          summary: "PII detection and redaction working well"
+          description: "{{ $value | humanizePercentage }} redaction rate (target: >99%)"
+
+      # ========== DATA RESIDENCY MONITORING ==========
+
+      - alert: EUDataInNonEURegion
+        expr: |
+          sum(eve_tracing_s3_uploads_total{bucket=~".*eu.*", region!~"eu-.*"}) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: compliance
+          component: storage
+          gdpr_impact: high
+        annotations:
+          summary: "EU data stored in non-EU region"
+          description: "GDPR violation: EU citizen data in {{ $labels.region }}"
+          runbook_url: "https://wiki.example.com/eve/runbooks/eu-data-residency"
+          action: "IMMEDIATE: Stop writes, migrate data, notify DPO"
+          gdpr_article: "Article 44-50 - Transfer of Personal Data"
+
+      - alert: DataResidencyConfigMismatch
+        expr: |
+          count(eve_tracing_config_data_region{data_region="eu", s3_bucket!~".*eu.*"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+          category: compliance
+          component: configuration
+          gdpr_impact: high
+        annotations:
+          summary: "Data residency configuration mismatch"
+          description: "Service configured for EU but using non-EU bucket"
+          runbook_url: "https://wiki.example.com/eve/runbooks/config-mismatch"
+          action: "Update S3_BUCKET or DATA_REGION environment variable"
