@@ -122,8 +122,8 @@ func (t *Tracer) Middleware() echo.MiddlewareFunc {
 			otelTraceIDVal, _ := c.Get("otel_trace_id").(string)
 			otelSpanIDVal, _ := c.Get("otel_span_id").(string)
 
-			// Record trace asynchronously
-			go t.recordTrace(traceRecord{
+			// Build trace record
+			trace := traceRecord{
 				correlationID:     correlationID,
 				operationID:       operationID,
 				parentOperationID: parentOperationID,
@@ -144,7 +144,16 @@ func (t *Tracer) Middleware() echo.MiddlewareFunc {
 				metaStorePayload:  metaStorePayloadFlag,
 				otelTraceID:       otelTraceIDVal,
 				otelSpanID:        otelSpanIDVal,
-			})
+			}
+
+			// Export trace (async if enabled, otherwise sync)
+			if t.asyncExporter != nil {
+				// Async export - non-blocking
+				t.asyncExporter.QueueTrace(trace)
+			} else {
+				// Fallback to sync export in goroutine
+				go t.recordTrace(trace)
+			}
 
 			return handlerErr
 		}
@@ -377,6 +386,57 @@ func (t *Tracer) recordTrace(rec traceRecord) {
 
 	if err != nil {
 		t.logError("Failed to insert trace into PostgreSQL", err)
+
+		// Record PostgreSQL error metric
+		if t.metrics != nil {
+			t.metrics.PostgreSQLErrors.WithLabelValues("insert", "action_executions").Inc()
+		}
+	} else {
+		// Record successful PostgreSQL write
+		if t.metrics != nil {
+			t.metrics.PostgreSQLWrites.WithLabelValues("action_executions", "success").Inc()
+		}
+	}
+
+	// Record Prometheus metrics
+	if t.metrics != nil {
+		// Action execution metrics
+		t.metrics.RecordAction(rec.actionType, rec.objectType, t.config.ServiceID, rec.actionStatus, rec.duration)
+
+		// Error metrics
+		if rec.errorMsg != "" {
+			t.metrics.RecordActionError(rec.actionType, rec.objectType, t.config.ServiceID, rec.errorType)
+		}
+
+		// Storage metrics
+		t.metrics.TracePayloadSize.WithLabelValues("request").Observe(float64(len(rec.requestBody)))
+		t.metrics.TracePayloadSize.WithLabelValues("response").Observe(float64(len(rec.responseBody)))
+
+		// S3 upload metrics (if payloads were stored)
+		if storePayloads {
+			t.metrics.RecordS3Upload(t.config.S3Bucket, "success")
+		}
+
+		// PII detection metrics
+		if containsPII {
+			// Record PII detections
+			if t.config.EnablePII {
+				requestPII := t.DetectPII(string(rec.requestBody), nil)
+				responsePII := t.DetectPII(string(rec.responseBody), nil)
+
+				for _, detection := range requestPII {
+					t.metrics.RecordPIIDetection(detection.PIIType, "request", false)
+				}
+				for _, detection := range responsePII {
+					t.metrics.RecordPIIDetection(detection.PIIType, "response", false)
+				}
+			}
+		}
+
+		// OpenTelemetry link metrics
+		if rec.otelTraceID != "" {
+			t.metrics.OTelTraceLinks.WithLabelValues(t.config.ServiceID).Inc()
+		}
 	}
 }
 

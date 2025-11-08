@@ -1,10 +1,12 @@
 package tracing
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
@@ -44,16 +46,42 @@ type Config struct {
 	RetentionDays int    // Default retention period in days
 	EnablePII     bool   // Enable PII detection
 	LegalBasis    string // Default legal basis for processing
+
+	// Async export settings
+	AsyncExport bool                // Enable async trace export (default: true)
+	AsyncConfig AsyncExporterConfig // Async exporter configuration
+
+	// Metrics settings
+	EnableMetrics     bool   // Enable Prometheus metrics (default: true)
+	MetricsNamespace  string // Prometheus namespace (default: "eve_tracing")
 }
 
 // Tracer handles action execution tracing
 type Tracer struct {
-	config Config
+	config        Config
+	asyncExporter *AsyncExporter // Optional async exporter
+	metrics       *Metrics       // Optional Prometheus metrics
 }
 
 // New creates a new tracer instance
 func New(config Config) *Tracer {
-	return &Tracer{config: config}
+	tracer := &Tracer{config: config}
+
+	// Initialize Prometheus metrics if enabled
+	if config.EnableMetrics {
+		namespace := config.MetricsNamespace
+		if namespace == "" {
+			namespace = "eve_tracing"
+		}
+		tracer.metrics = NewMetrics(namespace)
+	}
+
+	// Initialize async exporter if enabled
+	if config.AsyncExport {
+		tracer.asyncExporter = NewAsyncExporter(tracer, config.AsyncConfig)
+	}
+
+	return tracer
 }
 
 // NewFromEnv creates a tracer instance with configuration from environment variables
@@ -127,7 +155,39 @@ func NewFromEnv(serviceID string, db *sql.DB, s3Client *s3.Client) *Tracer {
 		config.LegalBasis = "Legitimate Interest" // Default
 	}
 
-	return &Tracer{config: config}
+	// Parse async export settings (enabled by default)
+	config.AsyncExport = os.Getenv("TRACING_ASYNC_EXPORT") != "false"
+
+	// Parse async config
+	if workers := os.Getenv("TRACING_ASYNC_WORKERS"); workers != "" {
+		if w, err := strconv.Atoi(workers); err == nil && w > 0 {
+			config.AsyncConfig.Workers = w
+		}
+	}
+	if queueSize := os.Getenv("TRACING_ASYNC_QUEUE_SIZE"); queueSize != "" {
+		if q, err := strconv.Atoi(queueSize); err == nil && q > 0 {
+			config.AsyncConfig.QueueSize = q
+		}
+	}
+	if batchSize := os.Getenv("TRACING_ASYNC_BATCH_SIZE"); batchSize != "" {
+		if b, err := strconv.Atoi(batchSize); err == nil && b > 0 {
+			config.AsyncConfig.BatchSize = b
+		}
+	}
+	if flushPeriod := os.Getenv("TRACING_ASYNC_FLUSH_PERIOD"); flushPeriod != "" {
+		if d, err := time.ParseDuration(flushPeriod); err == nil {
+			config.AsyncConfig.FlushPeriod = d
+		}
+	}
+
+	// Parse metrics settings (enabled by default)
+	config.EnableMetrics = os.Getenv("TRACING_METRICS_ENABLED") != "false"
+	config.MetricsNamespace = os.Getenv("TRACING_METRICS_NAMESPACE")
+	if config.MetricsNamespace == "" {
+		config.MetricsNamespace = "eve_tracing"
+	}
+
+	return New(config)
 }
 
 // GetCorrelationID extracts correlation ID from Echo context
@@ -198,4 +258,29 @@ func (t *Tracer) shouldStorePayload(actionType, objectType string) bool {
 
 	// Respect global StorePayloads config
 	return t.config.StorePayloads
+}
+
+// Shutdown gracefully shuts down the tracer and async exporter
+func (t *Tracer) Shutdown(ctx context.Context) error {
+	if t.asyncExporter != nil {
+		return t.asyncExporter.Shutdown(ctx)
+	}
+	return nil
+}
+
+// Stats returns async exporter statistics (if enabled)
+func (t *Tracer) Stats() *ExporterStats {
+	if t.asyncExporter != nil {
+		stats := t.asyncExporter.Stats()
+		return &stats
+	}
+	return nil
+}
+
+// IsHealthy returns true if tracer is functioning properly
+func (t *Tracer) IsHealthy() bool {
+	if t.asyncExporter != nil {
+		return t.asyncExporter.IsHealthy()
+	}
+	return true
 }
