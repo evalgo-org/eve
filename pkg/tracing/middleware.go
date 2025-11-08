@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -110,13 +111,13 @@ func (t *Tracer) Middleware() echo.MiddlewareFunc {
 
 // responseRecorder captures response data
 type responseRecorder struct {
-	io.Writer
+	http.ResponseWriter
 	body *bytes.Buffer
 }
 
 func (r *responseRecorder) Write(b []byte) (int, error) {
 	r.body.Write(b)
-	return r.Writer.Write(b)
+	return r.ResponseWriter.Write(b)
 }
 
 // parseActionTypes extracts @type and object.@type from JSON-LD

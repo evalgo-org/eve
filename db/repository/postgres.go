@@ -23,6 +23,12 @@ func NewPostgresMetricsRepository(pg *db.PostgresDB) *PostgresMetricsRepository 
 	}
 }
 
+// GetDB returns the underlying PostgreSQL database connection
+// Used by MCP tools for direct queries (e.g., action tracing)
+func (r *PostgresMetricsRepository) GetDB() *db.PostgresDB {
+	return r.db
+}
+
 // SaveRun saves an action execution result
 func (r *PostgresMetricsRepository) SaveRun(ctx context.Context, run *ActionRun) error {
 	runData := map[string]interface{}{

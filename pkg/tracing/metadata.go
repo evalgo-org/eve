@@ -6,8 +6,8 @@ import (
 
 // extractMetadata extracts queryable metadata based on action + object type
 func (t *Tracer) extractMetadata(actionType, objectType string, requestBody, responseBody []byte) json.RawMessage {
-	// Create metadata map
-	metadata := make(map[string]interface{})
+	// Declare metadata map
+	var metadata map[string]interface{}
 
 	// Extract based on action + object combination
 	switch {
@@ -198,12 +198,12 @@ func extractETLMetadata(reqBody, respBody []byte) map[string]interface{} {
 	json.Unmarshal(respBody, &resp)
 
 	return map[string]interface{}{
-		"destination_table":    req.Object.Name,
-		"input_rows":           resp.Result.InputRows,
-		"output_rows":          resp.Result.OutputRows,
-		"filtered_rows":        resp.Result.FilteredRows,
-		"rows_per_second":      resp.Result.RowsPerSecond,
-		"data_quality_passed":  resp.Result.QualityPassed,
+		"destination_table":   req.Object.Name,
+		"input_rows":          resp.Result.InputRows,
+		"output_rows":         resp.Result.OutputRows,
+		"filtered_rows":       resp.Result.FilteredRows,
+		"rows_per_second":     resp.Result.RowsPerSecond,
+		"data_quality_passed": resp.Result.QualityPassed,
 	}
 }
 
