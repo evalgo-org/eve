@@ -1,10 +1,257 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta name="go-import" content="eve.evalgo.org git https://github.com/evalgo-org/eve.git">
-  <meta name="go-source" content="eve.evalgo.org https://github.com/evalgo-org/eve https://github.com/evalgo-org/eve/tree/main{/dir} https://github.com/evalgo-org/eve/blob/main{/dir}/{file}#L{line}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVE - Enterprise Virtualization Environment</title>
+
+    <!-- Go vanity imports -->
+    <meta name="go-import" content="eve.evalgo.org git https://github.com/evalgo-org/eve.git">
+    <meta name="go-source" content="eve.evalgo.org https://github.com/evalgo-org/eve https://github.com/evalgo-org/eve/tree/main{/dir} https://github.com/evalgo-org/eve/blob/main{/dir}/{file}#L{line}">
+
+    <meta name="description" content="EVE - A microservices orchestration platform built on Schema.org semantic actions">
+    <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body>
-Go package: evalgo.org/eve
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>EVE</h1>
+                <span class="version">v0.0.30</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/" class="active">Home</a></li>
+                <li><a href="/services.html">Services</a></li>
+                <li><a href="/architecture.html">Architecture</a></li>
+                <li><a href="/getting-started.html">Getting Started</a></li>
+                <li><a href="/status.html" class="status-link">Status</a></li>
+                <li><a href="https://github.com/evalgo-org/eve" target="_blank">GitHub</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Enterprise Virtualization Environment</h1>
+                <p class="tagline">A semantic microservices platform powered by Schema.org actions</p>
+                <div class="hero-buttons">
+                    <a href="/getting-started.html" class="btn btn-primary">Get Started</a>
+                    <a href="/services.html" class="btn btn-secondary">Explore Services</a>
+                    <a href="https://github.com/evalgo-org/eve" class="btn btn-secondary">View on GitHub</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="features">
+            <h2>What is EVE?</h2>
+            <p class="lead">EVE is a modern microservices platform that uses Schema.org semantic actions for service orchestration. Every operation is a typed, structured action with full traceability and observability.</p>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Semantic Actions</h3>
+                    <p>All operations use Schema.org types (CreateAction, SearchAction, UpdateAction) for consistency and discoverability.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Full Observability</h3>
+                    <p>Built-in distributed tracing, metrics, and logging with Prometheus, Grafana, and OpenTelemetry integration.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🗄️</div>
+                    <h3>Multi-Database</h3>
+                    <p>PostgreSQL, BaseX, Neo4j, Redis, CouchDB - specialized databases for different concerns.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔐</div>
+                    <h3>Security First</h3>
+                    <p>Infisical secrets management, PII redaction, GDPR compliance tools built-in.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🚀</div>
+                    <h3>Container Native</h3>
+                    <p>Full Docker/Podman lifecycle management with semantic container operations.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📡</div>
+                    <h3>Event Driven</h3>
+                    <p>RabbitMQ integration for asynchronous workflows and event streaming.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="services-overview">
+            <h2>Core Services</h2>
+            <p class="lead">EVE consists of 11 specialized microservices, each handling specific capabilities:</p>
+
+            <div class="services-list">
+                <div class="service-item">
+                    <h3>containerservice</h3>
+                    <p>Docker/Podman container lifecycle management</p>
+                    <span class="badge">Port 8092</span>
+                </div>
+
+                <div class="service-item">
+                    <h3>basexservice</h3>
+                    <p>XML database operations with BaseX</p>
+                    <span class="badge">Port 8093</span>
+                </div>
+
+                <div class="service-item">
+                    <h3>sparqlservice</h3>
+                    <p>RDF triple store and SPARQL queries</p>
+                    <span class="badge">Port 8094</span>
+                </div>
+
+                <div class="service-item">
+                    <h3>s3service</h3>
+                    <p>Object storage with S3-compatible API</p>
+                    <span class="badge">Port 8095</span>
+                </div>
+
+                <div class="service-item">
+                    <h3>infisicalservice</h3>
+                    <p>Secrets management and encryption</p>
+                    <span class="badge">Port 8097</span>
+                </div>
+
+                <div class="service-item">
+                    <h3>workflowstorageservice</h3>
+                    <p>Workflow persistence and retrieval</p>
+                    <span class="badge">Port 8098</span>
+                </div>
+
+                <div class="service-item">
+                    <h3>templateservice</h3>
+                    <p>Go template rendering engine</p>
+                    <span class="badge">Port 8099</span>
+                </div>
+
+                <div class="service-item">
+                    <h3>antwrapperservice</h3>
+                    <p>Apache Ant build execution</p>
+                    <span class="badge">Port 8100</span>
+                </div>
+
+                <div class="service-item">
+                    <h3>rabbitmqservice</h3>
+                    <p>Message queue operations</p>
+                    <span class="badge">Port 8101</span>
+                </div>
+
+                <div class="service-item">
+                    <h3>pxgraphservice</h3>
+                    <p>Graph database with Neo4j</p>
+                    <span class="badge">Port 8102</span>
+                </div>
+
+                <div class="service-item">
+                    <h3>statuspageservice</h3>
+                    <p>System health monitoring and status</p>
+                    <span class="badge">Port 8110</span>
+                </div>
+            </div>
+
+            <div class="cta">
+                <a href="/services.html" class="btn btn-primary">View All Services</a>
+            </div>
+        </section>
+
+        <section class="architecture-preview">
+            <h2>Architecture</h2>
+            <p class="lead">EVE uses a distributed architecture with service registry, action tracing, and hybrid storage.</p>
+
+            <div class="arch-highlights">
+                <div class="arch-card">
+                    <h3>Service Registry</h3>
+                    <p>Central registry at port 8096 for service discovery and health checks</p>
+                </div>
+
+                <div class="arch-card">
+                    <h3>Action Tracing</h3>
+                    <p>Every action traced with correlation IDs, stored in PostgreSQL + S3</p>
+                </div>
+
+                <div class="arch-card">
+                    <h3>Hybrid Storage</h3>
+                    <p>Metadata in PostgreSQL (fast queries), payloads in S3 (cheap storage)</p>
+                </div>
+            </div>
+
+            <div class="cta">
+                <a href="/architecture.html" class="btn btn-secondary">Learn More</a>
+            </div>
+        </section>
+
+        <section class="getting-started-preview">
+            <h2>Quick Start</h2>
+            <p class="lead">Get EVE running in minutes with Docker Compose:</p>
+
+            <div class="code-block">
+                <pre><code># Clone the repository
+git clone https://github.com/evalgo-org/eve.git
+cd eve
+
+# Start all services
+docker-compose up -d
+
+# Check service status
+curl http://localhost:8096/health
+
+# View the status page
+open http://localhost:8110</code></pre>
+            </div>
+
+            <div class="cta">
+                <a href="/getting-started.html" class="btn btn-primary">Full Installation Guide</a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>EVE Platform</h4>
+                    <ul>
+                        <li><a href="/services.html">Services</a></li>
+                        <li><a href="/architecture.html">Architecture</a></li>
+                        <li><a href="/getting-started.html">Getting Started</a></li>
+                        <li><a href="/status.html">System Status</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Documentation</h4>
+                    <ul>
+                        <li><a href="https://pkg.go.dev/eve.evalgo.org">Go Packages</a></li>
+                        <li><a href="https://github.com/evalgo-org/eve">GitHub</a></li>
+                        <li><a href="https://github.com/evalgo-org/eve/issues">Issues</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="https://schema.org">Schema.org</a></li>
+                        <li><a href="https://opentelemetry.io">OpenTelemetry</a></li>
+                        <li><a href="https://prometheus.io">Prometheus</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; 2025 evalgo.org | Built with semantic microservices</p>
+            </div>
+        </div>
+    </footer>
 </body>
 </html>

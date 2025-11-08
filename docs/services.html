@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Services | EVE</title>
+    <link rel="stylesheet" href="/assets/css/main.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>EVE</h1>
+                <span class="version">v0.0.30</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/services.html" class="active">Services</a></li>
+                <li><a href="/architecture.html">Architecture</a></li>
+                <li><a href="/getting-started.html">Getting Started</a></li>
+                <li><a href="/status.html" class="status-link">Status</a></li>
+                <li><a href="https://github.com/evalgo-org/eve" target="_blank">GitHub</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <header class="page-header">
+            <h1>EVE Services</h1>
+            <p class="lead">Detailed documentation for all 11 EVE microservices</p>
+        </header>
+
+        <section class="service-detail">
+            <h2>containerservice</h2>
+            <p class="service-meta"><strong>Port:</strong> 8092 | <strong>Repository:</strong> <a href="https://github.com/evalgo-org/containerservice">github.com/evalgo-org/containerservice</a></p>
+            <p>Docker/Podman container lifecycle management with semantic actions. Supports CreateAction, DeleteAction, ActivateAction (start), DeactivateAction (stop), and SearchAction for containers.</p>
+            <div class="feature-list">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>Full container lifecycle operations (create, start, stop, remove)</li>
+                    <li>Image management (pull, list)</li>
+                    <li>Container logs retrieval</li>
+                    <li>Async execution with state tracking</li>
+                    <li>OpenAPI documentation at /v1/api/docs</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="service-detail">
+            <h2>basexservice</h2>
+            <p class="service-meta"><strong>Port:</strong> 8093 | <strong>Repository:</strong> <a href="https://github.com/evalgo-org/basexservice">github.com/evalgo-org/basexservice</a></p>
+            <p>XML database operations powered by BaseX. Provides XQuery execution, document storage, and retrieval with semantic actions.</p>
+            <div class="feature-list">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>XQuery execution via SearchAction</li>
+                    <li>Document storage via CreateAction</li>
+                    <li>Database management operations</li>
+                    <li>XML transformation support</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="service-detail">
+            <h2>sparqlservice</h2>
+            <p class="service-meta"><strong>Port:</strong> 8094 | <strong>Repository:</strong> <a href="https://github.com/evalgo-org/sparqlservice">github.com/evalgo-org/sparqlservice</a></p>
+            <p>RDF triple store with SPARQL query support. Manages semantic graphs and linked data operations.</p>
+            <div class="feature-list">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>SPARQL query execution</li>
+                    <li>RDF triple management</li>
+                    <li>Graph operations (CreateAction, SearchAction, UpdateAction, DeleteAction)</li>
+                    <li>SPARQL endpoint compliance</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="service-detail">
+            <h2>s3service</h2>
+            <p class="service-meta"><strong>Port:</strong> 8095 | <strong>Repository:</strong> <a href="https://github.com/evalgo-org/s3service">github.com/evalgo-org/s3service</a></p>
+            <p>Object storage with S3-compatible API. Handles file uploads, downloads, and management with semantic actions.</p>
+            <div class="feature-list">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>S3-compatible object storage</li>
+                    <li>UploadAction for file storage</li>
+                    <li>DownloadAction for file retrieval</li>
+                    <li>Bucket management</li>
+                    <li>Multipart uploads support</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="service-detail">
+            <h2>infisicalservice</h2>
+            <p class="service-meta"><strong>Port:</strong> 8097 | <strong>Repository:</strong> <a href="https://github.com/evalgo-org/infisicalservice">github.com/evalgo-org/infisicalservice</a></p>
+            <p>Secrets management powered by Infisical. Provides secure secret storage, retrieval, and rotation.</p>
+            <div class="feature-list">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>Secure secret storage (CreateAction)</li>
+                    <li>Secret retrieval (SearchAction)</li>
+                    <li>Secret updates (UpdateAction)</li>
+                    <li>Secret deletion (DeleteAction)</li>
+                    <li>Environment-based secret management</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="service-detail">
+            <h2>workflowstorageservice</h2>
+            <p class="service-meta"><strong>Port:</strong> 8098 | <strong>Repository:</strong> <a href="https://github.com/evalgo-org/workflowstorageservice">github.com/evalgo-org/workflowstorageservice</a></p>
+            <p>S3-backed workflow persistence. Stores and retrieves workflow definitions and execution results.</p>
+            <div class="feature-list">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>Workflow storage (CreateAction)</li>
+                    <li>Workflow retrieval (RetrieveAction)</li>
+                    <li>S3-backed persistence</li>
+                    <li>File output support</li>
+                    <li>JSON-LD workflow format</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="service-detail">
+            <h2>templateservice</h2>
+            <p class="service-meta"><strong>Port:</strong> 8099 | <strong>Repository:</strong> <a href="https://github.com/evalgo-org/templateservice">github.com/evalgo-org/templateservice</a></p>
+            <p>Go template rendering engine. Generates configuration files, emails, and reports from templates.</p>
+            <div class="feature-list">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>Go template syntax support</li>
+                    <li>Inline and file-based templates</li>
+                    <li>Data injection from JSON</li>
+                    <li>Template validation</li>
+                    <li>Error handling and debugging</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="service-detail">
+            <h2>antwrapperservice</h2>
+            <p class="service-meta"><strong>Port:</strong> 8100 | <strong>Repository:</strong> <a href="https://github.com/evalgo-org/antwrapperservice">github.com/evalgo-org/antwrapperservice</a></p>
+            <p>Apache Ant build execution wrapper. Runs Ant build files with semantic actions.</p>
+            <div class="feature-list">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>Ant build execution (ExecuteAction)</li>
+                    <li>Asynchronous build support</li>
+                    <li>Timeout management</li>
+                    <li>Custom properties injection</li>
+                    <li>Build log capture</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="service-detail">
+            <h2>rabbitmqservice</h2>
+            <p class="service-meta"><strong>Port:</strong> 8101 | <strong>Repository:</strong> <a href="https://github.com/evalgo-org/rabbitmqservice">github.com/evalgo-org/rabbitmqservice</a></p>
+            <p>RabbitMQ message queue operations. Manages queues, exchanges, and message routing.</p>
+            <div class="feature-list">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>Message publishing (SendAction)</li>
+                    <li>Message consumption (ReceiveAction)</li>
+                    <li>Queue management (CreateAction, DeleteAction)</li>
+                    <li>Exchange configuration</li>
+                    <li>Message routing and bindings</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="service-detail">
+            <h2>pxgraphservice</h2>
+            <p class="service-meta"><strong>Port:</strong> 8102 | <strong>Repository:</strong> <a href="https://github.com/evalgo-org/pxgraphservice">github.com/evalgo-org/pxgraphservice</a></p>
+            <p>Graph database operations with Neo4j. Manages nodes, relationships, and graph queries.</p>
+            <div class="feature-list">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>Cypher query execution (SearchAction)</li>
+                    <li>Node creation (CreateAction)</li>
+                    <li>Relationship management</li>
+                    <li>Graph traversal</li>
+                    <li>Schema management</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="service-detail">
+            <h2>statuspageservice</h2>
+            <p class="service-meta"><strong>Port:</strong> 8110 | <strong>Repository:</strong> <a href="https://github.com/evalgo-org/statuspageservice">github.com/evalgo-org/statuspageservice</a></p>
+            <p>System health monitoring and status page. Tracks service uptime, response times, and errors.</p>
+            <div class="feature-list">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>Real-time health monitoring</li>
+                    <li>WebSocket status updates</li>
+                    <li>Uptime statistics (24h, 7d, 30d, 90d)</li>
+                    <li>Incident management</li>
+                    <li>System-wide status aggregation</li>
+                </ul>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>EVE Platform</h4>
+                    <ul>
+                        <li><a href="/services.html">Services</a></li>
+                        <li><a href="/architecture.html">Architecture</a></li>
+                        <li><a href="/getting-started.html">Getting Started</a></li>
+                        <li><a href="/status.html">System Status</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Documentation</h4>
+                    <ul>
+                        <li><a href="https://pkg.go.dev/eve.evalgo.org">Go Packages</a></li>
+                        <li><a href="https://github.com/evalgo-org/eve">GitHub</a></li>
+                        <li><a href="https://github.com/evalgo-org/eve/issues">Issues</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="https://schema.org">Schema.org</a></li>
+                        <li><a href="https://opentelemetry.io">OpenTelemetry</a></li>
+                        <li><a href="https://prometheus.io">Prometheus</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; 2025 evalgo.org | Built with semantic microservices</p>
+            </div>
+        </div>
+    </footer>
+
+    <style>
+        .page-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .page-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .service-detail {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .service-detail h2 {
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+            font-size: 1.75rem;
+        }
+
+        .service-meta {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .service-meta a {
+            color: var(--accent-primary);
+            text-decoration: none;
+        }
+
+        .service-meta a:hover {
+            text-decoration: underline;
+        }
+
+        .feature-list h3 {
+            font-size: 1.1rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .feature-list ul {
+            margin-left: 1.5rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        .feature-list li {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</body>
+</html>
