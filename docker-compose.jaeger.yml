@@ -1,0 +1,39 @@
+# Jaeger All-in-One for OpenTelemetry tracing
+# Usage: docker-compose -f docker-compose.jaeger.yml up -d
+#
+# Access:
+# - Jaeger UI: http://localhost:16686
+# - OTLP HTTP: http://localhost:4318 (send traces here)
+# - OTLP gRPC: localhost:4317
+#
+# Environment variables for EVE services:
+# export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+# export OTEL_ENABLED=true
+
+version: '3.8'
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      # Jaeger UI
+      - "16686:16686"
+      # OTLP HTTP receiver
+      - "4318:4318"
+      # OTLP gRPC receiver
+      - "4317:4317"
+      # Jaeger agent (legacy, not needed for OTLP)
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      # Health check
+      - "14269:14269"
+    networks:
+      - eve-tracing
+    restart: unless-stopped
+
+networks:
+  eve-tracing:
+    name: eve-tracing

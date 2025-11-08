@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Middleware returns an Echo middleware that captures action execution traces
@@ -72,6 +73,16 @@ func (t *Tracer) Middleware() echo.MiddlewareFunc {
 			// Store action-level payload preference
 			c.Set("meta_store_payload", metaStorePayload)
 
+			// Extract OpenTelemetry trace/span IDs if available
+			var otelTraceID, otelSpanID string
+			span := trace.SpanFromContext(c.Request().Context())
+			if span.SpanContext().IsValid() {
+				otelTraceID = span.SpanContext().TraceID().String()
+				otelSpanID = span.SpanContext().SpanID().String()
+			}
+			c.Set("otel_trace_id", otelTraceID)
+			c.Set("otel_span_id", otelSpanID)
+
 			// Create response recorder
 			rec := &responseRecorder{
 				ResponseWriter: c.Response().Writer,
@@ -107,6 +118,10 @@ func (t *Tracer) Middleware() echo.MiddlewareFunc {
 				}
 			}
 
+			// Get OpenTelemetry IDs
+			otelTraceIDVal, _ := c.Get("otel_trace_id").(string)
+			otelSpanIDVal, _ := c.Get("otel_span_id").(string)
+
 			// Record trace asynchronously
 			go t.recordTrace(traceRecord{
 				correlationID:     correlationID,
@@ -127,6 +142,8 @@ func (t *Tracer) Middleware() echo.MiddlewareFunc {
 				clientIP:          c.RealIP(),
 				userAgent:         c.Request().UserAgent(),
 				metaStorePayload:  metaStorePayloadFlag,
+				otelTraceID:       otelTraceIDVal,
+				otelSpanID:        otelSpanIDVal,
 			})
 
 			return handlerErr
@@ -230,7 +247,9 @@ type traceRecord struct {
 	httpMethod        string
 	clientIP          string
 	userAgent         string
-	metaStorePayload  bool // Action-level payload storage preference
+	metaStorePayload  bool   // Action-level payload storage preference
+	otelTraceID       string // OpenTelemetry trace ID
+	otelSpanID        string // OpenTelemetry span ID
 }
 
 // recordTrace stores the trace in PostgreSQL + S3
@@ -277,9 +296,10 @@ func (t *Tracer) recordTrace(rec traceRecord) {
 			action_status, error_message, error_type,
 			request_url, response_url,
 			request_size_bytes, response_size_bytes,
-			metadata, client_ip, user_agent
+			metadata, client_ip, user_agent,
+			otel_trace_id, otel_span_id
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
 		)
 	`
 
@@ -305,6 +325,8 @@ func (t *Tracer) recordTrace(rec traceRecord) {
 		metadata,
 		rec.clientIP,
 		rec.userAgent,
+		nullString(rec.otelTraceID),
+		nullString(rec.otelSpanID),
 	)
 
 	if err != nil {
