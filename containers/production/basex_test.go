@@ -10,7 +10,7 @@ func TestDefaultBaseXProductionConfig(t *testing.T) {
 	config := DefaultBaseXProductionConfig()
 
 	assert.Equal(t, "basex", config.ContainerName)
-	assert.Equal(t, "basex/basexhttp:latest", config.Image)
+	assert.Equal(t, "ghcr.io/quodatum/basexhttp:basex-12.0", config.Image)
 	assert.Equal(t, "8984", config.Port)
 	assert.Equal(t, "changeme", config.AdminPassword)
 	assert.Equal(t, "basex-data", config.DataVolume)

@@ -67,7 +67,7 @@ func waitForBaseXReady(ctx context.Context, container testcontainers.Container, 
 
 // BaseXConfig holds configuration for BaseX testcontainer setup.
 type BaseXConfig struct {
-	// Image is the Docker image to use (default: "basex/basexhttp:latest")
+	// Image is the Docker image to use (default: "ghcr.io/quodatum/basexhttp:basex-12.0")
 	Image string
 	// AdminPassword is the BaseX admin password (default: "admin")
 	AdminPassword string
@@ -78,7 +78,7 @@ type BaseXConfig struct {
 // DefaultBaseXConfig returns the default BaseX configuration for testing.
 func DefaultBaseXConfig() BaseXConfig {
 	return BaseXConfig{
-		Image:          "basex/basexhttp:latest",
+		Image:          "ghcr.io/quodatum/basexhttp:basex-12.0",
 		AdminPassword:  "admin",
 		StartupTimeout: 60 * time.Second,
 	}
@@ -91,7 +91,7 @@ func DefaultBaseXConfig() BaseXConfig {
 // function.
 //
 // Container Configuration:
-//   - Image: basex/basexhttp:latest (official BaseX HTTP server image)
+//   - Image: ghcr.io/quodatum/basexhttp:basex-12.0 (BaseX HTTP server image)
 //   - Port: 8984/tcp (BaseX REST API)
 //   - Admin Password: Configurable via BaseXConfig
 //   - Wait Strategy: HTTP readiness check on root endpoint

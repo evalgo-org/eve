@@ -15,7 +15,7 @@ import (
 type BaseXProductionConfig struct {
 	// ContainerName is the name for the BaseX container
 	ContainerName string
-	// Image is the Docker image to use (default: "basex/basexhttp:latest")
+	// Image is the Docker image to use (default: "ghcr.io/quodatum/basexhttp:basex-12.0")
 	Image string
 	// Port is the host port to expose BaseX REST API (default: 8984)
 	Port string
@@ -31,7 +31,7 @@ type BaseXProductionConfig struct {
 func DefaultBaseXProductionConfig() BaseXProductionConfig {
 	return BaseXProductionConfig{
 		ContainerName: "basex",
-		Image:         "basex/basexhttp:latest",
+		Image:         "ghcr.io/quodatum/basexhttp:basex-12.0",
 		Port:          "8984",
 		AdminPassword: "changeme",
 		DataVolume:    "basex-data",
