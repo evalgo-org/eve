@@ -123,7 +123,7 @@ coverage-check: coverage
 # Start all services
 docker-up:
 	@echo "Starting EVE observability stack..."
-	docker-compose up -d
+	docker compose up -d
 	@echo ""
 	@echo "Services starting... Wait 30 seconds for initialization."
 	@echo ""
@@ -139,22 +139,22 @@ docker-up:
 # Stop all services
 docker-down:
 	@echo "Stopping EVE observability stack..."
-	docker-compose down
+	docker compose down
 
 # Restart all services
 docker-restart:
 	@echo "Restarting EVE observability stack..."
-	docker-compose restart
+	docker compose restart
 
 # View logs
 docker-logs:
-	docker-compose logs -f
+	docker compose logs -f
 
 # Complete cleanup
 docker-clean:
 	@echo "Stopping and removing all data..."
 	@read -p "This will DELETE all traces, metrics, and logs. Continue? [y/N] " confirm && [ "$$confirm" = "y" ]
-	docker-compose down -v --rmi local
+	docker compose down -v --rmi local
 	@echo "Cleanup complete."
 
 # Generate test traffic
@@ -239,12 +239,12 @@ traces:
 # Show service status
 status:
 	@echo "Service Status:"
-	@docker-compose ps
+	@docker compose ps
 
 # Build example service
 build:
 	@echo "Building example service..."
-	docker-compose build example-service
+	docker compose build example-service
 
 # View metrics
 metrics:
