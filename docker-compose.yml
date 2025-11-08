@@ -150,7 +150,7 @@ services:
     container_name: eve-example-service
     environment:
       # Database connection
-      DATABASE_URL: postgres://eve_user:eve_password@postgres:5432/eve_traces  # Internal port is still 5432
+      DATABASE_URL: postgres://eve_user:eve_password@postgres:5432/eve_traces?sslmode=disable
 
       # S3 configuration
       S3_ENDPOINT: http://minio:9000

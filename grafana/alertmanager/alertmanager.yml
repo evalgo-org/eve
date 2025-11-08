@@ -3,14 +3,14 @@
 
 global:
   # Default SMTP configuration (update with your SMTP server)
-  smtp_smarthost: 'smtp.gmail.com:587'
-  smtp_from: 'eve-alerts@example.com'
-  smtp_auth_username: 'eve-alerts@example.com'
-  smtp_auth_password: '${SMTP_PASSWORD}'
-  smtp_require_tls: true
+  # smtp_smarthost: 'smtp.gmail.com:587'
+  # smtp_from: 'eve-alerts@example.com'
+  # smtp_auth_username: 'eve-alerts@example.com'
+  # smtp_auth_password: 'CHANGEME'
+  # smtp_require_tls: true
 
   # Slack webhook (update with your webhook URL)
-  slack_api_url: '${SLACK_WEBHOOK_URL}'
+  # slack_api_url: 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL'
 
   # PagerDuty integration key
   pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
@@ -100,57 +100,61 @@ inhibit_rules:
 receivers:
   # Default platform/SRE team
   - name: 'team-platform'
-    slack_configs:
-      - channel: '#eve-platform-alerts'
-        username: 'EVE AlertManager'
-        title: '{{ .GroupLabels.alertname }}'
-        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
-        send_resolved: true
-    email_configs:
-      - to: 'platform-team@example.com'
-        headers:
-          Subject: '[EVE] {{ .GroupLabels.alertname }}'
-        html: '{{ template "email.default.html" . }}'
-        send_resolved: true
+    # Slack disabled - configure slack_api_url in global section to enable
+    # slack_configs:
+    #   - channel: '#eve-platform-alerts'
+    #     username: 'EVE AlertManager'
+    #     title: '{{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    #     send_resolved: true
+    # Email disabled - configure SMTP in global section to enable
+    # email_configs:
+    #   - to: 'platform-team@example.com'
+    #     headers:
+    #       Subject: '[EVE] {{ .GroupLabels.alertname }}'
+    #     html: '{{ template "email.default.html" . }}'
+    #     send_resolved: true
 
-  # Critical alerts -> PagerDuty
+  # Critical alerts -> PagerDuty (disabled - configure service_key to enable)
   - name: 'pagerduty-critical'
-    pagerduty_configs:
-      - service_key: '${PAGERDUTY_SERVICE_KEY}'
-        description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
-        details:
-          firing: '{{ .Alerts.Firing | len }}'
-          resolved: '{{ .Alerts.Resolved | len }}'
-        severity: '{{ .CommonLabels.severity }}'
+    # pagerduty_configs:
+    #   - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
+    #     description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+    #     details:
+    #       firing: '{{ .Alerts.Firing | len }}'
+    #       resolved: '{{ .Alerts.Resolved | len }}'
+    #     severity: '{{ .CommonLabels.severity }}'
 
   # Legal/Compliance team
   - name: 'team-legal-compliance'
-    slack_configs:
-      - channel: '#eve-compliance-alerts'
-        username: 'EVE Compliance Monitor'
-        title: '{{ .GroupLabels.alertname }}'
-        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
-        send_resolved: true
-        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
-    email_configs:
-      - to: 'legal@example.com,compliance@example.com'
-        headers:
-          Subject: '[EVE COMPLIANCE] {{ .GroupLabels.alertname }}'
-          Priority: 'high'
-        html: '{{ template "email.compliance.html" . }}'
-        send_resolved: true
+    # Notifications disabled - configure in global section to enable
+    # slack_configs:
+    #   - channel: '#eve-compliance-alerts'
+    #     username: 'EVE Compliance Monitor'
+    #     title: '{{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    #     send_resolved: true
+    #     color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+    # email_configs:
+    #   - to: 'legal@example.com,compliance@example.com'
+    #     headers:
+    #       Subject: '[EVE COMPLIANCE] {{ .GroupLabels.alertname }}'
+    #       Priority: 'high'
+    #     html: '{{ template "email.compliance.html" . }}'
+    #     send_resolved: true
 
   # Product team
   - name: 'team-product'
-    slack_configs:
-      - channel: '#eve-product-alerts'
-        username: 'EVE Product Monitor'
-        title: '{{ .GroupLabels.alertname }}'
-        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
-        send_resolved: true
-    email_configs:
-      - to: 'product-team@example.com'
-        headers:
-          Subject: '[EVE Product] {{ .GroupLabels.alertname }}'
-        html: '{{ template "email.default.html" . }}'
-        send_resolved: true
+    # Notifications disabled - configure in global section to enable
+    # slack_configs:
+    #   - channel: '#eve-product-alerts'
+    #     username: 'EVE Product Monitor'
+    #     title: '{{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    #     send_resolved: true
+    # email_configs:
+    #   - to: 'product-team@example.com'
+    #     headers:
+    #       Subject: '[EVE Product] {{ .GroupLabels.alertname }}'
+    #     html: '{{ template "email.default.html" . }}'
+    #     send_resolved: true

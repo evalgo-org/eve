@@ -1,383 +1,595 @@
 {
-  "dashboard": {
-    "title": "EVE Tracing - Compliance & GDPR Dashboard",
-    "tags": ["eve", "tracing", "compliance", "gdpr", "privacy"],
-    "timezone": "utc",
-    "schemaVersion": 36,
-    "version": 1,
-    "refresh": "1m",
-    "panels": [
-      {
-        "title": "GDPR Erasure Requests (Last 24h)",
-        "type": "stat",
-        "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
-        "targets": [
-          {
-            "expr": "sum(increase(eve_tracing_gdpr_erasures_total[24h]))",
-            "legendFormat": "Total Erasures",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "reduceOptions": {"calcs": ["lastNotNull"]},
-          "orientation": "auto",
-          "textMode": "value_and_name",
-          "colorMode": "value"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "short"
-          }
+  "title": "EVE Tracing - Compliance & GDPR Dashboard",
+  "tags": [
+    "eve",
+    "tracing",
+    "compliance",
+    "gdpr",
+    "privacy"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "1m",
+  "panels": [
+    {
+      "title": "GDPR Erasure Requests (Last 24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(eve_tracing_gdpr_erasures_total[24h]))",
+          "legendFormat": "Total Erasures",
+          "refId": "A"
         }
-      },
-      {
-        "title": "GDPR Data Exports (Last 24h)",
-        "type": "stat",
-        "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0},
-        "targets": [
-          {
-            "expr": "sum(increase(eve_tracing_gdpr_exports_total[24h]))",
-            "legendFormat": "Total Exports",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "reduceOptions": {"calcs": ["lastNotNull"]},
-          "orientation": "auto",
-          "textMode": "value_and_name",
-          "colorMode": "value"
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
         },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "short"
-          }
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
         }
+      }
+    },
+    {
+      "title": "GDPR Data Exports (Last 24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 0
       },
-      {
-        "title": "PII Detections (Last 24h)",
-        "type": "stat",
-        "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0},
-        "targets": [
-          {
-            "expr": "sum(increase(eve_tracing_pii_detections_total[24h]))",
-            "legendFormat": "Total Detections",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "reduceOptions": {"calcs": ["lastNotNull"]},
-          "orientation": "auto",
-          "textMode": "value_and_name",
-          "colorMode": "value"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "short",
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {"value": 0, "color": "green"},
-                {"value": 100, "color": "yellow"},
-                {"value": 1000, "color": "red"}
-              ]
-            }
-          }
+      "targets": [
+        {
+          "expr": "sum(increase(eve_tracing_gdpr_exports_total[24h]))",
+          "legendFormat": "Total Exports",
+          "refId": "A"
         }
-      },
-      {
-        "title": "Trace Retention Cleanup (Last 24h)",
-        "type": "stat",
-        "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0},
-        "targets": [
-          {
-            "expr": "increase(eve_tracing_retention_cleanup_total[24h])",
-            "legendFormat": "Deleted Traces",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "reduceOptions": {"calcs": ["lastNotNull"]},
-          "orientation": "auto",
-          "textMode": "value_and_name",
-          "colorMode": "value"
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
         },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "short"
-          }
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
         }
+      }
+    },
+    {
+      "title": "PII Detections (Last 24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 0
       },
-      {
-        "title": "GDPR Erasure Requests by Reason",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
-        "targets": [
-          {
-            "expr": "sum(rate(eve_tracing_gdpr_erasures_total[5m])) by (reason)",
-            "legendFormat": "{{reason}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          {"format": "reqps", "label": "Requests/sec"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "title": "GDPR Data Export Requests Over Time",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
-        "targets": [
-          {
-            "expr": "sum(rate(eve_tracing_gdpr_exports_total[5m])) by (data_subject_id)",
-            "legendFormat": "{{data_subject_id}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          {"format": "reqps", "label": "Requests/sec"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "title": "PII Detections by Type",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
-        "targets": [
-          {
-            "expr": "sum(rate(eve_tracing_pii_detections_total[5m])) by (pii_type)",
-            "legendFormat": "{{pii_type}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          {"format": "reqps", "label": "Detections/sec"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "title": "PII Detections by Location",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
-        "targets": [
-          {
-            "expr": "sum(rate(eve_tracing_pii_detections_total[5m])) by (location)",
-            "legendFormat": "{{location}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          {"format": "reqps", "label": "Detections/sec"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "title": "PII Redaction Rate",
-        "type": "gauge",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
-        "targets": [
-          {
-            "expr": "sum(rate(eve_tracing_pii_detections_total{redacted=\"true\"}[5m])) / sum(rate(eve_tracing_pii_detections_total[5m]))",
-            "legendFormat": "Redaction Rate",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "showThresholdLabels": true,
-          "showThresholdMarkers": true
-        },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "percentunit",
-            "min": 0,
-            "max": 1,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {"value": 0, "color": "red"},
-                {"value": 0.95, "color": "yellow"},
-                {"value": 0.99, "color": "green"}
-              ]
-            }
-          }
+      "targets": [
+        {
+          "expr": "sum(increase(eve_tracing_pii_detections_total[24h]))",
+          "legendFormat": "Total Detections",
+          "refId": "A"
         }
-      },
-      {
-        "title": "Audit Access by User",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
-        "targets": [
-          {
-            "expr": "sum(rate(eve_tracing_audit_access_total[5m])) by (user_id)",
-            "legendFormat": "{{user_id}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          {"format": "reqps", "label": "Accesses/sec"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "title": "Audit Access by Type",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 30},
-        "targets": [
-          {
-            "expr": "sum(rate(eve_tracing_audit_access_total[5m])) by (access_type)",
-            "legendFormat": "{{access_type}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          {"format": "reqps", "label": "Accesses/sec"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "title": "Audit Access by Resource Type",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 30},
-        "targets": [
-          {
-            "expr": "sum(rate(eve_tracing_audit_access_total[5m])) by (resource_type)",
-            "legendFormat": "{{resource_type}}",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          {"format": "reqps", "label": "Accesses/sec"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "title": "Retention Policy Compliance",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 38},
-        "targets": [
-          {
-            "expr": "rate(eve_tracing_retention_cleanup_total[1h])",
-            "legendFormat": "Traces Deleted/hour",
-            "refId": "A"
-          }
-        ],
-        "yaxes": [
-          {"format": "reqps", "label": "Deletions/sec"},
-          {"format": "short"}
-        ]
-      },
-      {
-        "title": "Data Residency Violations (Should be 0)",
-        "type": "stat",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 38},
-        "targets": [
-          {
-            "expr": "sum(increase(eve_tracing_s3_errors_total{error_type=\"wrong_region\"}[24h]))",
-            "legendFormat": "Violations",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "reduceOptions": {"calcs": ["lastNotNull"]},
-          "orientation": "auto",
-          "textMode": "value_and_name",
-          "colorMode": "value"
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
         },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "short",
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {"value": 0, "color": "green"},
-                {"value": 1, "color": "red"}
-              ]
-            }
-          }
-        },
-        "alert": {
-          "conditions": [
-            {
-              "evaluator": {"params": [0], "type": "gt"},
-              "query": {"params": ["A", "5m", "now"]},
-              "type": "query"
-            }
-          ],
-          "name": "Data Residency Violation Detected"
-        }
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value"
       },
-      {
-        "title": "Unredacted PII in Traces (Should be 0)",
-        "type": "stat",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 46},
-        "targets": [
-          {
-            "expr": "sum(increase(eve_tracing_pii_detections_total{redacted=\"false\"}[1h]))",
-            "legendFormat": "Unredacted PII",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "reduceOptions": {"calcs": ["lastNotNull"]},
-          "orientation": "auto",
-          "textMode": "value_and_name",
-          "colorMode": "value"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "short",
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {"value": 0, "color": "green"},
-                {"value": 1, "color": "yellow"},
-                {"value": 10, "color": "red"}
-              ]
-            }
-          }
-        },
-        "alert": {
-          "conditions": [
-            {
-              "evaluator": {"params": [5], "type": "gt"},
-              "query": {"params": ["A", "5m", "now"]},
-              "type": "query"
-            }
-          ],
-          "name": "Unredacted PII Detected"
-        }
-      },
-      {
-        "title": "Compliance SLA: Erasure Response Time",
-        "type": "gauge",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 46},
-        "targets": [
-          {
-            "expr": "histogram_quantile(0.95, sum(rate(eve_tracing_gdpr_erasure_duration_seconds_bucket[5m])) by (le))",
-            "legendFormat": "p95 Erasure Time",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "showThresholdLabels": true,
-          "showThresholdMarkers": true
-        },
-        "fieldConfig": {
-          "defaults": {
-            "unit": "s",
-            "min": 0,
-            "max": 3600,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {"value": 0, "color": "green"},
-                {"value": 300, "color": "yellow"},
-                {"value": 1800, "color": "red"}
-              ]
-            }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 100,
+                "color": "yellow"
+              },
+              {
+                "value": 1000,
+                "color": "red"
+              }
+            ]
           }
         }
       }
-    ]
-  }
+    },
+    {
+      "title": "Trace Retention Cleanup (Last 24h)",
+      "type": "stat",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "increase(eve_tracing_retention_cleanup_total[24h])",
+          "legendFormat": "Deleted Traces",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "title": "GDPR Erasure Requests by Reason",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(eve_tracing_gdpr_erasures_total[5m])) by (reason)",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Requests/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "title": "GDPR Data Export Requests Over Time",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(eve_tracing_gdpr_exports_total[5m])) by (data_subject_id)",
+          "legendFormat": "{{data_subject_id}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Requests/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "title": "PII Detections by Type",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(eve_tracing_pii_detections_total[5m])) by (pii_type)",
+          "legendFormat": "{{pii_type}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Detections/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "title": "PII Detections by Location",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(eve_tracing_pii_detections_total[5m])) by (location)",
+          "legendFormat": "{{location}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Detections/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "title": "PII Redaction Rate",
+      "type": "gauge",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(eve_tracing_pii_detections_total{redacted=\"true\"}[5m])) / sum(rate(eve_tracing_pii_detections_total[5m]))",
+          "legendFormat": "Redaction Rate",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "red"
+              },
+              {
+                "value": 0.95,
+                "color": "yellow"
+              },
+              {
+                "value": 0.99,
+                "color": "green"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Audit Access by User",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(eve_tracing_audit_access_total[5m])) by (user_id)",
+          "legendFormat": "{{user_id}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Accesses/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "title": "Audit Access by Type",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(eve_tracing_audit_access_total[5m])) by (access_type)",
+          "legendFormat": "{{access_type}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Accesses/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "title": "Audit Access by Resource Type",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(eve_tracing_audit_access_total[5m])) by (resource_type)",
+          "legendFormat": "{{resource_type}}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Accesses/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "title": "Retention Policy Compliance",
+      "type": "graph",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 38
+      },
+      "targets": [
+        {
+          "expr": "rate(eve_tracing_retention_cleanup_total[1h])",
+          "legendFormat": "Traces Deleted/hour",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Deletions/sec"
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "title": "Data Residency Violations (Should be 0)",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 38
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(eve_tracing_s3_errors_total{error_type=\"wrong_region\"}[24h]))",
+          "legendFormat": "Violations",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ]
+          }
+        }
+      },
+      "alert": {
+        "conditions": [
+          {
+            "evaluator": {
+              "params": [
+                0
+              ],
+              "type": "gt"
+            },
+            "query": {
+              "params": [
+                "A",
+                "5m",
+                "now"
+              ]
+            },
+            "type": "query"
+          }
+        ],
+        "name": "Data Residency Violation Detected"
+      }
+    },
+    {
+      "title": "Unredacted PII in Traces (Should be 0)",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 46
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(eve_tracing_pii_detections_total{redacted=\"false\"}[1h]))",
+          "legendFormat": "Unredacted PII",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "yellow"
+              },
+              {
+                "value": 10,
+                "color": "red"
+              }
+            ]
+          }
+        }
+      },
+      "alert": {
+        "conditions": [
+          {
+            "evaluator": {
+              "params": [
+                5
+              ],
+              "type": "gt"
+            },
+            "query": {
+              "params": [
+                "A",
+                "5m",
+                "now"
+              ]
+            },
+            "type": "query"
+          }
+        ],
+        "name": "Unredacted PII Detected"
+      }
+    },
+    {
+      "title": "Compliance SLA: Erasure Response Time",
+      "type": "gauge",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 46
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(eve_tracing_gdpr_erasure_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95 Erasure Time",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "max": 3600,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 300,
+                "color": "yellow"
+              },
+              {
+                "value": 1800,
+                "color": "red"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

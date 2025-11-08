@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -89,11 +91,15 @@ func main() {
 		log.Println("Tracing middleware enabled")
 	}
 
-	// Routes
-	e.GET("/", handleHome)
+	// Routes - Semantic action endpoint
+	e.POST("/v1/api/semantic/action", handleSemanticAction(tracer))
+
+	// Convenience REST endpoints that convert to semantic actions
 	e.POST("/v1/api/workflow/create", handleCreateWorkflow(tracer))
 	e.POST("/v1/api/workflow/slow", handleSlowWorkflow(tracer))
 	e.POST("/v1/api/workflow/error", handleErrorWorkflow(tracer))
+
+	e.GET("/", handleHome)
 	e.GET("/health", handleHealth)
 
 	// Metrics endpoint
@@ -220,52 +226,136 @@ func handleHome(c echo.Context) error {
 		"service": "example-service",
 		"version": "1.0.0",
 		"endpoints": []string{
-			"POST /v1/api/workflow/create - Create a sample workflow",
-			"POST /v1/api/workflow/slow - Create a slow workflow (>5s)",
-			"POST /v1/api/workflow/error - Create a failing workflow",
+			"POST /v1/api/workflow/create - Create a sample workflow (generates CreateAction)",
+			"POST /v1/api/workflow/slow - Create a slow workflow (>5s, triggers sampling)",
+			"POST /v1/api/workflow/error - Create a failing workflow (triggers sampling)",
+			"POST /v1/api/semantic/action - Send Schema.org semantic action directly",
 			"GET /health - Health check",
 			"GET /metrics - Prometheus metrics",
 		},
 	})
 }
 
-func handleCreateWorkflow(tracer *tracing.Tracer) echo.HandlerFunc {
+// handleSemanticAction handles direct Schema.org semantic action requests
+func handleSemanticAction(tracer *tracing.Tracer) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		// Simulate workflow execution
-		time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+		// Parse the action from request body
+		var action map[string]interface{}
+		if err := c.Bind(&action); err != nil {
+			return c.JSON(400, map[string]string{
+				"error": "Invalid action format",
+			})
+		}
+
+		// Simulate processing time
+		time.Sleep(time.Duration(rand.Intn(500)) * time.Millisecond)
 
 		return c.JSON(200, map[string]interface{}{
-			"status":         "completed",
-			"correlation_id": c.Response().Header().Get("X-Correlation-ID"),
-			"operation_id":   c.Response().Header().Get("X-Operation-ID"),
-			"message":        "Workflow created successfully",
+			"@context":       "https://schema.org",
+			"@type":          "ActionStatusType",
+			"actionStatus":   "CompletedActionStatus",
+			"correlation_id": c.Get("correlation_id"),
+			"operation_id":   c.Get("operation_id"),
 		})
 	}
 }
 
+// handleCreateWorkflow converts REST request to CreateAction semantic action
+func handleCreateWorkflow(tracer *tracing.Tracer) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		// Convert to semantic action
+		action := map[string]interface{}{
+			"@context": "https://schema.org",
+			"@type":    "CreateAction",
+			"object": map[string]interface{}{
+				"@type":      "SoftwareApplication",
+				"name":       "Demo Workflow",
+				"identifier": fmt.Sprintf("wf-%d", time.Now().Unix()),
+			},
+			"agent": map[string]interface{}{
+				"@type": "Service",
+				"name":  "example-service",
+			},
+			"meta": map[string]interface{}{
+				"trace":         true,
+				"store_payload": true,
+			},
+		}
+
+		// Forward to semantic endpoint via HTTP
+		correlationID, operationID := postToSemanticEndpoint(action, c)
+
+		time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+
+		return c.JSON(200, map[string]interface{}{
+			"status":         "completed",
+			"correlation_id": correlationID,
+			"operation_id":   operationID,
+			"message":        "Workflow created successfully",
+			"action_type":    "CreateAction",
+		})
+	}
+}
+
+// handleSlowWorkflow converts REST request to slow CreateAction
 func handleSlowWorkflow(tracer *tracing.Tracer) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		action := map[string]interface{}{
+			"@context": "https://schema.org",
+			"@type":    "CreateAction",
+			"object": map[string]interface{}{
+				"@type": "Dataset",
+				"name":  "Large Dataset Processing",
+			},
+			"meta": map[string]interface{}{
+				"trace":         true,
+				"store_payload": true,
+			},
+		}
+
+		// Forward to semantic endpoint via HTTP
+		correlationID, operationID := postToSemanticEndpoint(action, c)
+
 		// Simulate slow operation (triggers sampling)
 		time.Sleep(6 * time.Second)
 
 		return c.JSON(200, map[string]interface{}{
 			"status":         "completed",
-			"correlation_id": c.Response().Header().Get("X-Correlation-ID"),
-			"operation_id":   c.Response().Header().Get("X-Operation-ID"),
+			"correlation_id": correlationID,
+			"operation_id":   operationID,
 			"message":        "Slow workflow completed",
 			"duration_ms":    6000,
+			"action_type":    "CreateAction",
 		})
 	}
 }
 
+// handleErrorWorkflow converts REST request to failed action
 func handleErrorWorkflow(tracer *tracing.Tracer) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		action := map[string]interface{}{
+			"@context": "https://schema.org",
+			"@type":    "DeleteAction",
+			"object": map[string]interface{}{
+				"@type":      "Thing",
+				"identifier": "invalid-resource",
+			},
+			"meta": map[string]interface{}{
+				"trace":         true,
+				"store_payload": true,
+			},
+		}
+
+		// Forward to semantic endpoint via HTTP
+		correlationID, operationID := postToSemanticEndpoint(action, c)
+
 		// Simulate error (triggers sampling)
 		return c.JSON(500, map[string]interface{}{
 			"status":         "failed",
-			"correlation_id": c.Response().Header().Get("X-Correlation-ID"),
-			"operation_id":   c.Response().Header().Get("X-Operation-ID"),
+			"correlation_id": correlationID,
+			"operation_id":   operationID,
 			"error":          "Simulated error for demonstration",
+			"action_type":    "DeleteAction",
 		})
 	}
 }
@@ -309,4 +399,45 @@ func getEnvFloat(key string, defaultValue float64) float64 {
 		}
 	}
 	return defaultValue
+}
+
+// postToSemanticEndpoint sends a semantic action to the /v1/api/semantic/action endpoint
+func postToSemanticEndpoint(action map[string]interface{}, c echo.Context) (correlationID, operationID string) {
+	// Serialize action
+	body, err := json.Marshal(action)
+	if err != nil {
+		log.Printf("Failed to marshal action: %v", err)
+		return "", ""
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", "http://localhost:8080/v1/api/semantic/action", bytes.NewReader(body))
+	if err != nil {
+		log.Printf("Failed to create request: %v", err)
+		return "", ""
+	}
+
+	// Copy correlation headers if they exist
+	if cid := c.Request().Header.Get("X-Correlation-ID"); cid != "" {
+		req.Header.Set("X-Correlation-ID", cid)
+	}
+	if oid := c.Request().Header.Get("X-Operation-ID"); oid != "" {
+		req.Header.Set("X-Operation-ID", oid)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send request
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Failed to send request: %v", err)
+		return "", ""
+	}
+	defer resp.Body.Close()
+
+	// Extract correlation IDs from response headers
+	correlationID = resp.Header.Get("X-Correlation-ID")
+	operationID = resp.Header.Get("X-Operation-ID")
+
+	return
 }

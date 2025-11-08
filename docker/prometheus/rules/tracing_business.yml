@@ -194,7 +194,7 @@ groups:
       - alert: DeleteActionAnomalyDetected
         expr: |
           sum(rate(eve_tracing_actions_total{action_type="DeleteAction"}[5m])) by (service_id) >
-          sum(rate(eve_tracing_actions_total{action_type="DeleteAction"}[5m]) offset 1h) by (service_id) * 5
+          (sum(rate(eve_tracing_actions_total{action_type="DeleteAction"}[5m] offset 1h)) by (service_id) * 5)
         for: 5m
         labels:
           severity: warning
