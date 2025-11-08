@@ -48,6 +48,10 @@ type Metrics struct {
 
 	// Sampling metrics
 	SamplingDecisions *prometheus.CounterVec
+
+	// Dependency metrics
+	DependencyCalls   *prometheus.CounterVec
+	DependencyLatency *prometheus.HistogramVec
 }
 
 // NewMetrics creates and registers Prometheus metrics
@@ -288,6 +292,26 @@ func NewMetrics(namespace string) *Metrics {
 				Help:      "Total number of sampling decisions made",
 			},
 			[]string{"service_id", "decision", "reason"},
+		),
+
+		// Dependency metrics
+		DependencyCalls: promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: namespace,
+				Name:      "dependency_calls_total",
+				Help:      "Total calls between services",
+			},
+			[]string{"from_service", "to_service", "status"},
+		),
+
+		DependencyLatency: promauto.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Namespace: namespace,
+				Name:      "dependency_latency_seconds",
+				Help:      "Latency of service-to-service calls",
+				Buckets:   []float64{.01, .05, .1, .25, .5, 1, 2.5, 5, 10},
+			},
+			[]string{"from_service", "to_service"},
 		),
 	}
 
