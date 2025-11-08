@@ -35,31 +35,26 @@ import (
 )
 
 func main() {
-    // Connect to PostgreSQL
-    db, _ := sql.Open("postgres", os.Getenv("POSTGRES_DSN"))
+    // Connect to PostgreSQL (action_traces database)
+    db, _ := sql.Open("postgres", os.Getenv("ACTION_TRACES_DSN"))
 
     // Create S3 client
     cfg, _ := config.LoadDefaultConfig(context.Background())
     s3Client := s3.NewFromConfig(cfg)
 
-    // Create tracer
+    // Option 1: Manual configuration
     tracer := tracing.New(tracing.Config{
         ServiceID:  "containerservice",
         DB:         db,
         S3Client:   s3Client,
         S3Bucket:   "eve-traces",
-        Enabled:    os.Getenv("TRACING_ENABLED") != "false",
-
-        // Optional: Exclude specific action types from tracing
+        Enabled:    true,
+        StorePayloads: false,
         ExcludeActionTypes: []string{"WaitAction"},
-
-        // Optional: Exclude specific object types from tracing
-        ExcludeObjectTypes: []string{},
-
-        // Store request/response payloads in S3 (default: false)
-        // Automatically disabled for credential-related actions
-        StorePayloads: true,
     })
+
+    // Option 2: Environment variable configuration (recommended)
+    tracer := tracing.NewFromEnv("containerservice", db, s3Client)
 
     // Create Echo server
     e := echo.New()
@@ -123,7 +118,83 @@ func uploadArtifacts(c echo.Context, tracer *tracing.Tracer) {
 
 ## Selective Tracing
 
-### Excluding Actions from Tracing
+### Method 1: Environment Variables (Recommended)
+
+Use environment variables for flexible configuration:
+
+```bash
+# Enable/disable tracing (default: true)
+export TRACING_ENABLED=true
+
+# Store payloads in S3 (default: false)
+export TRACING_STORE_PAYLOADS=false
+
+# Exclude specific action types (comma-separated)
+export TRACING_EXCLUDE_ACTIONS="WaitAction,SearchAction"
+
+# Exclude specific object types (comma-separated)
+export TRACING_EXCLUDE_OBJECTS="Database,DataFeed"
+
+# S3 configuration
+export S3_BUCKET=eve-traces
+export S3_ENDPOINT_URL=https://s3.hetzner.cloud
+```
+
+Then use `NewFromEnv()`:
+
+```go
+tracer := tracing.NewFromEnv("containerservice", db, s3Client)
+e.Use(tracer.Middleware())
+```
+
+### Method 2: Config Struct
+
+Exclude actions via Config:
+
+```go
+tracer := tracing.New(tracing.Config{
+    // ...
+
+    // Exclude WaitAction and SearchAction from tracing
+    ExcludeActionTypes: []string{"WaitAction", "SearchAction"},
+
+    // Exclude Database and DataFeed objects from tracing
+    ExcludeObjectTypes: []string{"Database", "DataFeed"},
+})
+```
+
+### Method 3: Action-Level Metadata (Most Granular)
+
+Control tracing per action using the `meta` field in JSON-LD:
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "CreateAction",
+  "object": {
+    "@type": "Secret",
+    "name": "API_KEY",
+    "value": "secret-value"
+  },
+  "meta": {
+    "trace": false,
+    "tracePayload": false
+  }
+}
+```
+
+**Meta flags**:
+- `trace: false` - Skip tracing this action entirely
+- `tracePayload: false` - Trace metadata only, don't store payload in S3
+
+**Priority order** (highest to lowest):
+1. Credential detection (always redacted)
+2. Action `meta.trace: false` (skips tracing)
+3. Action `meta.tracePayload: false` (skips payload only)
+4. Config `ExcludeActionTypes` / `ExcludeObjectTypes`
+5. Config `StorePayloads`
+
+### Excluding Actions from Tracing (Legacy)
 
 You can exclude specific action types or object types from being traced:
 

@@ -2,6 +2,8 @@ package tracing
 
 import (
 	"database/sql"
+	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
@@ -44,6 +46,57 @@ type Tracer struct {
 
 // New creates a new tracer instance
 func New(config Config) *Tracer {
+	return &Tracer{config: config}
+}
+
+// NewFromEnv creates a tracer instance with configuration from environment variables
+// Required: serviceID, db, s3Client
+// Environment variables:
+//   - TRACING_ENABLED: Enable/disable tracing (default: true)
+//   - TRACING_STORE_PAYLOADS: Store request/response in S3 (default: false)
+//   - TRACING_EXCLUDE_ACTIONS: Comma-separated action types to exclude (e.g., "WaitAction,SearchAction")
+//   - TRACING_EXCLUDE_OBJECTS: Comma-separated object types to exclude (e.g., "Database,DataFeed")
+//   - S3_BUCKET: S3 bucket name (default: eve-traces)
+//   - S3_ENDPOINT_URL: S3 endpoint URL (optional, for Hetzner/MinIO)
+func NewFromEnv(serviceID string, db *sql.DB, s3Client *s3.Client) *Tracer {
+	config := Config{
+		ServiceID: serviceID,
+		DB:        db,
+		S3Client:  s3Client,
+	}
+
+	// Parse enabled flag (default: true)
+	config.Enabled = os.Getenv("TRACING_ENABLED") != "false"
+
+	// Parse payload storage (default: false for security)
+	config.StorePayloads = os.Getenv("TRACING_STORE_PAYLOADS") == "true"
+
+	// Parse S3 bucket
+	config.S3Bucket = os.Getenv("S3_BUCKET")
+	if config.S3Bucket == "" {
+		config.S3Bucket = "eve-traces"
+	}
+
+	// Parse S3 endpoint
+	config.S3Endpoint = os.Getenv("S3_ENDPOINT_URL")
+
+	// Parse exclusion lists
+	if excludeActions := os.Getenv("TRACING_EXCLUDE_ACTIONS"); excludeActions != "" {
+		config.ExcludeActionTypes = strings.Split(excludeActions, ",")
+		// Trim whitespace from each entry
+		for i := range config.ExcludeActionTypes {
+			config.ExcludeActionTypes[i] = strings.TrimSpace(config.ExcludeActionTypes[i])
+		}
+	}
+
+	if excludeObjects := os.Getenv("TRACING_EXCLUDE_OBJECTS"); excludeObjects != "" {
+		config.ExcludeObjectTypes = strings.Split(excludeObjects, ",")
+		// Trim whitespace from each entry
+		for i := range config.ExcludeObjectTypes {
+			config.ExcludeObjectTypes[i] = strings.TrimSpace(config.ExcludeObjectTypes[i])
+		}
+	}
+
 	return &Tracer{config: config}
 }
 

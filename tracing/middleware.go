@@ -56,10 +56,21 @@ func (t *Tracer) Middleware() echo.MiddlewareFunc {
 			// Parse action type for metadata extraction
 			actionType, objectType := parseActionTypes(reqBody)
 
-			// Check if this action should be traced
+			// Parse action-level tracing metadata
+			metaTrace, metaStorePayload := parseTracingMeta(reqBody)
+
+			// Check if action explicitly disables tracing
+			if !metaTrace {
+				return next(c)
+			}
+
+			// Check if this action should be traced based on exclusion rules
 			if !t.shouldTrace(actionType, objectType) {
 				return next(c)
 			}
+
+			// Store action-level payload preference
+			c.Set("meta_store_payload", metaStorePayload)
 
 			// Create response recorder
 			rec := &responseRecorder{
@@ -88,6 +99,14 @@ func (t *Tracer) Middleware() echo.MiddlewareFunc {
 				errorType = fmt.Sprintf("%T", handlerErr)
 			}
 
+			// Get action-level payload preference
+			metaStorePayloadFlag := true
+			if val := c.Get("meta_store_payload"); val != nil {
+				if flag, ok := val.(bool); ok {
+					metaStorePayloadFlag = flag
+				}
+			}
+
 			// Record trace asynchronously
 			go t.recordTrace(traceRecord{
 				correlationID:     correlationID,
@@ -107,6 +126,7 @@ func (t *Tracer) Middleware() echo.MiddlewareFunc {
 				httpMethod:        c.Request().Method,
 				clientIP:          c.RealIP(),
 				userAgent:         c.Request().UserAgent(),
+				metaStorePayload:  metaStorePayloadFlag,
 			})
 
 			return handlerErr
@@ -148,6 +168,36 @@ func parseActionTypes(body []byte) (actionType, objectType string) {
 	return action.Type, action.Object.Type
 }
 
+// parseTracingMeta extracts tracing control flags from action metadata
+func parseTracingMeta(body []byte) (trace bool, storePayload bool) {
+	var action struct {
+		Meta struct {
+			Trace        *bool `json:"trace"`        // Explicit trace enable/disable
+			TracePayload *bool `json:"tracePayload"` // Explicit payload storage control
+		} `json:"meta"`
+	}
+
+	// Default: allow tracing and use config for payload
+	trace = true
+	storePayload = true // Will be overridden by config
+
+	if err := json.Unmarshal(body, &action); err != nil {
+		return
+	}
+
+	// Check explicit trace flag
+	if action.Meta.Trace != nil {
+		trace = *action.Meta.Trace
+	}
+
+	// Check explicit payload flag
+	if action.Meta.TracePayload != nil {
+		storePayload = *action.Meta.TracePayload
+	}
+
+	return
+}
+
 // parseActionStatus extracts actionStatus from response
 func parseActionStatus(body []byte) string {
 	var result struct {
@@ -180,6 +230,7 @@ type traceRecord struct {
 	httpMethod        string
 	clientIP          string
 	userAgent         string
+	metaStorePayload  bool // Action-level payload storage preference
 }
 
 // recordTrace stores the trace in PostgreSQL + S3
@@ -187,7 +238,8 @@ func (t *Tracer) recordTrace(rec traceRecord) {
 	ctx := context.Background()
 
 	// Check if payloads should be stored
-	storePayloads := t.shouldStorePayload(rec.actionType, rec.objectType)
+	// Priority: 1) Credentials (never), 2) Action meta flag, 3) Config
+	storePayloads := t.shouldStorePayload(rec.actionType, rec.objectType) && rec.metaStorePayload
 
 	// S3 URLs (only set if payloads are stored)
 	var requestURL, responseURL string
