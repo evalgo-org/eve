@@ -179,7 +179,7 @@ func NewCompositeRepository(config Config) (*CompositeRepository, error) {
 func (r *CompositeRepository) SaveAction(ctx context.Context, action *semantic.SemanticScheduledAction, workflowID string) error {
 	// 1. Save to CouchDB (master document)
 	if r.Documents != nil {
-		if err := r.Documents.SaveAction(ctx, action.Identifier, action); err != nil {
+		if err := r.Documents.SaveAction(ctx, action.Identifier, action, workflowID); err != nil {
 			return fmt.Errorf("failed to save action to CouchDB: %w", err)
 		}
 	}

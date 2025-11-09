@@ -136,7 +136,7 @@ func (r *CouchDBRepository) DeleteWorkflow(ctx context.Context, workflowID strin
 
 // Action operations
 
-func (r *CouchDBRepository) SaveAction(ctx context.Context, actionID string, action *semantic.SemanticScheduledAction) error {
+func (r *CouchDBRepository) SaveAction(ctx context.Context, actionID string, action *semantic.SemanticScheduledAction, workflowID string) error {
 	// Convert action to map
 	data, err := json.Marshal(action)
 	if err != nil {
@@ -150,6 +150,11 @@ func (r *CouchDBRepository) SaveAction(ctx context.Context, actionID string, act
 
 	// Add _id
 	actionMap["_id"] = actionID
+
+	// Add partOf field if workflowID is specified
+	if workflowID != "" {
+		actionMap["partOf"] = workflowID
+	}
 
 	// Check if document exists to get revision
 	var existing map[string]interface{}

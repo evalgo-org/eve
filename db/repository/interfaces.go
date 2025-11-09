@@ -63,7 +63,7 @@ type DocumentRepository interface {
 	DeleteWorkflow(ctx context.Context, workflowID string) error
 
 	// Action operations
-	SaveAction(ctx context.Context, actionID string, action *semantic.SemanticScheduledAction) error
+	SaveAction(ctx context.Context, actionID string, action *semantic.SemanticScheduledAction, workflowID string) error
 	GetAction(ctx context.Context, actionID string) (*semantic.SemanticScheduledAction, error)
 	ListActions(ctx context.Context, workflowID string) ([]*semantic.SemanticScheduledAction, error)
 	DeleteAction(ctx context.Context, actionID string) error
