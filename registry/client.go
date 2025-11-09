@@ -354,6 +354,7 @@ type AutoRegisterConfig struct {
 	Binary       string
 	Capabilities []string
 	RegistryURL  string       // e.g., http://localhost:8096
+	ServiceURL   string       // e.g., http://containerservice:8099 (if empty, defaults to http://localhost:{Port})
 	Version      string       // Single version (e.g., "v1")
 	APIVersions  []APIVersion // Multiple API versions
 }
@@ -378,8 +379,14 @@ func AutoRegister(config AutoRegisterConfig) (bool, error) {
 		version = "v1"
 	}
 
+	// Determine base service URL (use ServiceURL if provided, otherwise default to localhost)
+	baseURL := config.ServiceURL
+	if baseURL == "" {
+		baseURL = fmt.Sprintf("http://localhost:%d", config.Port)
+	}
+
 	// Build documentation URL
-	documentationURL := fmt.Sprintf("http://localhost:%d/v1/api/docs", config.Port)
+	documentationURL := fmt.Sprintf("%s/v1/api/docs", baseURL)
 
 	// Create APIVersions array if not provided
 	apiVersions := config.APIVersions
@@ -387,7 +394,7 @@ func AutoRegister(config AutoRegisterConfig) (bool, error) {
 		apiVersions = []APIVersion{
 			{
 				Version:       version,
-				URL:           fmt.Sprintf("http://localhost:%d/%s", config.Port, version),
+				URL:           fmt.Sprintf("%s/%s", baseURL, version),
 				Documentation: documentationURL,
 				IsDefault:     true,
 				Status:        "stable",
@@ -401,7 +408,7 @@ func AutoRegister(config AutoRegisterConfig) (bool, error) {
 		ID:            config.ServiceID,
 		Name:          config.ServiceName,
 		Description:   config.Description,
-		URL:           fmt.Sprintf("http://localhost:%d", config.Port),
+		URL:           baseURL,
 		Version:       version,
 		Documentation: documentationURL,
 		Properties: ServiceProperties{
@@ -409,7 +416,7 @@ func AutoRegister(config AutoRegisterConfig) (bool, error) {
 			Directory:    config.Directory,
 			Binary:       config.Binary,
 			LogFile:      fmt.Sprintf("/tmp/%s.log", config.ServiceID),
-			HealthCheck:  fmt.Sprintf("http://localhost:%d/health", config.Port),
+			HealthCheck:  fmt.Sprintf("%s/health", baseURL),
 			Capabilities: config.Capabilities,
 		},
 		APIVersions: apiVersions,
