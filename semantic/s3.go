@@ -192,15 +192,26 @@ func ExtractS3Credentials(bucket *S3Bucket) (url, region, accessKey, secretKey, 
 // SemanticAction Helper Functions for S3 Operations
 // ============================================================================
 
-// GetS3ObjectFromAction extracts S3Object from SemanticAction properties
+// GetS3ObjectFromAction extracts S3Object from SemanticAction object field or properties
 func GetS3ObjectFromAction(action *SemanticAction) (*S3Object, error) {
-	if action == nil || action.Properties == nil {
-		return nil, fmt.Errorf("action or properties is nil")
+	if action == nil {
+		return nil, fmt.Errorf("action is nil")
 	}
 
-	obj, ok := action.Properties["object"]
-	if !ok {
-		return nil, fmt.Errorf("no object found in action properties")
+	var obj interface{}
+
+	// First check direct Object field (primary location)
+	if action.Object != nil {
+		obj = action.Object
+	} else if action.Properties != nil {
+		// Fallback to Properties for backward compatibility
+		var ok bool
+		obj, ok = action.Properties["object"]
+		if !ok {
+			return nil, fmt.Errorf("no object found in action")
+		}
+	} else {
+		return nil, fmt.Errorf("no object found in action")
 	}
 
 	switch v := obj.(type) {
@@ -208,6 +219,23 @@ func GetS3ObjectFromAction(action *SemanticAction) (*S3Object, error) {
 		return v, nil
 	case S3Object:
 		return &v, nil
+	case *SemanticObject:
+		// Convert SemanticObject to S3Object
+		return &S3Object{
+			Type:           v.Type,
+			Identifier:     v.Identifier,
+			Name:           v.Name,
+			ContentUrl:     v.ContentUrl,
+			EncodingFormat: v.EncodingFormat,
+		}, nil
+	case SemanticObject:
+		return &S3Object{
+			Type:           v.Type,
+			Identifier:     v.Identifier,
+			Name:           v.Name,
+			ContentUrl:     v.ContentUrl,
+			EncodingFormat: v.EncodingFormat,
+		}, nil
 	case map[string]interface{}:
 		data, err := json.Marshal(v)
 		if err != nil {
