@@ -493,3 +493,48 @@ func AutoUnregister(serviceID string) error {
 
 	return fmt.Errorf("unregister failed with status %d", resp.StatusCode)
 }
+
+// StartPeriodicRegistration tries to register with the registry, retrying every 5 minutes if it fails
+// Returns a context cancel function to stop the registration attempts
+func StartPeriodicRegistration(ctx context.Context, config AutoRegisterConfig, retryInterval time.Duration) context.CancelFunc {
+	if retryInterval == 0 {
+		retryInterval = 5 * time.Minute
+	}
+
+	registrationCtx, cancel := context.WithCancel(ctx)
+
+	go func() {
+		// Try initial registration
+		success, err := AutoRegister(config)
+		if err != nil {
+			log.Printf("Initial registration failed: %v - will retry every %v", err, retryInterval)
+		} else if success {
+			log.Printf("Service %s registered successfully", config.ServiceID)
+			return // Registration successful, no need to retry
+		}
+
+		// If initial registration failed, keep trying periodically
+		ticker := time.NewTicker(retryInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				log.Printf("Retrying registration for %s...", config.ServiceID)
+				success, err := AutoRegister(config)
+				if err != nil {
+					log.Printf("Registration retry failed: %v - will retry in %v", err, retryInterval)
+				} else if success {
+					log.Printf("Service %s registered successfully after retry", config.ServiceID)
+					return // Success - stop retrying
+				}
+
+			case <-registrationCtx.Done():
+				log.Println("Periodic registration stopped")
+				return
+			}
+		}
+	}()
+
+	return cancel
+}
