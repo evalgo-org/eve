@@ -94,13 +94,14 @@ func GetPropertyValueFromAction(action *SemanticAction, propertyKey string) (*Pr
 // GetInfisicalTargetFromAction extracts Infisical target configuration from SemanticAction properties
 // Returns: url, projectID, environment, secretPath, includeImports, error
 func GetInfisicalTargetFromAction(action *SemanticAction) (string, string, string, string, bool, error) {
-	if action == nil || action.Properties == nil {
-		return "", "", "", "", false, fmt.Errorf("action or properties is nil")
+	if action == nil {
+		return "", "", "", "", false, fmt.Errorf("action is nil")
 	}
 
-	target, ok := action.Properties["target"]
-	if !ok {
-		return "", "", "", "", false, fmt.Errorf("no target found in action properties")
+	// Target is in the action.Target field, not in Properties
+	target := action.Target
+	if target == nil {
+		return "", "", "", "", false, fmt.Errorf("no target found in action")
 	}
 
 	// Handle EntryPoint format (Schema.org compliant)
