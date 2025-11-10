@@ -206,6 +206,7 @@ func (r *CouchDBRepository) GetAction(ctx context.Context, actionID string) (*se
 }
 
 func (r *CouchDBRepository) ListActions(ctx context.Context, workflowID string) ([]*semantic.SemanticScheduledAction, error) {
+	fmt.Fprintf(os.Stderr, "DEBUG ListActions: Called with workflowID='%s'\n", workflowID)
 	var rows *kivik.ResultSet
 
 	if workflowID != "" {
@@ -215,12 +216,19 @@ func (r *CouchDBRepository) ListActions(ctx context.Context, workflowID string) 
 				"partOf": workflowID,
 			},
 		}
+		fmt.Fprintf(os.Stderr, "DEBUG ListActions: Executing Find with query: %+v\n", query)
 		rows = r.actionsDB.Find(ctx, query)
+		if rows.Err() != nil {
+			fmt.Fprintf(os.Stderr, "DEBUG ListActions: Find returned error: %v\n", rows.Err())
+		}
 	} else {
 		// Get all actions
+		fmt.Fprintf(os.Stderr, "DEBUG ListActions: Getting all actions with AllDocs\n")
 		rows = r.actionsDB.AllDocs(ctx, kivik.Param("include_docs", true))
 	}
 	defer rows.Close()
+
+	fmt.Fprintf(os.Stderr, "DEBUG ListActions: Starting to iterate rows\n")
 
 	var actions []*semantic.SemanticScheduledAction
 	actionCount := 0
@@ -266,6 +274,7 @@ func (r *CouchDBRepository) ListActions(ctx context.Context, workflowID string) 
 		actions = append(actions, &action)
 	}
 
+	fmt.Fprintf(os.Stderr, "DEBUG ListActions: Completed iteration, found %d actions, rows.Err()=%v\n", len(actions), rows.Err())
 	return actions, rows.Err()
 }
 
