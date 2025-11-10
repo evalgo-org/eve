@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"eve.evalgo.org/semantic"
 )
 
 // Client represents a registry client for service registration and discovery
@@ -29,14 +31,15 @@ type ClientConfig struct {
 
 // ServiceConfig contains configuration for service registration
 type ServiceConfig struct {
-	ServiceID    string                 // Unique service identifier
-	ServiceName  string                 // Human-readable service name
-	ServiceURL   string                 // Base URL of this service
-	Version      string                 // Service version
-	Hostname     string                 // Hostname (auto-detected if empty)
-	ServiceType  string                 // Type of service (e.g., "graphdb", "agent")
-	Capabilities []string               // List of capabilities
-	Properties   map[string]interface{} // Additional properties
+	ServiceID          string                 // Unique service identifier
+	ServiceName        string                 // Human-readable service name
+	ServiceURL         string                 // Base URL of this service
+	Version            string                 // Service version
+	Hostname           string                 // Hostname (auto-detected if empty)
+	ServiceType        string                 // Type of service (e.g., "graphdb", "agent")
+	Capabilities       []string               // List of capabilities (simple strings for backward compat)
+	ActionCapabilities []ActionCapability     // Structured capabilities with result schemas
+	Properties         map[string]interface{} // Additional properties
 }
 
 // Service represents a registered service
@@ -53,12 +56,13 @@ type Service struct {
 
 // ServiceProperties contains service metadata
 type ServiceProperties struct {
-	Port         int      `json:"port"`
-	Directory    string   `json:"directory"`
-	Binary       string   `json:"binary"`
-	LogFile      string   `json:"logFile"`
-	HealthCheck  string   `json:"healthCheck,omitempty"`
-	Capabilities []string `json:"capabilities,omitempty"`
+	Port               int                `json:"port"`
+	Directory          string             `json:"directory"`
+	Binary             string             `json:"binary"`
+	LogFile            string             `json:"logFile"`
+	HealthCheck        string             `json:"healthCheck,omitempty"`
+	Capabilities       []string           `json:"capabilities,omitempty"`       // Simple string capabilities (legacy)
+	ActionCapabilities []ActionCapability `json:"actionCapabilities,omitempty"` // Structured capabilities with schemas
 }
 
 // SemanticService represents a Schema.org formatted service registration
@@ -136,12 +140,13 @@ func (c *Client) Register(ctx context.Context, config ServiceConfig) error {
 		Version:       config.Version,
 		Documentation: documentationURL,
 		Properties: ServiceProperties{
-			Port:         0, // Could be extracted from config if needed
-			Directory:    "",
-			Binary:       "",
-			LogFile:      "",
-			HealthCheck:  fmt.Sprintf("%s/health", config.ServiceURL),
-			Capabilities: config.Capabilities,
+			Port:               0, // Could be extracted from config if needed
+			Directory:          "",
+			Binary:             "",
+			LogFile:            "",
+			HealthCheck:        fmt.Sprintf("%s/health", config.ServiceURL),
+			Capabilities:       config.Capabilities,
+			ActionCapabilities: config.ActionCapabilities, // Include structured capabilities
 		},
 		APIVersions: apiVersions,
 	}
@@ -551,4 +556,69 @@ func StartPeriodicRegistration(ctx context.Context, config AutoRegisterConfig, r
 	}()
 
 	return cancel
+}
+
+// GetActionCapability queries the registry for a service's action capability
+// Returns the capability definition including result schema for the specified action type
+func (c *Client) GetActionCapability(ctx context.Context, serviceID, actionType string) (*ActionCapability, error) {
+	// Get the service registration
+	service, err := c.GetService(ctx, serviceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service %s: %w", serviceID, err)
+	}
+
+	// Search for the action capability
+	for _, cap := range service.Properties.ActionCapabilities {
+		if cap.ActionType == actionType {
+			return &cap, nil
+		}
+	}
+
+	return nil, fmt.Errorf("action type %s not found in service %s capabilities", actionType, serviceID)
+}
+
+// GetResultSchema queries the registry for the expected result schema of an action
+// This allows the executor to know what data structure to expect from a service
+func (c *Client) GetResultSchema(ctx context.Context, serviceID, actionType string) (*semantic.ResultSchema, error) {
+	cap, err := c.GetActionCapability(ctx, serviceID, actionType)
+	if err != nil {
+		return nil, err
+	}
+
+	if cap.ResultSchema == nil {
+		return nil, fmt.Errorf("no result schema defined for action %s in service %s", actionType, serviceID)
+	}
+
+	return cap.ResultSchema, nil
+}
+
+// GetService retrieves a full service registration from the registry
+func (c *Client) GetService(ctx context.Context, serviceID string) (*Service, error) {
+	serviceURL := fmt.Sprintf("%s/v1/api/services/%s", c.registryURL, serviceID)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", serviceURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("service not found: %s", serviceID)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("registry returned status %d", resp.StatusCode)
+	}
+
+	var svc Service
+	if err := json.NewDecoder(resp.Body).Decode(&svc); err != nil {
+		return nil, fmt.Errorf("failed to decode service: %w", err)
+	}
+
+	return &svc, nil
 }
