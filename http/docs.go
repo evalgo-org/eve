@@ -6,18 +6,20 @@ import (
 	"net/http"
 	"strings"
 
+	"eve.evalgo.org/version"
 	"github.com/labstack/echo/v4"
 )
 
 // ServiceDocConfig contains configuration for service documentation
 type ServiceDocConfig struct {
-	ServiceID    string
-	ServiceName  string
-	Description  string
-	Version      string
-	Port         int
-	Capabilities []string
-	Endpoints    []EndpointDoc
+	ServiceID           string
+	ServiceName         string
+	Description         string
+	Version             string
+	Port                int
+	Capabilities        []string
+	Endpoints           []EndpointDoc
+	IncludeDependencies bool // If true, includes dependency version information
 }
 
 // EndpointDoc describes an API endpoint
@@ -42,6 +44,57 @@ func generateServiceDocHTML(config ServiceDocConfig) string {
 	capabilitiesHTML := ""
 	for _, cap := range config.Capabilities {
 		capabilitiesHTML += fmt.Sprintf(`<span class="badge">%s</span> `, cap)
+	}
+
+	// Build dependencies section if requested
+	dependenciesHTML := ""
+	var eveVersion string
+	if config.IncludeDependencies {
+		buildInfo := version.GetBuildInfo()
+		eveVersion = version.GetEVEVersion()
+
+		dependenciesHTML = `
+		<div class="content">
+			<h2>Build Information</h2>
+			<div class="info-grid">
+				<div class="info-card">
+					<div class="info-label">Go Version</div>
+					<div class="info-value">` + buildInfo.GoVersion + `</div>
+				</div>
+				<div class="info-card">
+					<div class="info-label">EVE Version</div>
+					<div class="info-value">` + eveVersion + `</div>
+				</div>
+			</div>
+			<h3 style="margin-top: 1.5rem; color: #667eea;">Dependencies</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Module</th>
+						<th>Version</th>
+					</tr>
+				</thead>
+				<tbody>`
+
+		for _, dep := range buildInfo.Dependencies {
+			versionStr := dep.Version
+			if dep.Replace != "" {
+				versionStr += ` <span style="color: #ffc107;">(→ ` + dep.Replace + `)</span>`
+			}
+			dependenciesHTML += fmt.Sprintf(`
+					<tr>
+						<td><code>%s</code></td>
+						<td>%s</td>
+					</tr>`, dep.Path, versionStr)
+		}
+
+		dependenciesHTML += `
+				</tbody>
+			</table>
+		</div>`
+	} else {
+		// Just show EVE version in the info grid even if not showing full dependencies
+		eveVersion = version.GetEVEVersion()
 	}
 
 	// Build endpoints table
@@ -224,7 +277,11 @@ func generateServiceDocHTML(config ServiceDocConfig) string {
 				<div class="info-value">%s</div>
 			</div>
 			<div class="info-card">
-				<div class="info-label">Version</div>
+				<div class="info-label">API Version</div>
+				<div class="info-value">%s</div>
+			</div>
+			<div class="info-card">
+				<div class="info-label">EVE Version</div>
 				<div class="info-value">%s</div>
 			</div>
 			<div class="info-card">
@@ -243,6 +300,8 @@ func generateServiceDocHTML(config ServiceDocConfig) string {
 		<div class="content">
 			%s
 		</div>
+
+		%s
 	</div>
 	<div class="footer">
 		<p>Part of the EVE Ecosystem | <a href="http://localhost:8096">Registry Service</a></p>
@@ -254,9 +313,11 @@ func generateServiceDocHTML(config ServiceDocConfig) string {
 		config.Description,
 		config.ServiceID,
 		config.Version,
+		eveVersion,
 		config.Port,
 		capabilitiesHTML,
 		endpointsHTML,
+		dependenciesHTML,
 	)
 
 	return html

@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"time"
 
+	"eve.evalgo.org/version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -219,10 +220,13 @@ func (cl *ContextLogger) Fatalf(format string, args ...interface{}) {
 }
 
 // ServiceLogger creates a logger pre-configured with service metadata
-func ServiceLogger(serviceName, version string) *ContextLogger {
+// Automatically includes the EVE framework version for debugging purposes
+func ServiceLogger(serviceName, serviceVersion string) *ContextLogger {
+	eveVersion := version.GetEVEVersion()
 	return NewContextLogger(Logger, map[string]interface{}{
-		"service": serviceName,
-		"version": version,
+		"service":     serviceName,
+		"version":     serviceVersion,
+		"eve_version": eveVersion,
 	})
 }
 
