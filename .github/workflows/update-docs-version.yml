@@ -8,12 +8,15 @@ on:
 jobs:
   update-version:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to push changes to the repository
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history and tags
+          ref: main  # Always checkout main branch, not the tag
 
       - name: Get latest tag
         id: get_tag
