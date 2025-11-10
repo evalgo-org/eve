@@ -102,12 +102,28 @@ type SemanticInstrument struct {
 	Properties     map[string]interface{} `json:"additionalProperty,omitempty"` // Additional properties
 }
 
-// SemanticResult represents action execution result
+// SemanticResult represents action execution result following Schema.org Result pattern
 type SemanticResult struct {
-	Type         string `json:"@type"` // Action, PropertyValue
-	ActionStatus string `json:"actionStatus,omitempty"`
-	Output       string `json:"text,omitempty"`
-	Value        int    `json:"value,omitempty"` // Exit code, status code, etc.
+	Type         string        `json:"@type"`                    // "Result", "Dataset", "DigitalDocument", etc.
+	ActionStatus string        `json:"actionStatus,omitempty"`   // CompletedActionStatus, FailedActionStatus
+	Output       string        `json:"text,omitempty"`           // Raw text output (JSON, XML, plain text)
+	Value        interface{}   `json:"value,omitempty"`          // Structured data (any type: int, map, array, etc.)
+	Format       string        `json:"encodingFormat,omitempty"` // MIME type: application/json, text/xml, etc.
+	Schema       *ResultSchema `json:"about,omitempty"`          // Describes the structure of Value
+}
+
+// ResultSchema describes the structure of result data using Schema.org patterns
+type ResultSchema struct {
+	Type       string              `json:"@type"`                      // "PropertyValueList", "Dataset", "StructuredValue"
+	Properties []PropertyValueSpec `json:"variableMeasured,omitempty"` // For Dataset/PropertyValueList
+}
+
+// PropertyValueSpec describes a property in the result schema
+type PropertyValueSpec struct {
+	Type        string `json:"@type"`                 // "PropertyValue"
+	Name        string `json:"name"`                  // Property name (e.g., "username", "secretKey")
+	ValueType   string `json:"valueType,omitempty"`   // "Text", "Number", "Boolean", "URL"
+	Description string `json:"description,omitempty"` // Human-readable description
 }
 
 // SemanticError represents action failure information
