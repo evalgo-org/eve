@@ -379,10 +379,24 @@ func AutoRegister(config AutoRegisterConfig) (bool, error) {
 		version = "v1"
 	}
 
-	// Determine base service URL (use ServiceURL if provided, otherwise default to localhost)
+	// Determine base service URL
+	// Priority: 1) config.ServiceURL, 2) SERVICE_URL env var, 3) auto-detect from HOSTNAME env var + port
 	baseURL := config.ServiceURL
 	if baseURL == "" {
-		baseURL = fmt.Sprintf("http://localhost:%d", config.Port)
+		// Check for SERVICE_URL environment variable
+		baseURL = os.Getenv("SERVICE_URL")
+	}
+	if baseURL == "" {
+		// Auto-detect hostname (Docker sets HOSTNAME to container/service name)
+		hostname := os.Getenv("HOSTNAME")
+		if hostname == "" {
+			var err error
+			hostname, err = os.Hostname()
+			if err != nil {
+				hostname = "localhost"
+			}
+		}
+		baseURL = fmt.Sprintf("http://%s:%d", hostname, config.Port)
 	}
 
 	// Build documentation URL
