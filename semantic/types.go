@@ -137,49 +137,7 @@ func FromJSONLD(data []byte, v interface{}) error {
 }
 
 // ParseSemanticAction parses JSON-LD bytes into a SemanticAction
-// If the JSON contains SemanticScheduledAction fields (query, target, targetUrl, requires),
-// it parses as SemanticScheduledAction and returns its embedded SemanticAction.
 func ParseSemanticAction(data []byte) (*SemanticAction, error) {
-	// First, check if this is a SemanticScheduledAction by looking for its specific fields
-	var rawMap map[string]interface{}
-	if err := json.Unmarshal(data, &rawMap); err != nil {
-		return nil, err
-	}
-
-	// If it has SemanticScheduledAction fields, parse as that type
-	_, hasQuery := rawMap["query"]
-	_, hasTarget := rawMap["target"]
-	_, hasTargetUrl := rawMap["targetUrl"]
-	_, hasRequires := rawMap["requires"]
-
-	if hasQuery || hasTarget || hasTargetUrl || hasRequires {
-		// Parse as SemanticScheduledAction
-		var scheduledAction SemanticScheduledAction
-		if err := json.Unmarshal(data, &scheduledAction); err != nil {
-			return nil, err
-		}
-
-		// Ensure Properties map exists
-		if scheduledAction.Properties == nil {
-			scheduledAction.Properties = make(map[string]interface{})
-		}
-
-		// Store the scheduled action fields in Properties for backward compatibility
-		if hasQuery && scheduledAction.Query != nil {
-			scheduledAction.Properties["query"] = scheduledAction.Query
-		}
-		if hasTarget && scheduledAction.Target != nil {
-			scheduledAction.Properties["target"] = scheduledAction.Target
-		}
-		if hasTargetUrl && scheduledAction.TargetUrl != "" {
-			scheduledAction.Properties["targetUrl"] = scheduledAction.TargetUrl
-		}
-
-		// Return the embedded SemanticAction
-		return &scheduledAction.SemanticAction, nil
-	}
-
-	// Otherwise, parse as regular SemanticAction
 	var action SemanticAction
 	if err := json.Unmarshal(data, &action); err != nil {
 		return nil, err

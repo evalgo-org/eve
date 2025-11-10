@@ -178,38 +178,26 @@ func NewSemanticSearchAction(id, name string, query *SearchQuery, target *SPARQL
 	return action
 }
 
-// GetSearchQueryFromAction extracts SearchQuery from SemanticAction
-// Checks both the top-level Query field (for SemanticScheduledAction) and Properties["query"]
-func GetSearchQueryFromAction(action *SemanticAction) (*SearchQuery, error) {
+// GetSearchQueryFromAction extracts SearchQuery from SemanticAction or SemanticScheduledAction
+func GetSearchQueryFromAction(action interface{}) (*SearchQuery, error) {
 	if action == nil {
 		return nil, fmt.Errorf("action is nil")
 	}
 
 	var query interface{}
 
-	// First, try to get from top-level Query field (if this is a SemanticScheduledAction)
-	// We need to re-marshal and unmarshal to access the Query field
-	data, err := json.Marshal(action)
-	if err == nil {
-		var scheduledAction struct {
-			Query interface{} `json:"query,omitempty"`
-		}
-		if err := json.Unmarshal(data, &scheduledAction); err == nil && scheduledAction.Query != nil {
-			query = scheduledAction.Query
-		}
-	}
-
-	// Fall back to Properties["query"] if top-level Query not found
-	if query == nil && action.Properties != nil {
-		var ok bool
-		query, ok = action.Properties["query"]
-		if !ok {
-			return nil, fmt.Errorf("no query found in action properties")
+	// Check if this is a SemanticScheduledAction with Query field
+	if scheduledAction, ok := action.(*SemanticScheduledAction); ok {
+		query = scheduledAction.Query
+	} else if semanticAction, ok := action.(*SemanticAction); ok {
+		// Fall back to Properties["query"] for regular SemanticAction
+		if semanticAction.Properties != nil {
+			query, _ = semanticAction.Properties["query"]
 		}
 	}
 
 	if query == nil {
-		return nil, fmt.Errorf("no query found in action properties")
+		return nil, fmt.Errorf("no query found in action")
 	}
 
 	switch v := query.(type) {
@@ -238,15 +226,26 @@ func GetSearchQueryFromAction(action *SemanticAction) (*SearchQuery, error) {
 	}
 }
 
-// GetSPARQLEndpointFromAction extracts SPARQLEndpoint from SemanticAction properties
-func GetSPARQLEndpointFromAction(action *SemanticAction) (*SPARQLEndpoint, error) {
-	if action == nil || action.Properties == nil {
-		return nil, fmt.Errorf("action or properties is nil")
+// GetSPARQLEndpointFromAction extracts SPARQLEndpoint from SemanticAction or SemanticScheduledAction
+func GetSPARQLEndpointFromAction(action interface{}) (*SPARQLEndpoint, error) {
+	if action == nil {
+		return nil, fmt.Errorf("action is nil")
 	}
 
-	target, ok := action.Properties["target"]
-	if !ok {
-		return nil, fmt.Errorf("no target found in action properties")
+	var target interface{}
+
+	// Check if this is a SemanticScheduledAction with Target field
+	if scheduledAction, ok := action.(*SemanticScheduledAction); ok {
+		target = scheduledAction.Target
+	} else if semanticAction, ok := action.(*SemanticAction); ok {
+		// Fall back to Properties["target"] for regular SemanticAction
+		if semanticAction.Properties != nil {
+			target, _ = semanticAction.Properties["target"]
+		}
+	}
+
+	if target == nil {
+		return nil, fmt.Errorf("no target found in action")
 	}
 
 	switch v := target.(type) {
