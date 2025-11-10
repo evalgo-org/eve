@@ -137,44 +137,52 @@ func FromJSONLD(data []byte, v interface{}) error {
 }
 
 // ParseSemanticAction parses JSON-LD bytes into a SemanticAction
-// If the JSON contains top-level fields like "query", "target", "targetUrl" that are
-// specific to SemanticScheduledAction, they are automatically copied to Properties
-// to ensure they're accessible even when parsed as SemanticAction.
+// If the JSON contains SemanticScheduledAction fields (query, target, targetUrl, requires),
+// it parses as SemanticScheduledAction and returns its embedded SemanticAction.
 func ParseSemanticAction(data []byte) (*SemanticAction, error) {
+	// First, check if this is a SemanticScheduledAction by looking for its specific fields
+	var rawMap map[string]interface{}
+	if err := json.Unmarshal(data, &rawMap); err != nil {
+		return nil, err
+	}
+
+	// If it has SemanticScheduledAction fields, parse as that type
+	_, hasQuery := rawMap["query"]
+	_, hasTarget := rawMap["target"]
+	_, hasTargetUrl := rawMap["targetUrl"]
+	_, hasRequires := rawMap["requires"]
+
+	if hasQuery || hasTarget || hasTargetUrl || hasRequires {
+		// Parse as SemanticScheduledAction
+		var scheduledAction SemanticScheduledAction
+		if err := json.Unmarshal(data, &scheduledAction); err != nil {
+			return nil, err
+		}
+
+		// Ensure Properties map exists
+		if scheduledAction.Properties == nil {
+			scheduledAction.Properties = make(map[string]interface{})
+		}
+
+		// Store the scheduled action fields in Properties for backward compatibility
+		if hasQuery && scheduledAction.Query != nil {
+			scheduledAction.Properties["query"] = scheduledAction.Query
+		}
+		if hasTarget && scheduledAction.Target != nil {
+			scheduledAction.Properties["target"] = scheduledAction.Target
+		}
+		if hasTargetUrl && scheduledAction.TargetUrl != "" {
+			scheduledAction.Properties["targetUrl"] = scheduledAction.TargetUrl
+		}
+
+		// Return the embedded SemanticAction
+		return &scheduledAction.SemanticAction, nil
+	}
+
+	// Otherwise, parse as regular SemanticAction
 	var action SemanticAction
 	if err := json.Unmarshal(data, &action); err != nil {
 		return nil, err
 	}
-
-	// Check if the JSON has top-level fields that should be in Properties
-	// This handles the case where a SemanticScheduledAction is being parsed as SemanticAction
-	var rawMap map[string]interface{}
-	if err := json.Unmarshal(data, &rawMap); err == nil {
-		if action.Properties == nil {
-			action.Properties = make(map[string]interface{})
-		}
-
-		// Copy top-level "query" to Properties if it's not already there
-		if query, exists := rawMap["query"]; exists && query != nil {
-			if _, hasQuery := action.Properties["query"]; !hasQuery {
-				action.Properties["query"] = query
-			}
-		}
-
-		// Copy top-level "target" to Properties if it's not already there
-		if target, exists := rawMap["target"]; exists && target != nil {
-			if _, hasTarget := action.Properties["target"]; !hasTarget {
-				action.Properties["target"] = target
-			}
-		}
-
-		// Copy top-level "targetUrl" to Properties if it's not already there
-		if targetUrl, exists := rawMap["targetUrl"]; exists && targetUrl != nil {
-			if _, hasTargetUrl := action.Properties["targetUrl"]; !hasTargetUrl {
-				action.Properties["targetUrl"] = targetUrl
-			}
-		}
-	}
-
 	return &action, nil
 }
