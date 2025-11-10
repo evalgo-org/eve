@@ -8,7 +8,8 @@ import (
 )
 
 // ActionHandler is a function that handles a specific semantic action type
-type ActionHandler func(c echo.Context, action *SemanticAction) error
+// The action parameter can be either *SemanticAction or *SemanticScheduledAction
+type ActionHandler func(c echo.Context, action interface{}) error
 
 // ActionRegistry manages action handlers
 type ActionRegistry struct {
@@ -53,16 +54,31 @@ func (r *ActionRegistry) Unregister(actionType string) {
 }
 
 // Handle dispatches an action to the appropriate handler
-func (r *ActionRegistry) Handle(c echo.Context, action *SemanticAction) error {
+// Accepts either *SemanticAction or *SemanticScheduledAction
+func (r *ActionRegistry) Handle(c echo.Context, actionInterface interface{}) error {
+	// Extract the Type field and underlying SemanticAction
+	var actionType string
+	var baseAction *SemanticAction
+
+	if sa, ok := actionInterface.(*SemanticScheduledAction); ok {
+		actionType = sa.Type
+		baseAction = &sa.SemanticAction
+	} else if a, ok := actionInterface.(*SemanticAction); ok {
+		actionType = a.Type
+		baseAction = a
+	} else {
+		return fmt.Errorf("invalid action type: %T", actionInterface)
+	}
+
 	r.mu.RLock()
-	handler, exists := r.handlers[action.Type]
+	handler, exists := r.handlers[actionType]
 	r.mu.RUnlock()
 
 	if !exists {
-		return ReturnActionError(c, action, fmt.Sprintf("Unsupported action type: %s", action.Type), nil)
+		return ReturnActionError(c, baseAction, fmt.Sprintf("Unsupported action type: %s", actionType), nil)
 	}
 
-	return handler(c, action)
+	return handler(c, actionInterface)
 }
 
 // GetRegisteredActions returns a list of all registered action types
@@ -99,7 +115,8 @@ func MustRegister(actionType string, handler ActionHandler) {
 }
 
 // Handle is a convenience function that handles actions using the default registry
-func Handle(c echo.Context, action *SemanticAction) error {
+// Accepts either *SemanticAction or *SemanticScheduledAction
+func Handle(c echo.Context, action interface{}) error {
 	return DefaultRegistry.Handle(c, action)
 }
 
