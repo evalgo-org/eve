@@ -210,10 +210,12 @@ func (r *CouchDBRepository) ListActions(ctx context.Context, workflowID string) 
 
 	if workflowID != "" {
 		// Query by workflow using Mango query
-		selector := map[string]interface{}{
-			"partOf": workflowID,
+		query := map[string]interface{}{
+			"selector": map[string]interface{}{
+				"partOf": workflowID,
+			},
 		}
-		rows = r.actionsDB.Find(ctx, selector)
+		rows = r.actionsDB.Find(ctx, query)
 	} else {
 		// Get all actions
 		rows = r.actionsDB.AllDocs(ctx, kivik.Param("include_docs", true))
