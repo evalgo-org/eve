@@ -351,17 +351,18 @@ type APIVersion struct {
 
 // AutoRegisterConfig contains configuration for auto-registration
 type AutoRegisterConfig struct {
-	ServiceID    string
-	ServiceName  string
-	Description  string
-	Port         int
-	Directory    string
-	Binary       string
-	Capabilities []string
-	RegistryURL  string       // e.g., http://localhost:8096
-	ServiceURL   string       // e.g., http://containerservice:8099 (if empty, defaults to http://localhost:{Port})
-	Version      string       // Single version (e.g., "v1")
-	APIVersions  []APIVersion // Multiple API versions
+	ServiceID          string
+	ServiceName        string
+	Description        string
+	Port               int
+	Directory          string
+	Binary             string
+	Capabilities       []string           // Legacy string capabilities
+	ActionCapabilities []ActionCapability // Structured capabilities with result schemas
+	RegistryURL        string             // e.g., http://localhost:8096
+	ServiceURL         string             // e.g., http://containerservice:8099 (if empty, defaults to http://localhost:{Port})
+	Version            string             // Single version (e.g., "v1")
+	APIVersions        []APIVersion       // Multiple API versions
 }
 
 // AutoRegister registers a service with the registry service if REGISTRYSERVICE_API_URL is set
@@ -431,12 +432,13 @@ func AutoRegister(config AutoRegisterConfig) (bool, error) {
 		Version:       version,
 		Documentation: documentationURL,
 		Properties: ServiceProperties{
-			Port:         config.Port,
-			Directory:    config.Directory,
-			Binary:       config.Binary,
-			LogFile:      fmt.Sprintf("/tmp/%s.log", config.ServiceID),
-			HealthCheck:  fmt.Sprintf("%s/health", baseURL),
-			Capabilities: config.Capabilities,
+			Port:               config.Port,
+			Directory:          config.Directory,
+			Binary:             config.Binary,
+			LogFile:            fmt.Sprintf("/tmp/%s.log", config.ServiceID),
+			HealthCheck:        fmt.Sprintf("%s/health", baseURL),
+			Capabilities:       config.Capabilities,
+			ActionCapabilities: config.ActionCapabilities,
 		},
 		APIVersions: apiVersions,
 	}
