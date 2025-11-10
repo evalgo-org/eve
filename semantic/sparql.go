@@ -178,14 +178,37 @@ func NewSemanticSearchAction(id, name string, query *SearchQuery, target *SPARQL
 	return action
 }
 
-// GetSearchQueryFromAction extracts SearchQuery from SemanticAction properties
+// GetSearchQueryFromAction extracts SearchQuery from SemanticAction
+// Checks both the top-level Query field (for SemanticScheduledAction) and Properties["query"]
 func GetSearchQueryFromAction(action *SemanticAction) (*SearchQuery, error) {
-	if action == nil || action.Properties == nil {
-		return nil, fmt.Errorf("action or properties is nil")
+	if action == nil {
+		return nil, fmt.Errorf("action is nil")
 	}
 
-	query, ok := action.Properties["query"]
-	if !ok {
+	var query interface{}
+
+	// First, try to get from top-level Query field (if this is a SemanticScheduledAction)
+	// We need to re-marshal and unmarshal to access the Query field
+	data, err := json.Marshal(action)
+	if err == nil {
+		var scheduledAction struct {
+			Query interface{} `json:"query,omitempty"`
+		}
+		if err := json.Unmarshal(data, &scheduledAction); err == nil && scheduledAction.Query != nil {
+			query = scheduledAction.Query
+		}
+	}
+
+	// Fall back to Properties["query"] if top-level Query not found
+	if query == nil && action.Properties != nil {
+		var ok bool
+		query, ok = action.Properties["query"]
+		if !ok {
+			return nil, fmt.Errorf("no query found in action properties")
+		}
+	}
+
+	if query == nil {
 		return nil, fmt.Errorf("no query found in action properties")
 	}
 
