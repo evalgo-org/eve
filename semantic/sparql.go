@@ -189,16 +189,20 @@ func GetSearchQueryFromAction(action interface{}) (*SearchQuery, error) {
 	// Check if this is a SemanticScheduledAction with Query field
 	if scheduledAction, ok := action.(*SemanticScheduledAction); ok {
 		query = scheduledAction.Query
+		fmt.Printf("DEBUG GetSearchQuery: SemanticScheduledAction.Query = %v (type: %T)\n", query != nil, query)
 	} else if semanticAction, ok := action.(*SemanticAction); ok {
 		// Fall back to Properties["query"] for regular SemanticAction
 		if semanticAction.Properties != nil {
 			query, _ = semanticAction.Properties["query"]
+			fmt.Printf("DEBUG GetSearchQuery: Properties[query] = %v (type: %T)\n", query != nil, query)
 		}
 	}
 
 	if query == nil {
+		fmt.Printf("DEBUG GetSearchQuery: query is nil, returning error\n")
 		return nil, fmt.Errorf("no query found in action")
 	}
+	fmt.Printf("DEBUG GetSearchQuery: found query, converting to SearchQuery...\n")
 
 	switch v := query.(type) {
 	case *SearchQuery:
@@ -237,14 +241,17 @@ func GetSPARQLEndpointFromAction(action interface{}) (*SPARQLEndpoint, error) {
 	// Check if this is a SemanticScheduledAction with Target field
 	if scheduledAction, ok := action.(*SemanticScheduledAction); ok {
 		target = scheduledAction.Target
+		fmt.Printf("DEBUG GetSPARQLEndpoint: SemanticScheduledAction.Target = %v (type: %T)\n", target != nil, target)
 	} else if semanticAction, ok := action.(*SemanticAction); ok {
 		// Fall back to Properties["target"] for regular SemanticAction
 		if semanticAction.Properties != nil {
 			target, _ = semanticAction.Properties["target"]
+			fmt.Printf("DEBUG GetSPARQLEndpoint: Properties[target] = %v (type: %T)\n", target != nil, target)
 		}
 	}
 
 	if target == nil {
+		fmt.Printf("DEBUG GetSPARQLEndpoint: target is nil, returning error\n")
 		return nil, fmt.Errorf("no target found in action")
 	}
 
