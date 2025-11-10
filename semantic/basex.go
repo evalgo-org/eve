@@ -201,15 +201,26 @@ func NewSemanticBaseXUploadAction(id, name string, object *XMLDocument, target *
 	return action
 }
 
-// GetXMLDocumentFromAction extracts XMLDocument from SemanticAction properties
+// GetXMLDocumentFromAction extracts XMLDocument from SemanticAction object field or properties
 func GetXMLDocumentFromAction(action *SemanticAction) (*XMLDocument, error) {
-	if action == nil || action.Properties == nil {
-		return nil, fmt.Errorf("action or properties is nil")
+	if action == nil {
+		return nil, fmt.Errorf("action is nil")
 	}
 
-	obj, ok := action.Properties["object"]
-	if !ok {
-		return nil, fmt.Errorf("no object found in action properties")
+	var obj interface{}
+
+	// First check direct Object field (primary location)
+	if action.Object != nil {
+		obj = action.Object
+	} else if action.Properties != nil {
+		// Fallback to Properties for backward compatibility
+		var ok bool
+		obj, ok = action.Properties["object"]
+		if !ok {
+			return nil, fmt.Errorf("no object found in action")
+		}
+	} else {
+		return nil, fmt.Errorf("no object found in action")
 	}
 
 	switch v := obj.(type) {
@@ -217,6 +228,23 @@ func GetXMLDocumentFromAction(action *SemanticAction) (*XMLDocument, error) {
 		return v, nil
 	case XMLDocument:
 		return &v, nil
+	case *SemanticObject:
+		// Convert SemanticObject to XMLDocument
+		return &XMLDocument{
+			Type:           v.Type,
+			Identifier:     v.Identifier,
+			Name:           v.Name,
+			ContentUrl:     v.ContentUrl,
+			EncodingFormat: v.EncodingFormat,
+		}, nil
+	case SemanticObject:
+		return &XMLDocument{
+			Type:           v.Type,
+			Identifier:     v.Identifier,
+			Name:           v.Name,
+			ContentUrl:     v.ContentUrl,
+			EncodingFormat: v.EncodingFormat,
+		}, nil
 	case map[string]interface{}:
 		data, err := json.Marshal(v)
 		if err != nil {
@@ -263,15 +291,26 @@ func GetXSLTStylesheetFromAction(action *SemanticAction) (*XSLTStylesheet, error
 	}
 }
 
-// GetXMLDatabaseFromAction extracts XMLDatabase from SemanticAction properties
+// GetXMLDatabaseFromAction extracts XMLDatabase from SemanticAction target field or properties
 func GetXMLDatabaseFromAction(action *SemanticAction) (*XMLDatabase, error) {
-	if action == nil || action.Properties == nil {
-		return nil, fmt.Errorf("action or properties is nil")
+	if action == nil {
+		return nil, fmt.Errorf("action is nil")
 	}
 
-	target, ok := action.Properties["target"]
-	if !ok {
-		return nil, fmt.Errorf("no target found in action properties")
+	var target interface{}
+
+	// First check direct Target field (primary location)
+	if action.Target != nil {
+		target = action.Target
+	} else if action.Properties != nil {
+		// Fallback to Properties for backward compatibility
+		if t, ok := action.Properties["target"]; ok {
+			target = t
+		}
+	}
+
+	if target == nil {
+		return nil, fmt.Errorf("no target found in action")
 	}
 
 	switch v := target.(type) {
@@ -294,27 +333,45 @@ func GetXMLDatabaseFromAction(action *SemanticAction) (*XMLDatabase, error) {
 	}
 }
 
-// GetQueryFromAction extracts query string from SemanticAction properties
+// GetQueryFromAction extracts query string from SemanticAction query field or properties
 func GetQueryFromAction(action *SemanticAction) string {
-	if action == nil || action.Properties == nil {
+	if action == nil {
 		return ""
 	}
 
-	if query, ok := action.Properties["query"].(string); ok {
-		return query
+	// First check direct Query field (primary location)
+	if action.Query != nil {
+		if query, ok := action.Query.(string); ok {
+			return query
+		}
+	}
+
+	// Fallback to Properties for backward compatibility
+	if action.Properties != nil {
+		if query, ok := action.Properties["query"].(string); ok {
+			return query
+		}
 	}
 
 	return ""
 }
 
-// GetTargetUrlFromAction extracts targetUrl from SemanticAction properties
+// GetTargetUrlFromAction extracts targetUrl from SemanticAction targetUrl field or properties
 func GetTargetUrlFromAction(action *SemanticAction) string {
-	if action == nil || action.Properties == nil {
+	if action == nil {
 		return ""
 	}
 
-	if url, ok := action.Properties["targetUrl"].(string); ok {
-		return url
+	// First check direct TargetUrl field (primary location)
+	if action.TargetUrl != "" {
+		return action.TargetUrl
+	}
+
+	// Fallback to Properties for backward compatibility
+	if action.Properties != nil {
+		if url, ok := action.Properties["targetUrl"].(string); ok {
+			return url
+		}
 	}
 
 	return ""
