@@ -174,6 +174,17 @@ func NewPoolPartyClient(baseURL, username, password, templateDir string) *PoolPa
 		templateCache: make(map[string]*template.Template),
 		HTTPClient: &http.Client{
 			Timeout: 60 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				// Follow up to 10 redirects, preserving authentication
+				if len(via) >= 10 {
+					return fmt.Errorf("stopped after 10 redirects")
+				}
+				// Preserve basic auth on redirects
+				if len(via) > 0 {
+					req.SetBasicAuth(username, password)
+				}
+				return nil
+			},
 		},
 	}
 }
