@@ -20,6 +20,9 @@ type SemanticAction struct {
 	Agent        *SemanticAgent         `json:"agent,omitempty"`
 	Object       *SemanticObject        `json:"object,omitempty"`
 	Instrument   interface{}            `json:"instrument,omitempty"`
+	Target       interface{}            `json:"target,omitempty"`    // Can be EntryPoint, InfisicalProject, DataCatalog, etc.
+	TargetUrl    string                 `json:"targetUrl,omitempty"` // Specific target path/key (e.g., S3 object key)
+	Query        interface{}            `json:"query,omitempty"`     // For SearchAction (SPARQL query, search parameters)
 	StartTime    *time.Time             `json:"startTime,omitempty"`
 	EndTime      *time.Time             `json:"endTime,omitempty"`
 	Duration     string                 `json:"duration,omitempty"` // ISO 8601 duration
@@ -29,16 +32,14 @@ type SemanticAction struct {
 }
 
 // SemanticScheduledAction represents a task that runs on a schedule
+// Inherits Target, TargetUrl, and Query fields from SemanticAction
 type SemanticScheduledAction struct {
 	SemanticAction
-	Requires  []string          `json:"requires,omitempty"`  // Dependencies (Action @id references)
-	Target    interface{}       `json:"target,omitempty"`    // Can be EntryPoint, InfisicalProject, DataCatalog, etc.
-	TargetUrl string            `json:"targetUrl,omitempty"` // Specific target path/key (e.g., S3 object key)
-	Query     interface{}       `json:"query,omitempty"`     // For SearchAction (SPARQL query, search parameters)
-	Schedule  *SemanticSchedule `json:"schedule,omitempty"`
-	Created   time.Time         `json:"dateCreated"`
-	Modified  time.Time         `json:"dateModified"`
-	Meta      *ActionMeta       `json:"controlMetadata,omitempty"` // Control metadata (separate from semantic properties)
+	Requires []string          `json:"requires,omitempty"` // Dependencies (Action @id references)
+	Schedule *SemanticSchedule `json:"schedule,omitempty"`
+	Created  time.Time         `json:"dateCreated"`
+	Modified time.Time         `json:"dateModified"`
+	Meta     *ActionMeta       `json:"controlMetadata,omitempty"` // Control metadata (separate from semantic properties)
 }
 
 // ActionMeta contains control metadata for action execution (not semantic properties)

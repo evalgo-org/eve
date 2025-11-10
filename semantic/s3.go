@@ -223,8 +223,7 @@ func GetS3ObjectFromAction(action *SemanticAction) (*S3Object, error) {
 	}
 }
 
-// GetS3BucketFromAction extracts S3Bucket from SemanticAction properties or direct field
-// Handles both SemanticAction (target in Properties) and SemanticScheduledAction (target as direct field)
+// GetS3BucketFromAction extracts S3Bucket from SemanticAction target field or properties
 func GetS3BucketFromAction(action *SemanticAction) (*S3Bucket, error) {
 	if action == nil {
 		return nil, fmt.Errorf("action is nil")
@@ -232,34 +231,18 @@ func GetS3BucketFromAction(action *SemanticAction) (*S3Bucket, error) {
 
 	var target interface{}
 
-	// First try to get from Properties (SemanticAction pattern)
-	if action.Properties != nil {
+	// First check direct Target field (primary location)
+	if action.Target != nil {
+		target = action.Target
+	} else if action.Properties != nil {
+		// Fallback to Properties for backward compatibility
 		if t, ok := action.Properties["target"]; ok {
 			target = t
 		}
 	}
 
-	// If not in Properties, try to extract from action JSON (SemanticScheduledAction pattern)
 	if target == nil {
-		// Re-marshal the action and check for direct target field
-		actionJSON, err := json.Marshal(action)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal action: %w", err)
-		}
-
-		var rawAction map[string]interface{}
-		if err := json.Unmarshal(actionJSON, &rawAction); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal action: %w", err)
-		}
-
-		if t, ok := rawAction["target"]; ok {
-			target = t
-		}
-	}
-
-	// If still no target found, return error
-	if target == nil {
-		return nil, fmt.Errorf("no target found in action properties or direct fields")
+		return nil, fmt.Errorf("no target found in action")
 	}
 
 	switch v := target.(type) {
@@ -282,65 +265,45 @@ func GetS3BucketFromAction(action *SemanticAction) (*S3Bucket, error) {
 	}
 }
 
-// GetS3TargetUrlFromAction extracts targetUrl from SemanticAction properties or direct field
-// Handles both SemanticAction (targetUrl in Properties) and SemanticScheduledAction (targetUrl as direct field)
+// GetS3TargetUrlFromAction extracts targetUrl from SemanticAction target URL field or properties
 func GetS3TargetUrlFromAction(action *SemanticAction) string {
 	if action == nil {
 		return ""
 	}
 
-	// First try to get from Properties (SemanticAction pattern)
+	// First check direct TargetUrl field (primary location)
+	if action.TargetUrl != "" {
+		return action.TargetUrl
+	}
+
+	// Fallback to Properties for backward compatibility
 	if action.Properties != nil {
 		if url, ok := action.Properties["targetUrl"].(string); ok {
 			return url
 		}
 	}
 
-	// If not in Properties, try to extract from action JSON (SemanticScheduledAction pattern)
-	actionJSON, err := json.Marshal(action)
-	if err != nil {
-		return ""
-	}
-
-	var rawAction map[string]interface{}
-	if err := json.Unmarshal(actionJSON, &rawAction); err != nil {
-		return ""
-	}
-
-	if url, ok := rawAction["targetUrl"].(string); ok {
-		return url
-	}
-
 	return ""
 }
 
-// GetS3QueryFromAction extracts query/prefix from SemanticAction properties or direct field
-// Handles both SemanticAction (query in Properties) and SemanticScheduledAction (query as direct field)
+// GetS3QueryFromAction extracts query/prefix from SemanticAction query field or properties
 func GetS3QueryFromAction(action *SemanticAction) string {
 	if action == nil {
 		return ""
 	}
 
-	// First try to get from Properties (SemanticAction pattern)
-	if action.Properties != nil {
-		if query, ok := action.Properties["query"].(string); ok {
+	// First check direct Query field (primary location)
+	if action.Query != nil {
+		if query, ok := action.Query.(string); ok {
 			return query
 		}
 	}
 
-	// If not in Properties, try to extract from action JSON (SemanticScheduledAction pattern)
-	actionJSON, err := json.Marshal(action)
-	if err != nil {
-		return ""
-	}
-
-	var rawAction map[string]interface{}
-	if err := json.Unmarshal(actionJSON, &rawAction); err != nil {
-		return ""
-	}
-
-	if query, ok := rawAction["query"].(string); ok {
-		return query
+	// Fallback to Properties for backward compatibility
+	if action.Properties != nil {
+		if query, ok := action.Properties["query"].(string); ok {
+			return query
+		}
 	}
 
 	return ""
