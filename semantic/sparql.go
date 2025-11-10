@@ -67,6 +67,8 @@ func ExtractSPARQLCredentials(endpoint *SPARQLEndpoint) (string, string, string,
 		return "", "", "", "", fmt.Errorf("endpoint is nil")
 	}
 
+	fmt.Printf("DEBUG ExtractSPARQLCredentials: endpoint.URL='%s', endpoint.Identifier='%s', endpoint.EncodingFormat='%s'\n", endpoint.URL, endpoint.Identifier, endpoint.EncodingFormat)
+
 	props := endpoint.Properties
 	username, _ := props["username"].(string)
 	password, _ := props["password"].(string)
@@ -265,10 +267,12 @@ func GetSPARQLEndpointFromAction(action interface{}) (*SPARQLEndpoint, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal SPARQLEndpoint: %w", err)
 		}
+		fmt.Printf("DEBUG GetSPARQLEndpoint: marshaled JSON: %s\n", string(data))
 		var endpoint SPARQLEndpoint
 		if err := json.Unmarshal(data, &endpoint); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal SPARQLEndpoint: %w", err)
 		}
+		fmt.Printf("DEBUG GetSPARQLEndpoint: unmarshaled endpoint - URL: %s, Identifier: %s, EncodingFormat: %s\n", endpoint.URL, endpoint.Identifier, endpoint.EncodingFormat)
 		return &endpoint, nil
 	default:
 		return nil, fmt.Errorf("unexpected target type: %T", target)
