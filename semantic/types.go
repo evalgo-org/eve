@@ -29,6 +29,10 @@ type SemanticAction struct {
 	Result       *SemanticResult        `json:"result,omitempty"`
 	Error        *SemanticError         `json:"error,omitempty"`
 	Properties   map[string]interface{} `json:"additionalProperty,omitempty"`
+
+	// Semantic relationship fields (Schema.org)
+	PartOf     string `json:"isPartOf,omitempty"`      // Parent workflow/action this belongs to
+	InstanceOf string `json:"exampleOfWork,omitempty"` // Template this is an instance of (Schema.org uses exampleOfWork for instances)
 }
 
 // SemanticScheduledAction represents a task that runs on a schedule

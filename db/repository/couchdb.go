@@ -111,6 +111,12 @@ func (r *CouchDBRepository) ListWorkflows(ctx context.Context) ([]map[string]int
 		if err := rows.ScanDoc(&workflow); err != nil {
 			continue
 		}
+
+		// Skip CouchDB design documents
+		if docID, ok := workflow["_id"].(string); ok && strings.HasPrefix(docID, "_design/") {
+			continue
+		}
+
 		workflows = append(workflows, workflow)
 	}
 
@@ -236,6 +242,12 @@ func (r *CouchDBRepository) ListActions(ctx context.Context, workflowID string) 
 		var actionMap map[string]interface{}
 		if err := rows.ScanDoc(&actionMap); err != nil {
 			fmt.Fprintf(os.Stderr, "DEBUG ListActions: Failed to scan doc: %v\n", err)
+			continue
+		}
+
+		// Skip CouchDB design documents
+		if docID, ok := actionMap["_id"].(string); ok && strings.HasPrefix(docID, "_design/") {
+			fmt.Fprintf(os.Stderr, "DEBUG ListActions: Skipping design document: %s\n", docID)
 			continue
 		}
 
