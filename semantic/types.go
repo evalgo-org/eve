@@ -16,7 +16,7 @@ type SemanticAction struct {
 	Identifier   string                 `json:"identifier,omitempty"`
 	Name         string                 `json:"name,omitempty"`
 	Description  string                 `json:"description,omitempty"`
-	ActionStatus string                 `json:"actionStatus"` // PotentialActionStatus, ActiveActionStatus, CompletedActionStatus, FailedActionStatus
+	ActionStatus string                 `json:"actionStatus"` // PotentialActionStatus, ActiveActionStatus, CompletedActionStatus, FailedActionStatus, PausedActionStatus
 	Agent        *SemanticAgent         `json:"agent,omitempty"`
 	Object       *SemanticObject        `json:"object,omitempty"`
 	Instrument   interface{}            `json:"instrument,omitempty"`
@@ -33,6 +33,12 @@ type SemanticAction struct {
 	// Semantic relationship fields (Schema.org)
 	PartOf     string `json:"isPartOf,omitempty"`      // Parent workflow/action this belongs to
 	InstanceOf string `json:"exampleOfWork,omitempty"` // Template this is an instance of (Schema.org uses exampleOfWork for instances)
+
+	// Workflow execution group identifier (unified tracking for all workflow types)
+	// For workflow instances: UUID prefix (e.g., "abc123")
+	// For MapAction iterations: mapActionRunID (e.g., "mapaction-parent-id-run-12345")
+	// For nested workflows: inherited from parent ActivateAction
+	WorkflowGroup string `json:"workflowGroup,omitempty"`
 }
 
 // SemanticScheduledAction represents a task that runs on a schedule
@@ -49,12 +55,20 @@ type SemanticScheduledAction struct {
 // ActionMeta contains control metadata for action execution (not semantic properties)
 // This is kept separate from additionalProperty to avoid polluting semantic parameters
 type ActionMeta struct {
-	Enabled      bool   `json:"enabled"`              // Whether action is enabled
-	RetryCount   int    `json:"retryCount"`           // Number of retries on failure
-	RetryBackoff string `json:"retryBackoff"`         // Backoff strategy (linear, exponential)
-	Singleton    bool   `json:"singleton"`            // Only one instance can run at a time
-	URL          string `json:"url,omitempty"`        // Service endpoint URL (for routing)
-	HTTPMethod   string `json:"httpMethod,omitempty"` // HTTP method (for routing)
+	Enabled         bool              `json:"enabled"`                   // Whether action is enabled
+	RetryCount      int               `json:"retryCount"`                // Number of retries on failure
+	RetryBackoff    string            `json:"retryBackoff"`              // Backoff strategy (linear, exponential)
+	Singleton       bool              `json:"singleton"`                 // Only one instance can run at a time
+	URL             string            `json:"url,omitempty"`             // Service endpoint URL (for routing)
+	HTTPMethod      string            `json:"httpMethod,omitempty"`      // HTTP method (for routing)
+	PotentialAction []PotentialAction `json:"potentialAction,omitempty"` // Available UI controls/actions
+}
+
+// PotentialAction represents an available action/control that can be performed on a workflow
+// Following Schema.org's potentialAction pattern
+type PotentialAction struct {
+	Type string `json:"@type"` // RunAction, StopAction, DeleteAction, CreateAction, etc.
+	Name string `json:"name"`  // Display name for the action (e.g., "Run Now", "Stop", "Delete")
 }
 
 // EntryPoint represents a Schema.org EntryPoint (action target like HTTP endpoint)

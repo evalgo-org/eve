@@ -227,6 +227,11 @@ func ActionStatusPotential() string {
 	return "PotentialActionStatus"
 }
 
+// ActionStatusPaused marks an action as paused (execution suspended)
+func ActionStatusPaused() string {
+	return "PausedActionStatus"
+}
+
 // NewSemanticTransferAction creates a TransferAction using SemanticAction
 func NewSemanticTransferAction(id, name string, fromLocation, toLocation, object interface{}) *SemanticAction {
 	action := &SemanticAction{
