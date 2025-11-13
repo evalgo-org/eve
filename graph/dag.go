@@ -4,6 +4,8 @@ package graph
 
 import (
 	"fmt"
+	"os"
+	"time"
 
 	"eve.evalgo.org/semantic"
 )
@@ -164,6 +166,7 @@ func CheckDependencies(repo ActionRepository, action *semantic.SemanticScheduled
 
 		// Check if dependency has completed successfully
 		if depAction.ActionStatus != "CompletedActionStatus" {
+			fmt.Fprintf(os.Stderr, "DEBUG CheckDependencies: %s - dependency %s status is %s (not completed)\n", action.Identifier, depID, depAction.ActionStatus)
 			return false, nil // Dependency not yet successful
 		}
 
@@ -172,9 +175,28 @@ func CheckDependencies(repo ActionRepository, action *semantic.SemanticScheduled
 			// Both have run before - check if dependency is fresh
 			if depAction.EndTime.Before(*action.StartTime) {
 				// Dependency is stale, needs to run again first
+				fmt.Fprintf(os.Stderr, "DEBUG CheckDependencies: %s - dependency %s is STALE (dep.EndTime=%v < action.StartTime=%v)\n",
+					action.Identifier, depID, depAction.EndTime.Format(time.RFC3339), action.StartTime.Format(time.RFC3339))
 				return false, nil
 			}
 		}
+
+		fmt.Fprintf(os.Stderr, "DEBUG CheckDependencies: %s - dependency %s is satisfied (status=%s, dep.EndTime=%v, action.StartTime=%v)\n",
+			action.Identifier, depID, depAction.ActionStatus,
+			func() string {
+				if depAction.EndTime != nil {
+					return depAction.EndTime.Format(time.RFC3339)
+				} else {
+					return "nil"
+				}
+			}(),
+			func() string {
+				if action.StartTime != nil {
+					return action.StartTime.Format(time.RFC3339)
+				} else {
+					return "nil"
+				}
+			}())
 	}
 
 	return true, nil // All dependencies met
