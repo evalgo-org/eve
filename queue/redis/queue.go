@@ -89,7 +89,12 @@ func (q *Queue) Enqueue(job Job) error {
 func (q *Queue) Dequeue(queueName string, timeout time.Duration) (*Job, error) {
 	queueKey := fmt.Sprintf("%s%s", q.prefix, queueName)
 
-	result, err := q.client.BLPop(q.ctx, timeout, queueKey).Result()
+	// Use a fresh context with timeout for each dequeue operation
+	// This prevents issues with cancelled/expired contexts from init time
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	result, err := q.client.BLPop(ctx, timeout, queueKey).Result()
 	if err == redis.Nil {
 		return nil, nil // Timeout, no job available
 	}
