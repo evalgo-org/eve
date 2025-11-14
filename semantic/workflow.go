@@ -81,6 +81,7 @@ const (
 	WorkflowTypeHowTo           WorkflowType = "HowTo"
 	WorkflowTypeScheduledAction WorkflowType = "ScheduledAction"
 	WorkflowTypeMapAction       WorkflowType = "MapAction"
+	WorkflowTypeAssessAction    WorkflowType = "AssessAction" // Schema.org: "The act of forming one's opinion, reaction or sentiment"
 )
 
 // WorkflowAction is an internal representation of an action in a workflow
