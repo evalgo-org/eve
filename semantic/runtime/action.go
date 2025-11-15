@@ -74,6 +74,7 @@ type ActionQuery struct {
 type ActionTarget struct {
 	Type               string                 `json:"@type,omitempty"`
 	URL                string                 `json:"url,omitempty"`
+	URLTemplate        string                 `json:"urlTemplate,omitempty"`
 	HTTPMethod         string                 `json:"httpMethod,omitempty"`
 	ContentType        string                 `json:"contentType,omitempty"`
 	AdditionalProperty map[string]interface{} `json:"additionalProperty,omitempty"`
