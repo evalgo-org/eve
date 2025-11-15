@@ -15,11 +15,13 @@ import (
 )
 
 // registryCache caches service URLs from registry to avoid repeated lookups
+// Can be disabled for development via REGISTRY_CACHE_ENABLED=false
 var (
-	registryCache    = make(map[string]string)
-	registryCacheMu  sync.RWMutex
-	registryCacheTTL = 5 * time.Minute
-	lastCacheUpdate  time.Time
+	registryCache        = make(map[string]string)
+	registryCacheMu      sync.RWMutex
+	registryCacheTTL     = 5 * time.Minute
+	registryCacheEnabled = os.Getenv("REGISTRY_CACHE_ENABLED") != "false" // Default: enabled
+	lastCacheUpdate      time.Time
 )
 
 // Service represents a registered service from the registry API
@@ -32,20 +34,23 @@ type Service struct {
 
 // ResolveRegistryURL resolves registry://servicename/path to http://host:port/path
 // Example: registry://infisicalservice/v1/api/semantic/action -> http://localhost:8093/v1/api/semantic/action
+// Cache can be disabled for development via REGISTRY_CACHE_ENABLED=false
 func ResolveRegistryURL(registryURL string) (string, error) {
 	if !strings.HasPrefix(registryURL, "registry://") {
 		return registryURL, nil // Not a registry URL, return as-is
 	}
 
-	// Check cache first
-	registryCacheMu.RLock()
-	if time.Since(lastCacheUpdate) < registryCacheTTL {
-		if cachedURL, ok := registryCache[registryURL]; ok {
-			registryCacheMu.RUnlock()
-			return cachedURL, nil
+	// Check cache first (if enabled)
+	if registryCacheEnabled {
+		registryCacheMu.RLock()
+		if time.Since(lastCacheUpdate) < registryCacheTTL {
+			if cachedURL, ok := registryCache[registryURL]; ok {
+				registryCacheMu.RUnlock()
+				return cachedURL, nil
+			}
 		}
+		registryCacheMu.RUnlock()
 	}
-	registryCacheMu.RUnlock()
 
 	// Parse registry://servicename/path
 	urlPart := strings.TrimPrefix(registryURL, "registry://")
@@ -88,11 +93,13 @@ func ResolveRegistryURL(registryURL string) (string, error) {
 		if svc.Identifier == serviceName {
 			resolvedURL := svc.URL + path
 
-			// Update cache
-			registryCacheMu.Lock()
-			registryCache[registryURL] = resolvedURL
-			lastCacheUpdate = time.Now()
-			registryCacheMu.Unlock()
+			// Update cache (if enabled)
+			if registryCacheEnabled {
+				registryCacheMu.Lock()
+				registryCache[registryURL] = resolvedURL
+				lastCacheUpdate = time.Now()
+				registryCacheMu.Unlock()
+			}
 
 			return resolvedURL, nil
 		}
