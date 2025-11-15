@@ -22,6 +22,7 @@ var (
 	registryCacheTTL     = 5 * time.Minute
 	registryCacheEnabled = os.Getenv("REGISTRY_CACHE_ENABLED") != "false" // Default: enabled
 	lastCacheUpdate      time.Time
+	debugEnabled         = os.Getenv("DEBUG") == "true" // Enable debug logging with DEBUG=true
 )
 
 // Service represents a registered service from the registry API
@@ -40,16 +41,42 @@ func ResolveRegistryURL(registryURL string) (string, error) {
 		return registryURL, nil // Not a registry URL, return as-is
 	}
 
+	// DEBUG: Print cache status
+	if debugEnabled {
+		fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: Resolving %s\n", registryURL)
+		fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: Cache enabled = %v\n", registryCacheEnabled)
+		fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: Cache size = %d\n", len(registryCache))
+		if len(registryCache) > 0 {
+			fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: Cache contents:\n")
+			registryCacheMu.RLock()
+			for k, v := range registryCache {
+				fmt.Fprintf(os.Stderr, "  - %s -> %s\n", k, v)
+			}
+			registryCacheMu.RUnlock()
+		}
+		fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: Time since last update = %v\n", time.Since(lastCacheUpdate))
+	}
+
 	// Check cache first (if enabled)
 	if registryCacheEnabled {
 		registryCacheMu.RLock()
 		if time.Since(lastCacheUpdate) < registryCacheTTL {
 			if cachedURL, ok := registryCache[registryURL]; ok {
+				if debugEnabled {
+					fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: HIT! Returning cached URL: %s\n", cachedURL)
+				}
 				registryCacheMu.RUnlock()
 				return cachedURL, nil
 			}
 		}
 		registryCacheMu.RUnlock()
+		if debugEnabled {
+			fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: MISS! Will query registry\n")
+		}
+	} else {
+		if debugEnabled {
+			fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: Cache disabled, will query registry\n")
+		}
 	}
 
 	// Parse registry://servicename/path
@@ -88,10 +115,17 @@ func ResolveRegistryURL(registryURL string) (string, error) {
 		return "", fmt.Errorf("failed to decode registry response: %w", err)
 	}
 
+	if debugEnabled {
+		fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: Registry returned %d services\n", len(services))
+	}
+
 	// Find matching service
 	for _, svc := range services {
 		if svc.Identifier == serviceName {
 			resolvedURL := svc.URL + path
+			if debugEnabled {
+				fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: Found service %s -> %s (full URL with path: %s)\n", serviceName, svc.URL, resolvedURL)
+			}
 
 			// Update cache (if enabled)
 			if registryCacheEnabled {
@@ -99,10 +133,17 @@ func ResolveRegistryURL(registryURL string) (string, error) {
 				registryCache[registryURL] = resolvedURL
 				lastCacheUpdate = time.Now()
 				registryCacheMu.Unlock()
+				if debugEnabled {
+					fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: Stored in cache: %s -> %s\n", registryURL, resolvedURL)
+				}
 			}
 
 			return resolvedURL, nil
 		}
+	}
+
+	if debugEnabled {
+		fmt.Fprintf(os.Stderr, "🔍 DEBUG CACHE: Service %s NOT FOUND in registry!\n", serviceName)
 	}
 
 	return "", fmt.Errorf("service %s not found in registry", serviceName)
