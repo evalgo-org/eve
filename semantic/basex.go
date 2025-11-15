@@ -341,8 +341,16 @@ func GetQueryFromAction(action *SemanticAction) string {
 
 	// First check direct Query field (primary location)
 	if action.Query != nil {
+		// Check if Query is a plain string
 		if query, ok := action.Query.(string); ok {
 			return query
+		}
+
+		// Check if Query is an object with queryInput field (Schema.org SearchAction standard)
+		if queryMap, ok := action.Query.(map[string]interface{}); ok {
+			if queryInput, ok := queryMap["queryInput"].(string); ok {
+				return queryInput
+			}
 		}
 	}
 
