@@ -21,13 +21,12 @@ type Queue struct {
 
 // Job represents a job in the execution queue
 type Job struct {
-	ActionID         string    `json:"actionID"`
-	QueueName        string    `json:"queueName"`
-	WorkflowID       string    `json:"workflowID"`       // Parent workflow ID (determines which queue to use)
-	ActualWorkflowID string    `json:"actualWorkflowID"` // Actual workflow ID where action is stored (for nested workflows)
-	RunID            string    `json:"runID"`
-	EnqueuedAt       time.Time `json:"enqueuedAt"`
-	RetryCount       int       `json:"retryCount"`
+	ActionID   string    `json:"actionID"`
+	QueueName  string    `json:"queueName"`
+	WorkflowID string    `json:"workflowID"` // Workflow ID (determines which queue to use)
+	RunID      string    `json:"runID"`
+	EnqueuedAt time.Time `json:"enqueuedAt"`
+	RetryCount int       `json:"retryCount"`
 }
 
 // Config configures the Redis queue
