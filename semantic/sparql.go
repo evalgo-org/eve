@@ -134,6 +134,17 @@ func ExtractQueryTemplate(query *SearchQuery) (string, string, map[string]interf
 
 	// Otherwise use inline query
 	if query.QueryInput != "" {
+		// Check if QueryInput is a JSON object with a "text" field (for Dataset objects)
+		// Try to unmarshal as a map to check for "text" field
+		var queryObj map[string]interface{}
+		if err := json.Unmarshal([]byte(query.QueryInput), &queryObj); err == nil {
+			// It's a JSON object - check for "text" field
+			if textField, ok := queryObj["text"].(string); ok {
+				fmt.Printf("DEBUG ExtractQueryTemplate: Extracted SPARQL text from Dataset object (%d chars)\n", len(textField))
+				return "", textField, query.Parameters, nil
+			}
+		}
+		// Not a JSON object or no "text" field - use as-is
 		return "", query.QueryInput, query.Parameters, nil
 	}
 

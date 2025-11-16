@@ -150,8 +150,11 @@ type Binding struct {
 }
 
 // NewPoolPartyClient creates a new PoolParty API client with authentication credentials
-// and template directory configuration. The client maintains a template cache and
-// uses a 60-second HTTP timeout for all requests.
+// and template directory configuration. The client maintains a template cache.
+//
+// Timeout configuration (in order of precedence):
+// 1. POOLPARTY_TIMEOUT_SECONDS environment variable (e.g., "600" for 10 minutes)
+// 2. Default: 600 seconds (10 minutes)
 //
 // Parameters:
 //   - baseURL: The PoolParty server base URL (e.g., "https://poolparty.example.com")
@@ -166,6 +169,45 @@ type Binding struct {
 //
 //	client := NewPoolPartyClient("https://poolparty.example.com", "admin", "password", "./templates")
 func NewPoolPartyClient(baseURL, username, password, templateDir string) *PoolPartyClient {
+	return NewPoolPartyClientWithTimeout(baseURL, username, password, templateDir, 0)
+}
+
+// NewPoolPartyClientWithTimeout creates a PoolParty client with a custom timeout.
+// If timeoutSeconds is 0, it reads from POOLPARTY_TIMEOUT_SECONDS env var or uses default (600s).
+//
+// Parameters:
+//   - baseURL: The PoolParty server base URL
+//   - username: Authentication username
+//   - password: Authentication password
+//   - templateDir: Directory containing SPARQL query template files
+//   - timeoutSeconds: HTTP timeout in seconds (0 = use env var or default)
+//
+// Returns:
+//   - *PoolPartyClient: Configured client ready for API operations
+//
+// Example:
+//
+//	// Use custom timeout of 15 minutes
+//	client := NewPoolPartyClientWithTimeout("https://poolparty.example.com", "admin", "password", "./templates", 900)
+func NewPoolPartyClientWithTimeout(baseURL, username, password, templateDir string, timeoutSeconds int) *PoolPartyClient {
+	// Determine timeout
+	timeout := time.Duration(timeoutSeconds) * time.Second
+
+	if timeoutSeconds == 0 {
+		// Try to read from environment variable
+		if envTimeout := os.Getenv("POOLPARTY_TIMEOUT_SECONDS"); envTimeout != "" {
+			if seconds, err := time.ParseDuration(envTimeout + "s"); err == nil {
+				timeout = seconds
+				log.Printf("PoolParty client timeout set from POOLPARTY_TIMEOUT_SECONDS: %v", timeout)
+			}
+		}
+
+		// Default to 10 minutes if still not set
+		if timeout == 0 {
+			timeout = 10 * time.Minute
+		}
+	}
+
 	return &PoolPartyClient{
 		BaseURL:       baseURL,
 		Username:      username,
@@ -173,7 +215,7 @@ func NewPoolPartyClient(baseURL, username, password, templateDir string) *PoolPa
 		TemplateDir:   templateDir,
 		templateCache: make(map[string]*template.Template),
 		HTTPClient: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: timeout,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				// Follow up to 10 redirects, preserving authentication
 				if len(via) >= 10 {
@@ -274,6 +316,9 @@ func (c *PoolPartyClient) ExecuteSPARQLFromTemplate(projectID, templateName, con
 // ExecuteSPARQL executes a raw SPARQL query against a PoolParty project's SPARQL endpoint.
 // The query is sent as form-encoded POST data with the specified Accept header for format negotiation.
 //
+// Debug logging can be enabled by setting the SPARQL_DEBUG environment variable to "true" or "1".
+// When enabled, it logs the complete HTTP request and response for troubleshooting.
+//
 // Parameters:
 //   - projectID: The PoolParty project/thesaurus ID
 //   - query: The SPARQL query string
@@ -291,13 +336,23 @@ func (c *PoolPartyClient) ExecuteSPARQLFromTemplate(projectID, templateName, con
 //	    log.Fatal(err)
 //	}
 func (c *PoolPartyClient) ExecuteSPARQL(projectID, query, contentType string) ([]byte, error) {
+	// Check if debug logging is enabled
+	debugEnabled := os.Getenv("SPARQL_DEBUG") == "true" || os.Getenv("SPARQL_DEBUG") == "1"
+
 	// PoolParty SPARQL endpoint
 	endpoint := fmt.Sprintf("%s/PoolParty/sparql/%s", c.BaseURL, projectID)
 	// Create form data with query and content-type parameter
 	data := url.Values{}
 	data.Set("query", query)
-	fmt.Println(endpoint, contentType)
-	// fmt.Println(query)
+
+	if debugEnabled {
+		log.Printf("========================================")
+		log.Printf("SPARQL DEBUG: HTTP Request")
+		log.Printf("========================================")
+		log.Printf("Endpoint: %s", endpoint)
+		log.Printf("Content-Type: %s", contentType)
+	}
+
 	// Create request
 	req, err := http.NewRequest("POST", endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
@@ -311,17 +366,66 @@ func (c *PoolPartyClient) ExecuteSPARQL(projectID, query, contentType string) ([
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 	req.Header.Set("Accept", contentType)
 
+	if debugEnabled {
+		log.Printf("Request Method: %s", req.Method)
+		log.Printf("Request URL: %s", req.URL.String())
+		log.Printf("Request Headers:")
+		for key, values := range req.Header {
+			for _, value := range values {
+				// Mask password in Authorization header
+				if key == "Authorization" {
+					log.Printf("  %s: [REDACTED]", key)
+				} else {
+					log.Printf("  %s: %s", key, value)
+				}
+			}
+		}
+		log.Printf("Request Body (form-encoded):")
+		log.Printf("  query=%s", query)
+		log.Printf("========================================")
+	}
+
 	// Execute request
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
+		if debugEnabled {
+			log.Printf("❌ Request failed: %v", err)
+		}
 		return nil, fmt.Errorf("error executing request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	if debugEnabled {
+		log.Printf("========================================")
+		log.Printf("SPARQL DEBUG: HTTP Response")
+		log.Printf("========================================")
+		log.Printf("Status Code: %d %s", resp.StatusCode, resp.Status)
+		log.Printf("Response Headers:")
+		for key, values := range resp.Header {
+			for _, value := range values {
+				log.Printf("  %s: %s", key, value)
+			}
+		}
+	}
+
 	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		if debugEnabled {
+			log.Printf("❌ Failed to read response body: %v", err)
+		}
 		return nil, fmt.Errorf("error reading response: %w", err)
+	}
+
+	if debugEnabled {
+		log.Printf("Response Body (%d bytes):", len(body))
+		// Truncate very large responses in debug output
+		if len(body) > 2000 {
+			log.Printf("%s\n... (truncated, total %d bytes)", string(body[:2000]), len(body))
+		} else {
+			log.Printf("%s", string(body))
+		}
+		log.Printf("========================================")
 	}
 
 	// Check status code
