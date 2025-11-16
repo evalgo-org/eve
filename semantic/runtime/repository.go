@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 
 	kivik "github.com/go-kivik/kivik/v4"
@@ -137,6 +139,12 @@ func (r *RuntimeRepository) SaveAction(ctx context.Context, action *RuntimeActio
 	// Document ID: {workflow-uuid}/{action-id}
 	docID := fmt.Sprintf("%s/%s", action.IsPartOf, action.Identifier)
 
+	debugMode := os.Getenv("EVE_DEBUG") == "true"
+	if debugMode {
+		log.Printf("🐛 [eve.SaveAction] Saving action: identifier=%s, isPartOf=%s, docID=%s, type=%s",
+			action.Identifier, action.IsPartOf, docID, action.Type)
+	}
+
 	// Marshal to get complete JSON-LD
 	data, err := action.MarshalJSON()
 	if err != nil {
@@ -159,12 +167,20 @@ func (r *RuntimeRepository) SaveAction(ctx context.Context, action *RuntimeActio
 		// Document exists, preserve _rev
 		if rev, ok := existing["_rev"].(string); ok {
 			docMap["_rev"] = rev
+			if debugMode {
+				log.Printf("🐛 [eve.SaveAction] Document exists, updating with rev=%s: %s", rev, docID)
+			}
 		}
 	}
 
 	_, err = r.db.Put(ctx, docID, docMap)
 	if err != nil {
+		log.Printf("❌ [eve.SaveAction] Failed to save %s: %v", docID, err)
 		return fmt.Errorf("failed to save action: %w", err)
+	}
+
+	if debugMode {
+		log.Printf("✅ [eve.SaveAction] Saved %s", docID)
 	}
 
 	return nil
@@ -200,10 +216,16 @@ func (r *RuntimeRepository) GetAction(ctx context.Context, workflowID, actionID 
 
 // ListActionsByWorkflow retrieves all actions for a workflow
 func (r *RuntimeRepository) ListActionsByWorkflow(ctx context.Context, workflowID string) ([]*RuntimeAction, error) {
+	debugMode := os.Getenv("EVE_DEBUG") == "true"
+
 	// Use startkey/endkey range query
 	// Pattern: {workflow-uuid}/{action-id}
 	startKey := workflowID + "/"
 	endKey := workflowID + "/\ufff0" // High unicode character
+
+	if debugMode {
+		log.Printf("🐛 [eve.ListActionsByWorkflow] Querying CouchDB: startKey=%s, endKey=%s", startKey, endKey)
+	}
 
 	rows := r.db.AllDocs(ctx,
 		kivik.Param("include_docs", true),
@@ -213,30 +235,51 @@ func (r *RuntimeRepository) ListActionsByWorkflow(ctx context.Context, workflowI
 	defer rows.Close()
 
 	var actions []*RuntimeAction
+	rowCount := 0
 	for rows.Next() {
+		rowCount++
 		var docMap map[string]interface{}
 		if err := rows.ScanDoc(&docMap); err != nil {
+			if debugMode {
+				log.Printf("⚠️  [eve.ListActionsByWorkflow] Failed to scan doc: %v", err)
+			}
 			continue
 		}
 
 		// Skip if it's the workflow itself (ID without /)
 		docID, _ := docMap["_id"].(string)
+		if debugMode {
+			log.Printf("🐛 [eve.ListActionsByWorkflow] Found document: %s", docID)
+		}
+
 		if !strings.Contains(docID, "/") || docID == workflowID {
+			if debugMode {
+				log.Printf("⏭️  [eve.ListActionsByWorkflow] Skipping workflow doc: %s", docID)
+			}
 			continue
 		}
 
 		// Marshal back to JSON
 		data, err := json.Marshal(docMap)
 		if err != nil {
+			if debugMode {
+				log.Printf("⚠️  [eve.ListActionsByWorkflow] Failed to marshal doc %s: %v", docID, err)
+			}
 			continue
 		}
 
 		// Unmarshal to RuntimeAction
 		var action RuntimeAction
 		if err := json.Unmarshal(data, &action); err != nil {
+			if debugMode {
+				log.Printf("⚠️  [eve.ListActionsByWorkflow] Failed to unmarshal doc %s: %v", docID, err)
+			}
 			continue
 		}
 
+		if debugMode {
+			log.Printf("✅ [eve.ListActionsByWorkflow] Added action: %s (type=%s)", action.Identifier, action.Type)
+		}
 		actions = append(actions, &action)
 	}
 
