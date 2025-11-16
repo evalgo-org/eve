@@ -30,6 +30,7 @@ type S3Object struct {
 	Name           string                 `json:"name,omitempty"`
 	EncodingFormat string                 `json:"encodingFormat,omitempty"` // MIME type
 	ContentUrl     string                 `json:"contentUrl,omitempty"`     // Local file path or S3 key
+	Text           string                 `json:"text,omitempty"`           // Text content (alternative to ContentUrl)
 	ContentSize    int64                  `json:"contentSize,omitempty"`    // File size in bytes
 	UploadDate     string                 `json:"uploadDate,omitempty"`     // ISO 8601 timestamp
 	Properties     map[string]interface{} `json:"additionalProperty,omitempty"`
