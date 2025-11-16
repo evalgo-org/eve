@@ -31,8 +31,8 @@ type RuntimeAction struct {
 	IsPartOf      string `json:"isPartOf,omitempty"`
 	ExampleOfWork string `json:"exampleOfWork,omitempty"`
 
-	// Query specification
-	Query *ActionQuery `json:"query,omitempty"`
+	// Query specification (can be string or ActionQuery object)
+	Query interface{} `json:"query,omitempty"`
 
 	// Target specification
 	Target *ActionTarget `json:"target,omitempty"`
