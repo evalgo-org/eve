@@ -227,6 +227,7 @@ func GetS3ObjectFromAction(action *SemanticAction) (*S3Object, error) {
 			Identifier:     v.Identifier,
 			Name:           v.Name,
 			ContentUrl:     v.ContentUrl,
+			Text:           v.Text,
 			EncodingFormat: v.EncodingFormat,
 		}, nil
 	case SemanticObject:
@@ -235,6 +236,7 @@ func GetS3ObjectFromAction(action *SemanticAction) (*S3Object, error) {
 			Identifier:     v.Identifier,
 			Name:           v.Name,
 			ContentUrl:     v.ContentUrl,
+			Text:           v.Text,
 			EncodingFormat: v.EncodingFormat,
 		}, nil
 	case map[string]interface{}:
