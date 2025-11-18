@@ -262,16 +262,15 @@ func GetXMLDocumentFromAction(action *SemanticAction) (*XMLDocument, error) {
 
 // GetXSLTStylesheetFromAction extracts XSLTStylesheet from SemanticAction properties
 func GetXSLTStylesheetFromAction(action *SemanticAction) (*XSLTStylesheet, error) {
-	if action == nil || action.Properties == nil {
-		return nil, fmt.Errorf("action or properties is nil")
+	if action == nil {
+		return nil, fmt.Errorf("action is nil")
 	}
 
-	instr, ok := action.Properties["instrument"]
-	if !ok {
-		return nil, fmt.Errorf("no instrument found in action properties")
+	if action.Instrument == nil {
+		return nil, fmt.Errorf("no instrument found in action")
 	}
 
-	switch v := instr.(type) {
+	switch v := action.Instrument.(type) {
 	case *XSLTStylesheet:
 		return v, nil
 	case XSLTStylesheet:
@@ -287,7 +286,7 @@ func GetXSLTStylesheetFromAction(action *SemanticAction) (*XSLTStylesheet, error
 		}
 		return &stylesheet, nil
 	default:
-		return nil, fmt.Errorf("unexpected instrument type: %T", instr)
+		return nil, fmt.Errorf("unexpected instrument type: %T", v)
 	}
 }
 
