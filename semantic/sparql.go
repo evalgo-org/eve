@@ -76,13 +76,14 @@ func ExtractSPARQLCredentials(endpoint *SPARQLEndpoint) (string, string, string,
 	// Parse URL to extract base URL and project ID
 	// Expected format: https://host/PoolParty/sparql/PROJECT_ID
 	// Need to extract: baseURL=https://host, projectID=PROJECT_ID
-	url := endpoint.URL
 
-	// If URL is empty, check for sparql_endpoint in additionalProperty
-	if url == "" {
-		if sparqlEndpoint, ok := props["sparql_endpoint"].(string); ok {
-			url = sparqlEndpoint
-		}
+	// IMPORTANT: Check for sparql_endpoint in additionalProperty FIRST
+	// This takes precedence over endpoint.URL which might be a registry URL
+	var url string
+	if sparqlEndpoint, ok := props["sparql_endpoint"].(string); ok && sparqlEndpoint != "" {
+		url = sparqlEndpoint
+	} else {
+		url = endpoint.URL
 	}
 
 	// Also check for content_type in additionalProperty to set EncodingFormat

@@ -115,18 +115,28 @@ func ExtractDatabaseCredentials(db *XMLDatabase) (baseURL, username, password st
 		return "", "", "", fmt.Errorf("database is nil")
 	}
 
-	baseURL = db.URL
-	if baseURL == "" {
-		return "", "", "", fmt.Errorf("database URL is empty")
-	}
-
+	// IMPORTANT: Check for basex_endpoint in additionalProperty FIRST
+	// This takes precedence over db.URL which might be a registry URL
 	if db.Properties != nil {
+		if basexEndpoint, ok := db.Properties["basex_endpoint"].(string); ok && basexEndpoint != "" {
+			baseURL = basexEndpoint
+		} else {
+			baseURL = db.URL
+		}
+
+		// Extract credentials
 		if u, ok := db.Properties["username"].(string); ok {
 			username = u
 		}
 		if p, ok := db.Properties["password"].(string); ok {
 			password = p
 		}
+	} else {
+		baseURL = db.URL
+	}
+
+	if baseURL == "" {
+		return "", "", "", fmt.Errorf("database URL is empty")
 	}
 
 	return baseURL, username, password, nil
