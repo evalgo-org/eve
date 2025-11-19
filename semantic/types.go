@@ -128,7 +128,7 @@ type SemanticResult struct {
 	Output       string        `json:"text,omitempty"`           // Raw text output (JSON, XML, plain text)
 	Value        interface{}   `json:"value,omitempty"`          // Structured data (any type: int, map, array, etc.)
 	Format       string        `json:"encodingFormat,omitempty"` // MIME type: application/json, text/xml, etc.
-	ContentUrl   string        `json:"contentUrl,omitempty"`     // File path for DataDownload type results
+	ContentUrl   string        `json:"contentUrl,omitempty"`     // File path for DataDownload type results (top-level for DataDownload, in Value for DigitalDocument)
 	Schema       *ResultSchema `json:"about,omitempty"`          // Describes the structure of Value
 }
 
