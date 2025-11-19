@@ -123,11 +123,12 @@ type SemanticInstrument struct {
 
 // SemanticResult represents action execution result following Schema.org Result pattern
 type SemanticResult struct {
-	Type         string        `json:"@type"`                    // "Result", "Dataset", "DigitalDocument", etc.
+	Type         string        `json:"@type"`                    // "Result", "Dataset", "DigitalDocument", "DataDownload", etc.
 	ActionStatus string        `json:"actionStatus,omitempty"`   // CompletedActionStatus, FailedActionStatus
 	Output       string        `json:"text,omitempty"`           // Raw text output (JSON, XML, plain text)
 	Value        interface{}   `json:"value,omitempty"`          // Structured data (any type: int, map, array, etc.)
 	Format       string        `json:"encodingFormat,omitempty"` // MIME type: application/json, text/xml, etc.
+	ContentUrl   string        `json:"contentUrl,omitempty"`     // File path for DataDownload type results
 	Schema       *ResultSchema `json:"about,omitempty"`          // Describes the structure of Value
 }
 
