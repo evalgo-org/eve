@@ -63,13 +63,13 @@ func (s *StateStore) CreateAction(ctx context.Context, workflowID, actionID stri
 		VALUES ($1, $2, $3, $4)
 		RETURNING id, workflow_id, action_id, phase, status, progress_pct,
 		          COALESCE(progress_stage, ''), COALESCE(progress_message, ''),
-		          checkpoint_id, error, started_at, completed_at, created_at, updated_at`
+		          checkpoint_id, checkpoint_data, error, started_at, completed_at, created_at, updated_at`
 
 	state := &ActionState{}
 	err := s.pool.QueryRow(ctx, query, workflowID, actionID, PhasePending, "pending").Scan(
 		&state.ID, &state.WorkflowID, &state.ActionID, &state.Phase, &state.Status,
 		&state.ProgressPct, &state.ProgressStage, &state.ProgressMessage,
-		&state.CheckpointID, &state.Error, &state.StartedAt, &state.CompletedAt,
+		&state.CheckpointID, &state.CheckpointData, &state.Error, &state.StartedAt, &state.CompletedAt,
 		&state.CreatedAt, &state.UpdatedAt,
 	)
 	if err != nil {
@@ -84,7 +84,7 @@ func (s *StateStore) GetAction(ctx context.Context, workflowID, actionID string)
 	query := `
 		SELECT id, workflow_id, action_id, phase, status, progress_pct,
 		       COALESCE(progress_stage, ''), COALESCE(progress_message, ''),
-		       checkpoint_id, error, started_at, completed_at, created_at, updated_at
+		       checkpoint_id, checkpoint_data, error, started_at, completed_at, created_at, updated_at
 		FROM service_action_executions
 		WHERE workflow_id = $1 AND action_id = $2`
 
@@ -92,7 +92,7 @@ func (s *StateStore) GetAction(ctx context.Context, workflowID, actionID string)
 	err := s.pool.QueryRow(ctx, query, workflowID, actionID).Scan(
 		&state.ID, &state.WorkflowID, &state.ActionID, &state.Phase, &state.Status,
 		&state.ProgressPct, &state.ProgressStage, &state.ProgressMessage,
-		&state.CheckpointID, &state.Error, &state.StartedAt, &state.CompletedAt,
+		&state.CheckpointID, &state.CheckpointData, &state.Error, &state.StartedAt, &state.CompletedAt,
 		&state.CreatedAt, &state.UpdatedAt,
 	)
 	if err != nil {
@@ -107,7 +107,7 @@ func (s *StateStore) GetByID(ctx context.Context, id string) (*ActionState, erro
 	query := `
 		SELECT id, workflow_id, action_id, phase, status, progress_pct,
 		       COALESCE(progress_stage, ''), COALESCE(progress_message, ''),
-		       checkpoint_id, error, started_at, completed_at, created_at, updated_at
+		       checkpoint_id, checkpoint_data, error, started_at, completed_at, created_at, updated_at
 		FROM service_action_executions
 		WHERE id = $1`
 
@@ -115,7 +115,7 @@ func (s *StateStore) GetByID(ctx context.Context, id string) (*ActionState, erro
 	err := s.pool.QueryRow(ctx, query, id).Scan(
 		&state.ID, &state.WorkflowID, &state.ActionID, &state.Phase, &state.Status,
 		&state.ProgressPct, &state.ProgressStage, &state.ProgressMessage,
-		&state.CheckpointID, &state.Error, &state.StartedAt, &state.CompletedAt,
+		&state.CheckpointID, &state.CheckpointData, &state.Error, &state.StartedAt, &state.CompletedAt,
 		&state.CreatedAt, &state.UpdatedAt,
 	)
 	if err != nil {
