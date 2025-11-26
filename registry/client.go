@@ -61,6 +61,7 @@ type ServiceProperties struct {
 	Binary             string             `json:"binary"`
 	LogFile            string             `json:"logFile"`
 	HealthCheck        string             `json:"healthCheck,omitempty"`
+	CoordinationURL    string             `json:"coordinationUrl,omitempty"`    // WebSocket URL for coordination hub (e.g., ws://host:port/ws/coordination)
 	Capabilities       []string           `json:"capabilities,omitempty"`       // Simple string capabilities (legacy)
 	ActionCapabilities []ActionCapability `json:"actionCapabilities,omitempty"` // Structured capabilities with schemas
 }
@@ -361,6 +362,7 @@ type AutoRegisterConfig struct {
 	ActionCapabilities []ActionCapability // Structured capabilities with result schemas
 	RegistryURL        string             // e.g., http://localhost:8096
 	ServiceURL         string             // e.g., http://containerservice:8099 (if empty, defaults to http://localhost:{Port})
+	CoordinationURL    string             // WebSocket URL for coordination hub (e.g., ws://host:port/ws/coordination)
 	Version            string             // Single version (e.g., "v1")
 	APIVersions        []APIVersion       // Multiple API versions
 }
@@ -437,6 +439,7 @@ func AutoRegister(config AutoRegisterConfig) (bool, error) {
 			Binary:             config.Binary,
 			LogFile:            fmt.Sprintf("/tmp/%s.log", config.ServiceID),
 			HealthCheck:        fmt.Sprintf("%s/health", baseURL),
+			CoordinationURL:    config.CoordinationURL,
 			Capabilities:       config.Capabilities,
 			ActionCapabilities: config.ActionCapabilities,
 		},

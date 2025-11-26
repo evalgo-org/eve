@@ -24,11 +24,21 @@ type Config struct {
 	// ServiceID is a unique identifier for this service instance
 	ServiceID string
 
+	// InstanceID is a unique identifier for this specific instance (for multi-instance support)
+	InstanceID string
+
 	// Capabilities lists what this service can do
 	Capabilities []string
 
-	// Version is the service version
+	// Version is the service software version
 	Version string
+
+	// ProtocolVersion is the coordination protocol version (e.g., "1.0")
+	// If empty, defaults to "1.0"
+	ProtocolVersion string
+
+	// SchemaVersion is the database schema version this service expects
+	SchemaVersion int
 
 	// Reconnect settings
 	ReconnectInitialDelay  time.Duration
@@ -46,6 +56,7 @@ type Config struct {
 // DefaultConfig returns a Config with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
+		ProtocolVersion:        "1.0", // Default protocol version
 		ReconnectInitialDelay:  1 * time.Second,
 		ReconnectMaxDelay:      30 * time.Second,
 		ReconnectBackoffFactor: 2.0,
@@ -280,12 +291,20 @@ func (c *Coordinator) connect() error {
 
 // sendRegistration sends the register message.
 func (c *Coordinator) sendRegistration() error {
+	protocolVersion := c.config.ProtocolVersion
+	if protocolVersion == "" {
+		protocolVersion = "1.0"
+	}
+
 	msg := NewMessage(MessageTypeRegister)
 	msg.SetPayload(RegisterPayload{
-		ServiceName:  c.config.ServiceName,
-		ServiceID:    c.config.ServiceID,
-		Capabilities: c.config.Capabilities,
-		Version:      c.config.Version,
+		ServiceName:     c.config.ServiceName,
+		ServiceID:       c.config.ServiceID,
+		InstanceID:      c.config.InstanceID,
+		Capabilities:    c.config.Capabilities,
+		Version:         c.config.Version,
+		ProtocolVersion: protocolVersion,
+		SchemaVersion:   c.config.SchemaVersion,
 	})
 
 	return c.sendMessage(msg)

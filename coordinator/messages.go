@@ -73,16 +73,22 @@ func ParseMessage(data []byte) (*WSMessage, error) {
 
 // RegisterPayload is the payload for a register message.
 type RegisterPayload struct {
-	ServiceName  string   `json:"service_name"`
-	ServiceID    string   `json:"service_id,omitempty"`
-	Capabilities []string `json:"capabilities"`
-	Version      string   `json:"version,omitempty"`
+	ServiceName     string   `json:"service_name"`
+	ServiceID       string   `json:"service_id,omitempty"`
+	InstanceID      string   `json:"instance_id,omitempty"`
+	Capabilities    []string `json:"capabilities"`
+	Version         string   `json:"version,omitempty"`          // Service software version
+	ProtocolVersion string   `json:"protocol_version,omitempty"` // Coordination protocol version (e.g., "1.0")
+	SchemaVersion   int      `json:"schema_version,omitempty"`   // Database schema version service expects
 }
 
 // RegisteredPayload is the payload for a registered response.
 type RegisteredPayload struct {
-	ServiceID string `json:"service_id"`
-	Message   string `json:"message,omitempty"`
+	ServiceID          string `json:"service_id"`
+	InstanceID         string `json:"instance_id,omitempty"`
+	Message            string `json:"message,omitempty"`
+	ProtocolVersion    string `json:"protocol_version,omitempty"`     // Negotiated protocol version
+	HubProtocolVersion string `json:"hub_protocol_version,omitempty"` // Hub's protocol version
 }
 
 // WorkflowCreatedPayload is the payload for workflow_created message.
