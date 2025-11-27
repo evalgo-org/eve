@@ -66,7 +66,15 @@ func ReturnActionError(c echo.Context, action interface{}, message string, err e
 
 	// Log error via logrus for when-v3 log forwarding
 	logFields := logrus.Fields{
-		"status": "FailedActionStatus",
+		"status":      "FailedActionStatus",
+		"status_code": http.StatusInternalServerError,
+	}
+
+	// Add request context
+	if c != nil {
+		logFields["request_path"] = c.Request().URL.Path
+		logFields["request_method"] = c.Request().Method
+		logFields["remote_addr"] = c.RealIP()
 	}
 
 	// Extract action details for logging
@@ -75,6 +83,37 @@ func ReturnActionError(c echo.Context, action interface{}, message string, err e
 		logFields["action_type"] = v.Type
 		logFields["action_id"] = v.Identifier
 		logFields["action_name"] = v.Name
+		logFields["action_description"] = v.Description
+
+		// Extract workflow context from Properties (additionalProperty) if available
+		if v.Properties != nil {
+			if wfID, ok := v.Properties["workflowId"].(string); ok {
+				logFields["workflow_id"] = wfID
+			}
+			if actionID, ok := v.Properties["actionId"].(string); ok {
+				logFields["workflow_action_id"] = actionID
+			}
+			// Log other relevant parameters
+			for key, val := range v.Properties {
+				if key != "workflowId" && key != "actionId" && key != "url" {
+					logFields["param_"+key] = val
+				}
+			}
+		}
+
+		// Extract target parameters
+		if v.Target != nil {
+			if targetMap, ok := v.Target.(map[string]interface{}); ok {
+				if addProp, ok := targetMap["additionalProperty"].(map[string]interface{}); ok {
+					for key, val := range addProp {
+						if key != "url" { // Skip URL as it's often redundant
+							logFields["target_"+key] = val
+						}
+					}
+				}
+			}
+		}
+
 	case *CanonicalSemanticAction:
 		logFields["action_type"] = v.Type
 		logFields["action_id"] = v.ID
@@ -105,12 +144,50 @@ func ReturnActionErrorWithStatus(c echo.Context, action interface{}, statusCode 
 		"status_code": statusCode,
 	}
 
+	// Add request context
+	if c != nil {
+		logFields["request_path"] = c.Request().URL.Path
+		logFields["request_method"] = c.Request().Method
+		logFields["remote_addr"] = c.RealIP()
+	}
+
 	// Extract action details for logging
 	switch v := action.(type) {
 	case *SemanticAction:
 		logFields["action_type"] = v.Type
 		logFields["action_id"] = v.Identifier
 		logFields["action_name"] = v.Name
+		logFields["action_description"] = v.Description
+
+		// Extract workflow context from Properties (additionalProperty) if available
+		if v.Properties != nil {
+			if wfID, ok := v.Properties["workflowId"].(string); ok {
+				logFields["workflow_id"] = wfID
+			}
+			if actionID, ok := v.Properties["actionId"].(string); ok {
+				logFields["workflow_action_id"] = actionID
+			}
+			// Log other relevant parameters
+			for key, val := range v.Properties {
+				if key != "workflowId" && key != "actionId" && key != "url" {
+					logFields["param_"+key] = val
+				}
+			}
+		}
+
+		// Extract target parameters
+		if v.Target != nil {
+			if targetMap, ok := v.Target.(map[string]interface{}); ok {
+				if addProp, ok := targetMap["additionalProperty"].(map[string]interface{}); ok {
+					for key, val := range addProp {
+						if key != "url" { // Skip URL as it's often redundant
+							logFields["target_"+key] = val
+						}
+					}
+				}
+			}
+		}
+
 	case *CanonicalSemanticAction:
 		logFields["action_type"] = v.Type
 		logFields["action_id"] = v.ID
