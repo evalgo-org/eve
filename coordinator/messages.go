@@ -21,6 +21,8 @@ const (
 	MessageTypeStatusResponse  MessageType = "status_response"
 	MessageTypePong            MessageType = "pong"
 	MessageTypeProgress        MessageType = "progress"
+	MessageTypeLog             MessageType = "log"       // Single log entry
+	MessageTypeLogBatch        MessageType = "log_batch" // Batch of log entries
 
 	// when-v3 → Service messages
 	MessageTypeRegistered MessageType = "registered"
@@ -167,6 +169,31 @@ type CancelPayload struct {
 // StatusPayload is the payload for status request.
 type StatusPayload struct {
 	WorkflowID string `json:"workflow_id"`
+}
+
+// LogEntry represents a single log entry to be forwarded to when-v3.
+type LogEntry struct {
+	Timestamp     time.Time              `json:"timestamp"`
+	Level         string                 `json:"level"` // debug, info, warn, error, fatal
+	Message       string                 `json:"message"`
+	TraceID       string                 `json:"trace_id,omitempty"`
+	SpanID        string                 `json:"span_id,omitempty"`
+	WorkflowID    string                 `json:"workflow_id,omitempty"`
+	ActionID      string                 `json:"action_id,omitempty"`
+	CorrelationID string                 `json:"correlation_id,omitempty"`
+	Fields        map[string]interface{} `json:"fields,omitempty"` // Additional structured fields
+	SourceFile    string                 `json:"source_file,omitempty"`
+	SourceLine    int                    `json:"source_line,omitempty"`
+}
+
+// LogPayload is the payload for a single log message.
+type LogPayload struct {
+	LogEntry
+}
+
+// LogBatchPayload is the payload for a batch of log messages.
+type LogBatchPayload struct {
+	Logs []LogEntry `json:"logs"`
 }
 
 // Helper functions to extract typed payloads from messages

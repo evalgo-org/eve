@@ -624,6 +624,94 @@ func (c *Coordinator) SendProgress(workflowID, actionID string, percent float64,
 	c.Send(msg)
 }
 
+// SendLog sends a single log entry to when-v3 for centralized aggregation.
+func (c *Coordinator) SendLog(entry LogEntry) {
+	if !c.IsConnected() {
+		return
+	}
+	if entry.Timestamp.IsZero() {
+		entry.Timestamp = time.Now()
+	}
+	msg := NewMessage(MessageTypeLog)
+	msg.SetPayload(LogPayload{LogEntry: entry})
+	c.Send(msg)
+}
+
+// SendLogBatch sends multiple log entries to when-v3 for centralized aggregation.
+// This is more efficient than sending individual logs when you have multiple entries.
+func (c *Coordinator) SendLogBatch(entries []LogEntry) {
+	if !c.IsConnected() || len(entries) == 0 {
+		return
+	}
+	// Set timestamps for any entries missing them
+	for i := range entries {
+		if entries[i].Timestamp.IsZero() {
+			entries[i].Timestamp = time.Now()
+		}
+	}
+	msg := NewMessage(MessageTypeLogBatch)
+	msg.SetPayload(LogBatchPayload{Logs: entries})
+	c.Send(msg)
+}
+
+// LogLevel represents log severity levels.
+type LogLevel string
+
+const (
+	LogLevelDebug LogLevel = "debug"
+	LogLevelInfo  LogLevel = "info"
+	LogLevelWarn  LogLevel = "warn"
+	LogLevelError LogLevel = "error"
+	LogLevelFatal LogLevel = "fatal"
+)
+
+// LogDebug sends a debug log message to when-v3.
+func (c *Coordinator) LogDebug(message string, fields map[string]interface{}) {
+	c.SendLog(LogEntry{
+		Level:   string(LogLevelDebug),
+		Message: message,
+		Fields:  fields,
+	})
+}
+
+// LogInfo sends an info log message to when-v3.
+func (c *Coordinator) LogInfo(message string, fields map[string]interface{}) {
+	c.SendLog(LogEntry{
+		Level:   string(LogLevelInfo),
+		Message: message,
+		Fields:  fields,
+	})
+}
+
+// LogWarn sends a warning log message to when-v3.
+func (c *Coordinator) LogWarn(message string, fields map[string]interface{}) {
+	c.SendLog(LogEntry{
+		Level:   string(LogLevelWarn),
+		Message: message,
+		Fields:  fields,
+	})
+}
+
+// LogError sends an error log message to when-v3.
+func (c *Coordinator) LogError(message string, fields map[string]interface{}) {
+	c.SendLog(LogEntry{
+		Level:   string(LogLevelError),
+		Message: message,
+		Fields:  fields,
+	})
+}
+
+// LogWithContext sends a log message with workflow/action context.
+func (c *Coordinator) LogWithContext(level LogLevel, message string, workflowID, actionID string, fields map[string]interface{}) {
+	c.SendLog(LogEntry{
+		Level:      string(level),
+		Message:    message,
+		WorkflowID: workflowID,
+		ActionID:   actionID,
+		Fields:     fields,
+	})
+}
+
 // Helper function to generate message IDs
 func generateMessageID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
