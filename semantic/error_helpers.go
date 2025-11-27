@@ -81,11 +81,12 @@ func ReturnActionError(c echo.Context, action interface{}, message string, err e
 		logFields["action_name"] = v.Name
 	}
 
+	// Add error as string field (not using WithError which doesn't serialize well)
 	if err != nil {
-		logrus.WithError(err).WithFields(logFields).Error(message)
-	} else {
-		logrus.WithFields(logFields).Error(message)
+		logFields["error"] = err.Error()
 	}
+
+	logrus.WithFields(logFields).Error(fullMessage)
 
 	SetErrorOnAction(action, fullMessage)
 	return c.JSON(http.StatusInternalServerError, action)
@@ -116,11 +117,12 @@ func ReturnActionErrorWithStatus(c echo.Context, action interface{}, statusCode 
 		logFields["action_name"] = v.Name
 	}
 
+	// Add error as string field (not using WithError which doesn't serialize well)
 	if err != nil {
-		logrus.WithError(err).WithFields(logFields).Error(message)
-	} else {
-		logrus.WithFields(logFields).Error(message)
+		logFields["error"] = err.Error()
 	}
+
+	logrus.WithFields(logFields).Error(fullMessage)
 
 	SetErrorOnAction(action, fullMessage)
 	return c.JSON(statusCode, action)
