@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 )
 
 // SetErrorOnAction sets error information on a semantic action
@@ -63,6 +64,29 @@ func ReturnActionError(c echo.Context, action interface{}, message string, err e
 		fullMessage = fmt.Sprintf("%s: %v", message, err)
 	}
 
+	// Log error via logrus for when-v3 log forwarding
+	logFields := logrus.Fields{
+		"status": "FailedActionStatus",
+	}
+
+	// Extract action details for logging
+	switch v := action.(type) {
+	case *SemanticAction:
+		logFields["action_type"] = v.Type
+		logFields["action_id"] = v.Identifier
+		logFields["action_name"] = v.Name
+	case *CanonicalSemanticAction:
+		logFields["action_type"] = v.Type
+		logFields["action_id"] = v.ID
+		logFields["action_name"] = v.Name
+	}
+
+	if err != nil {
+		logrus.WithError(err).WithFields(logFields).Error(message)
+	} else {
+		logrus.WithFields(logFields).Error(message)
+	}
+
 	SetErrorOnAction(action, fullMessage)
 	return c.JSON(http.StatusInternalServerError, action)
 }
@@ -72,6 +96,30 @@ func ReturnActionErrorWithStatus(c echo.Context, action interface{}, statusCode 
 	fullMessage := message
 	if err != nil {
 		fullMessage = fmt.Sprintf("%s: %v", message, err)
+	}
+
+	// Log error via logrus for when-v3 log forwarding
+	logFields := logrus.Fields{
+		"status":      "FailedActionStatus",
+		"status_code": statusCode,
+	}
+
+	// Extract action details for logging
+	switch v := action.(type) {
+	case *SemanticAction:
+		logFields["action_type"] = v.Type
+		logFields["action_id"] = v.Identifier
+		logFields["action_name"] = v.Name
+	case *CanonicalSemanticAction:
+		logFields["action_type"] = v.Type
+		logFields["action_id"] = v.ID
+		logFields["action_name"] = v.Name
+	}
+
+	if err != nil {
+		logrus.WithError(err).WithFields(logFields).Error(message)
+	} else {
+		logrus.WithFields(logFields).Error(message)
 	}
 
 	SetErrorOnAction(action, fullMessage)
