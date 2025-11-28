@@ -29,16 +29,24 @@ type ActionState struct {
 }
 
 // Phase constants for action execution.
+// These MUST match eve/coordinator/phases.go for 100% compatibility with when-v3.
 const (
 	PhasePending    = "pending"
-	PhaseRunning    = "running"
+	PhasePreFlight  = "pre-flight"
+	PhasePlanning   = "planning"
+	PhaseExecution  = "execution"
 	PhasePausing    = "pausing"
 	PhasePaused     = "paused"
 	PhaseResuming   = "resuming"
 	PhaseCancelling = "cancelling"
 	PhaseCancelled  = "cancelled"
+	PhaseCompleting = "completing"
 	PhaseCompleted  = "completed"
 	PhaseFailed     = "failed"
+
+	// PhaseRunning is deprecated - use PhaseExecution instead
+	// Kept for backwards compatibility
+	PhaseRunning = "execution"
 )
 
 // StateStore provides persistent action state management using PostgreSQL.
@@ -367,4 +375,120 @@ func (s *StateStore) GetActiveByWorkflow(ctx context.Context, workflowID string)
 	}
 
 	return states, nil
+}
+
+// TransitionTo transitions an action to a new phase.
+// This is a generic method that allows any valid phase transition.
+func (s *StateStore) TransitionTo(ctx context.Context, workflowID, actionID, phase string) error {
+	query := `
+		UPDATE service_action_executions
+		SET phase = $1, updated_at = NOW()
+		WHERE workflow_id = $2 AND action_id = $3`
+
+	result, err := s.pool.Exec(ctx, query, phase, workflowID, actionID)
+	if err != nil {
+		return fmt.Errorf("failed to transition to %s: %w", phase, err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("action not found: workflow=%s, action=%s", workflowID, actionID)
+	}
+
+	return nil
+}
+
+// StartPreFlight transitions an action to the pre-flight phase.
+func (s *StateStore) StartPreFlight(ctx context.Context, workflowID, actionID string) error {
+	return s.TransitionTo(ctx, workflowID, actionID, PhasePreFlight)
+}
+
+// StartPlanning transitions an action to the planning phase.
+func (s *StateStore) StartPlanning(ctx context.Context, workflowID, actionID string) error {
+	return s.TransitionTo(ctx, workflowID, actionID, PhasePlanning)
+}
+
+// StartExecution transitions an action to the execution phase and marks it as running.
+func (s *StateStore) StartExecution(ctx context.Context, workflowID, actionID string) error {
+	query := `
+		UPDATE service_action_executions
+		SET phase = $1, status = 'running', started_at = COALESCE(started_at, NOW()), updated_at = NOW()
+		WHERE workflow_id = $2 AND action_id = $3`
+
+	result, err := s.pool.Exec(ctx, query, PhaseExecution, workflowID, actionID)
+	if err != nil {
+		return fmt.Errorf("failed to start execution: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("action not found: workflow=%s, action=%s", workflowID, actionID)
+	}
+
+	return nil
+}
+
+// StartCompleting transitions an action to the completing phase.
+func (s *StateStore) StartCompleting(ctx context.Context, workflowID, actionID string) error {
+	return s.TransitionTo(ctx, workflowID, actionID, PhaseCompleting)
+}
+
+// Resume transitions an action from paused to resuming, then to execution.
+func (s *StateStore) Resume(ctx context.Context, workflowID, actionID string) error {
+	// First transition to resuming
+	query := `
+		UPDATE service_action_executions
+		SET phase = $1, status = 'running', updated_at = NOW()
+		WHERE workflow_id = $2 AND action_id = $3 AND phase = $4`
+
+	result, err := s.pool.Exec(ctx, query, PhaseResuming, workflowID, actionID, PhasePaused)
+	if err != nil {
+		return fmt.Errorf("failed to resume: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("action not paused or not found: workflow=%s, action=%s", workflowID, actionID)
+	}
+
+	return nil
+}
+
+// CompleteResume transitions from resuming back to execution.
+func (s *StateStore) CompleteResume(ctx context.Context, workflowID, actionID string) error {
+	query := `
+		UPDATE service_action_executions
+		SET phase = $1, updated_at = NOW()
+		WHERE workflow_id = $2 AND action_id = $3 AND phase = $4`
+
+	result, err := s.pool.Exec(ctx, query, PhaseExecution, workflowID, actionID, PhaseResuming)
+	if err != nil {
+		return fmt.Errorf("failed to complete resume: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("action not resuming or not found: workflow=%s, action=%s", workflowID, actionID)
+	}
+
+	return nil
+}
+
+// GetPhase returns the current phase of an action.
+func (s *StateStore) GetPhase(ctx context.Context, workflowID, actionID string) (string, error) {
+	query := `SELECT phase FROM service_action_executions WHERE workflow_id = $1 AND action_id = $2`
+
+	var phase string
+	err := s.pool.QueryRow(ctx, query, workflowID, actionID).Scan(&phase)
+	if err != nil {
+		return "", fmt.Errorf("failed to get phase: %w", err)
+	}
+
+	return phase, nil
+}
+
+// IsTerminal checks if an action is in a terminal state (completed, cancelled, failed).
+func (s *StateStore) IsTerminal(ctx context.Context, workflowID, actionID string) (bool, error) {
+	phase, err := s.GetPhase(ctx, workflowID, actionID)
+	if err != nil {
+		return false, err
+	}
+
+	return phase == PhaseCompleted || phase == PhaseCancelled || phase == PhaseFailed, nil
 }
