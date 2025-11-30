@@ -30,6 +30,10 @@ type SemanticAction struct {
 	Error        *SemanticError         `json:"error,omitempty"`
 	Properties   map[string]interface{} `json:"additionalProperty,omitempty"`
 
+	// TransferAction fields (for push/pull/import/export operations)
+	FromLocation interface{} `json:"fromLocation,omitempty"` // Source location (Place, DigitalDocument)
+	ToLocation   interface{} `json:"toLocation,omitempty"`   // Destination location (Place, DigitalDocument)
+
 	// Semantic relationship fields (Schema.org)
 	PartOf     string `json:"isPartOf,omitempty"`      // Parent workflow/action this belongs to
 	InstanceOf string `json:"exampleOfWork,omitempty"` // Template this is an instance of (Schema.org uses exampleOfWork for instances)
