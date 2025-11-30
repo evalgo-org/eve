@@ -109,6 +109,10 @@ type SemanticObject struct {
 	RuntimePlatform     string                 `json:"runtimePlatform,omitempty"`
 	Target              interface{}            `json:"target,omitempty"`             // Target for actions (Project, EntryPoint, etc.)
 	Properties          map[string]interface{} `json:"additionalProperty,omitempty"` // Additional properties
+
+	// Container/build related fields (for SoftwareApplication type)
+	BuildTool      string `json:"buildTool,omitempty"`      // Build tool (docker, nixpacks, etc.)
+	ContainerImage string `json:"containerImage,omitempty"` // Container image name/tag
 }
 
 // SemanticInstrument represents tools used for execution
